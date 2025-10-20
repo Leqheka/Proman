@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(_req: Request, { params }: { params: { boardId: string } }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ boardId: string }> }) {
   try {
+    const { boardId } = await params;
     const lists = await prisma.list.findMany({
-      where: { boardId: params.boardId },
+      where: { boardId },
       orderBy: { order: "asc" },
     });
     return NextResponse.json(lists);
@@ -14,15 +15,16 @@ export async function GET(_req: Request, { params }: { params: { boardId: string
   }
 }
 
-export async function POST(req: Request, { params }: { params: { boardId: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ boardId: string }> }) {
   try {
+    const { boardId } = await params;
     const body = await req.json();
     const title = (body?.title ?? "").trim();
     if (!title) return NextResponse.json({ error: "Title is required" }, { status: 400 });
 
-    const count = await prisma.list.count({ where: { boardId: params.boardId } });
+    const count = await prisma.list.count({ where: { boardId } });
     const list = await prisma.list.create({
-      data: { title, boardId: params.boardId, order: count },
+      data: { title, boardId, order: count },
     });
     return NextResponse.json(list, { status: 201 });
   } catch (err) {

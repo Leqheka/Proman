@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import CreateList from "@/components/create-list";
 
-export default async function BoardPage({ params }: { params: { boardId: string } }) {
+export default async function BoardPage({ params }: { params: Promise<{ boardId: string }> }) {
   let board: { id: string; title: string; lists: Array<{ id: string; title: string }> } | null = null;
   try {
+    const { boardId } = await params;
     board = await prisma.board.findUnique({
-      where: { id: params.boardId },
+      where: { id: boardId },
       include: { lists: true },
     });
   } catch (err) {

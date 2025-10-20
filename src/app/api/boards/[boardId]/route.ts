@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(_req: Request, { params }: { params: { boardId: string } }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ boardId: string }> }) {
   try {
+    const { boardId } = await params;
     const board = await prisma.board.findUnique({
-      where: { id: params.boardId },
+      where: { id: boardId },
       include: { lists: true },
     });
     if (!board) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -15,14 +16,15 @@ export async function GET(_req: Request, { params }: { params: { boardId: string
   }
 }
 
-export async function PATCH(req: Request, { params }: { params: { boardId: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ boardId: string }> }) {
   try {
+    const { boardId } = await params;
     const body = await req.json();
     const data: { title?: string; background?: string } = {};
     if (typeof body?.title === "string") data.title = body.title.trim();
     if (typeof body?.background === "string") data.background = body.background.trim();
 
-    const board = await prisma.board.update({ where: { id: params.boardId }, data });
+    const board = await prisma.board.update({ where: { id: boardId }, data });
     return NextResponse.json(board);
   } catch (err) {
     console.error("PATCH /api/boards/:boardId error", err);
@@ -30,9 +32,10 @@ export async function PATCH(req: Request, { params }: { params: { boardId: strin
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: { boardId: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ boardId: string }> }) {
   try {
-    await prisma.board.delete({ where: { id: params.boardId } });
+    const { boardId } = await params;
+    await prisma.board.delete({ where: { id: boardId } });
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("DELETE /api/boards/:boardId error", err);
