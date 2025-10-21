@@ -23,8 +23,7 @@ export default async function Home() {
       <main className="mx-auto max-w-5xl px-6 py-16 text-foreground">
         <h1 className="text-4xl font-bold tracking-tight">Proman</h1>
         <p className="mt-2 text-base text-foreground/70">
--          Trello-like kanban with real-time collaboration.
-+          Kanban with real-time collaboration.
+          Let’s visualize workflows, collaborate seamlessly and maximize efficiency! kanGFong?!
         </p>
 
         <section className="mt-10">

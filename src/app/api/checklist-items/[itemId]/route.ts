@@ -18,3 +18,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ itemId
     return NextResponse.json({ error: "Failed to update item" }, { status: 500 });
   }
 }
+
+export async function DELETE(_req: Request, { params }: { params: Promise<{ itemId: string }> }) {
+  try {
+    const { itemId } = await params;
+    if (!itemId) return NextResponse.json({ error: "itemId required" }, { status: 400 });
+
+    await prisma.checklistItem.delete({ where: { id: itemId } });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("DELETE /api/checklist-items/[itemId] error", err);
+    return NextResponse.json({ error: "Failed to delete item" }, { status: 500 });
+  }
+}
