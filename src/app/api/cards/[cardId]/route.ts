@@ -2,31 +2,44 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ cardId: string }> }
 ) {
   try {
     const { cardId } = await params;
     if (!cardId) return NextResponse.json({ error: "cardId required" }, { status: 400 });
 
+    const { searchParams } = new URL(req.url);
+    const summaryParam = (searchParams.get("summary") ?? "").toLowerCase();
+    const isSummary = summaryParam === "1" || summaryParam === "true" || summaryParam === "yes";
+
+    const include = isSummary
+      ? {
+          list: { select: { id: true, title: true, boardId: true } },
+          board: { select: { id: true, title: true } },
+          labels: { include: { label: true } },
+        }
+      : {
+          list: { select: { id: true, title: true, boardId: true } },
+          board: { select: { id: true, title: true } },
+          labels: {
+            include: { label: true },
+          },
+          attachments: true,
+          comments: {
+            orderBy: { createdAt: "desc" },
+            take: 50,
+            include: { author: { select: { id: true, name: true, email: true, image: true } } },
+          },
+          checklists: {
+            include: { items: true },
+          },
+          assignments: { include: { user: { select: { id: true, name: true, email: true, image: true } } } },
+        };
+
     const card = await prisma.card.findUnique({
       where: { id: cardId },
-      include: {
-        list: { select: { id: true, title: true, boardId: true } },
-        board: { select: { id: true, title: true } },
-        labels: {
-          include: { label: true },
-        },
-        attachments: true,
-        comments: {
-          orderBy: { createdAt: "desc" },
-          include: { author: { select: { id: true, name: true, email: true, image: true } } },
-        },
-        checklists: {
-          include: { items: true },
-        },
-        assignments: { include: { user: { select: { id: true, name: true, email: true, image: true } } } },
-      },
+      include,
     });
 
     if (!card) return NextResponse.json({ error: "Card not found" }, { status: 404 });
@@ -40,11 +53,11 @@ export async function GET(
       dueDate: card.dueDate,
       list: card.list,
       board: card.board,
-      labels: card.labels.map((cl) => cl.label),
-      attachments: card.attachments,
-      comments: card.comments,
-      checklists: card.checklists,
-      members: card.assignments.map((a) => a.user),
+      labels: card.labels.map((cl: any) => cl.label),
+      attachments: isSummary ? [] : (card as any).attachments,
+      comments: isSummary ? [] : (card as any).comments,
+      checklists: isSummary ? [] : (card as any).checklists,
+      members: isSummary ? [] : (card as any).assignments.map((a: any) => a.user),
     };
     return NextResponse.json(result);
   } catch (err) {

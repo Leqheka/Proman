@@ -17,6 +17,7 @@ type CardDetail = {
   title: string;
   description: string;
   dueDate?: string | null;
+  archived?: boolean;
   list: { id: string; title: string; boardId: string };
   board: { id: string; title: string };
   labels: Array<{ id: string; name: string; color: string }>;
@@ -34,6 +35,8 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
   const [description, setDescription] = React.useState("");
   const [dueDate, setDueDate] = React.useState<string>("");
   const [commentText, setCommentText] = React.useState("");
+  const [loadingComments, setLoadingComments] = React.useState(false);
+  const [loadingChecklists, setLoadingChecklists] = React.useState(false);
   const [newAttachmentUrl, setNewAttachmentUrl] = React.useState("");
   const [editingChecklistId, setEditingChecklistId] = React.useState<string | null>(null);
   const [editingChecklistTitle, setEditingChecklistTitle] = React.useState<string>("");
@@ -43,24 +46,78 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
   const [boardChecklists, setBoardChecklists] = React.useState<Array<{ id: string; title: string }>>([]);
   const [editingItemId, setEditingItemId] = React.useState<string | null>(null);
   const [editingItemTitle, setEditingItemTitle] = React.useState<string>("");
+
+  // Dates popover state
+  const [showDatesMenu, setShowDatesMenu] = React.useState(false);
+  const [calendarCursor, setCalendarCursor] = React.useState<Date>(new Date());
+  const [useStart, setUseStart] = React.useState(false);
+  const [useDue, setUseDue] = React.useState(true);
+  const [tempStartDate, setTempStartDate] = React.useState<string>("");
+  const [tempDueDate, setTempDueDate] = React.useState<string>("");
+  const [recurring, setRecurring] = React.useState<string>("Never");
+  const [reminder, setReminder] = React.useState<string>("1 Day before");
+
   React.useEffect(() => {
+    const controller = new AbortController();
     async function fetchCard() {
       try {
         setLoading(true);
-        const resp = await fetch(`/api/cards/${cardId}`);
-        const json = await resp.json();
-        setData(json);
-        setTitle(json.title ?? "");
-        setDescription(json.description ?? "");
-        setDueDate(json.dueDate ? new Date(json.dueDate).toISOString().slice(0, 16) : "");
-      } catch (err) {
-        console.error("Failed to load card", err);
-      } finally {
+        const resp = await fetch(`/api/cards/${cardId}?summary=1`, { signal: controller.signal });
+        const summary = await resp.json();
+        setData(summary);
+        setTitle(summary.title ?? "");
+        setDescription(summary.description ?? "");
+        setDueDate(summary.dueDate ? new Date(summary.dueDate).toISOString().slice(0, 16) : "");
         setLoading(false);
+        setLoadingComments(true);
+        setLoadingChecklists(true);
+        // Fetch heavy sections in parallel without blocking initial render
+        const [commentsRes, attachmentsRes, checklistsRes] = await Promise.allSettled([
+          fetch(`/api/cards/${cardId}/comments?take=50`, { signal: controller.signal }),
+          fetch(`/api/cards/${cardId}/attachments`, { signal: controller.signal }),
+          fetch(`/api/cards/${cardId}/checklists`, { signal: controller.signal }),
+        ]);
+        const comments =
+          commentsRes.status === "fulfilled" && commentsRes.value.ok ? await commentsRes.value.json() : [];
+        const attachments =
+          attachmentsRes.status === "fulfilled" && attachmentsRes.value.ok ? await attachmentsRes.value.json() : [];
+        const checklists =
+          checklistsRes.status === "fulfilled" && checklistsRes.value.ok ? await checklistsRes.value.json() : [];
+        setData((d) => (d ? { ...d, comments, attachments, checklists } : d));
+        setLoadingComments(false);
+        setLoadingChecklists(false);
+      } catch (err) {
+        if ((err as any)?.name !== "AbortError") {
+          console.error("Failed to load card", err);
+          setLoadingComments(false);
+          setLoadingChecklists(false);
+        }
       }
     }
     fetchCard();
+    return () => controller.abort();
   }, [cardId]);
+
+  // Keep tempDueDate synced with controlled dueDate input
+  React.useEffect(() => {
+    setTempDueDate(dueDate || "");
+  }, [dueDate]);
+
+  function openDatesMenu() {
+    setShowDatesMenu((s) => !s);
+  }
+
+  function getMonthCells(d: Date) {
+    const year = d.getFullYear(), month = d.getMonth();
+    const first = new Date(year, month, 1);
+    const startWeekday = first.getDay(); // 0=Sun
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const cells: (Date | null)[] = [];
+    for (let i = 0; i < startWeekday; i++) cells.push(null);
+    for (let day = 1; day <= daysInMonth; day++) cells.push(new Date(year, month, day));
+    while (cells.length % 7 !== 0) cells.push(null);
+    return cells;
+  }
 
   async function saveBasics() {
     try {
@@ -81,6 +138,23 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
     }
   }
 
+  async function updateDueDate(next: string | null) {
+    try {
+      const resp = await fetch(`/api/cards/${cardId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dueDate: next }),
+      });
+      if (resp.ok) {
+        const updated = await resp.json();
+        setData((d) => (d ? { ...d, dueDate: updated.dueDate } : d));
+        setDueDate(updated.dueDate ? new Date(updated.dueDate).toISOString().slice(0, 16) : "");
+      }
+    } catch (err) {
+      console.error("Failed to update due date", err);
+    }
+  }
+
   async function addComment() {
     const content = commentText.trim();
     if (!content) return;
@@ -97,6 +171,21 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
       }
     } catch (err) {
       console.error("Failed to add comment", err);
+    }
+  }
+
+  async function toggleCardArchived(next: boolean) {
+    try {
+      const resp = await fetch(`/api/cards/${cardId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: next }),
+      });
+      if (resp.ok) {
+        setData((d) => (d ? { ...d, archived: next } : d));
+      }
+    } catch (err) {
+      console.error("Failed to toggle archived", err);
     }
   }
 
@@ -131,7 +220,7 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
       });
       if (resp.ok) {
         const created = await resp.json();
-        setData((d) => (d ? { ...d, checklists: [...d.checklists, { ...created, items: [] }] } : d));
+        setData((d) => (d ? { ...d, checklists: [...d.checklists, created] } : d));
       }
     } catch (err) {
       console.error("Failed to add checklist", err);
@@ -305,23 +394,135 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
       <div className="absolute inset-0 flex items-start justify-center p-8 overflow-auto">
         <div className="w-[980px] bg-background rounded shadow-lg border border-black/10 dark:border-white/15">
           <div className="p-4 border-b border-black/10 dark:border-white/15 flex items-center justify-between">
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              onBlur={saveBasics}
-              className="text-lg font-semibold bg-transparent outline-none w-full"
-            />
+            <div className="flex items-center gap-2 w-full">
+              <input type="checkbox" checked={!!data.archived} onChange={(e) => toggleCardArchived(e.target.checked)} />
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                onBlur={saveBasics}
+                className="text-lg font-semibold bg-transparent outline-none w-full"
+              />
+            </div>
             <button onClick={onClose} className="ml-3 text-xs rounded px-2 py-1 bg-foreground/5">Close</button>
           </div>
 
           <div className="grid grid-cols-[1fr_320px] gap-6 p-4">
+            {/* Left column */}
             <div className="space-y-6">
+              {/* Top Add toolbar with Dates popover */}
               <div className="flex items-center gap-2">
                 <span className="text-xs">Add:</span>
-                <button className="text-xs rounded px-2 py-1 bg-foreground/5">Labels</button>
-                <button className="text-xs rounded px-2 py-1 bg-foreground/5">Dates</button>
+                <button className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Labels</button>
                 <div className="relative">
-                  <button onClick={openChecklistMenu} className="text-xs rounded px-2 py-1 bg-foreground/5">Checklist</button>
+                  <button onClick={openDatesMenu} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Dates</button>
+                  {showDatesMenu && (
+                    <div className="absolute z-20 mt-2 w-[280px] rounded border border-black/10 dark:border-white/15 bg-background p-3 shadow">
+                      <div className="flex items-center justify-between mb-2">
+                        <button className="text-xs" onClick={() => setCalendarCursor(new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() - 1, 1))}>‹</button>
+                        <p className="text-sm font-semibold">{calendarCursor.toLocaleString(undefined, { month: "long", year: "numeric" })}</p>
+                        <button className="text-xs" onClick={() => setCalendarCursor(new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + 1, 1))}>›</button>
+                      </div>
+                      <div className="grid grid-cols-7 gap-1 text-center text-xs">
+                        {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d) => (<div key={d} className="text-foreground/60">{d}</div>))}
+                        {getMonthCells(calendarCursor).map((c, idx) => (
+                          <button
+                            key={idx}
+                            className={`h-8 rounded ${c ? "hover:bg-foreground/10" : ""}`}
+                            onClick={() => {
+                              if (!c) return;
+                              const pad = (n: number) => String(n).padStart(2, "0");
+                              const dateStr = `${c.getFullYear()}-${pad(c.getMonth() + 1)}-${pad(c.getDate())}`;
+                              if (useStart) setTempStartDate(dateStr);
+                              if (useDue) setTempDueDate((prev) => {
+                                const time = prev?.split("T")[1] || "18:00";
+                                return `${dateStr}T${time}`;
+                              });
+                            }}
+                          >
+                            {c ? c.getDate() : ""}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="mt-3 space-y-2">
+                        <label className="flex items-center gap-2 text-xs">
+                          <input type="checkbox" checked={useStart} onChange={(e) => setUseStart(e.target.checked)} />
+                          <span>Start date</span>
+                          <input
+                            type="date"
+                            value={tempStartDate}
+                            onChange={(e) => setTempStartDate(e.target.value)}
+                            disabled={!useStart}
+                            className="ml-auto border rounded px-1 py-[2px] bg-background"
+                          />
+                        </label>
+                        <label className="grid grid-cols-[auto_1fr] items-center gap-2 text-xs">
+                          <div className="flex items-center gap-2">
+                            <input type="checkbox" checked={useDue} onChange={(e) => setUseDue(e.target.checked)} />
+                            <span>Due date</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="date"
+                              value={tempDueDate ? tempDueDate.split("T")[0] : ""}
+                              onChange={(e) => {
+                                const time = tempDueDate.split("T")[1] || "18:00";
+                                setTempDueDate(`${e.target.value}T${time}`);
+                              }}
+                              disabled={!useDue}
+                              className="border rounded px-1 py-[2px] bg-background"
+                            />
+                            <input
+                              type="time"
+                              value={tempDueDate ? tempDueDate.split("T")[1] || "" : ""}
+                              onChange={(e) => {
+                                const date = tempDueDate.split("T")[0] || new Date().toISOString().slice(0, 10);
+                                setTempDueDate(`${date}T${e.target.value}`);
+                              }}
+                              disabled={!useDue}
+                              className="border rounded px-1 py-[2px] bg-background w-24"
+                            />
+                          </div>
+                        </label>
+                        <div className="grid grid-cols-1 gap-2">
+                          <label className="text-xs">Recurring</label>
+                          <select value={recurring} onChange={(e) => setRecurring(e.target.value)} className="text-xs px-2 py-1 border rounded bg-background">
+                            <option>Never</option>
+                            <option>Daily</option>
+                            <option>Weekly</option>
+                            <option>Monthly</option>
+                          </select>
+                        </div>
+                        <div className="grid grid-cols-1 gap-2">
+                          <label className="text-xs">Set due date reminder</label>
+                          <select value={reminder} onChange={(e) => setReminder(e.target.value)} className="text-xs px-2 py-1 border rounded bg-background">
+                            <option>At time of event</option>
+                            <option>5 minutes before</option>
+                            <option>10 minutes before</option>
+                            <option>1 hour before</option>
+                            <option>1 Day before</option>
+                          </select>
+                        </div>
+                        <p className="text-[11px] text-foreground/60">Reminders will be sent to all members and watchers of this card.</p>
+                        <div className="mt-2 flex gap-2">
+                          <button
+                            className="text-xs rounded px-2 py-1 bg-foreground text-background hover:opacity-90 transition-opacity"
+                            onClick={async () => { await updateDueDate(useDue ? tempDueDate || null : null); setShowDatesMenu(false); }}
+                          >
+                            Save
+                          </button>
+                          <button
+                            className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors"
+                            onClick={async () => { await updateDueDate(null); setTempDueDate(""); setUseDue(true); setShowDatesMenu(false); }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="relative">
+                  <button onClick={openChecklistMenu} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Checklist</button>
                   {showChecklistMenu && (
                     <div className="absolute z-20 mt-2 w-64 rounded border border-black/10 dark:border-white/15 bg-background p-3 shadow">
                       <div className="flex items-center justify-between mb-2">
@@ -346,19 +547,34 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
                         ))}
                       </select>
                       <div className="mt-3 flex gap-2">
-                        <button onClick={createChecklistFromMenu} className="text-xs rounded px-2 py-1 bg-foreground text-background">Add</button>
-                        <button onClick={() => setShowChecklistMenu(false)} className="text-xs rounded px-2 py-1 bg-foreground/5">Cancel</button>
+                        <button onClick={createChecklistFromMenu} className="text-xs rounded px-2 py-1 bg-foreground text-background hover:opacity-90 transition-opacity">Add</button>
+                        <button onClick={() => setShowChecklistMenu(false)} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Cancel</button>
                       </div>
                     </div>
                   )}
                 </div>
-                <button className="text-xs rounded px-2 py-1 bg-foreground/5">Members</button>
+                <button className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Members</button>
                 <div className="flex items-center gap-2">
                   <input value={newAttachmentUrl} onChange={(e) => setNewAttachmentUrl(e.target.value)} placeholder="Attachment URL" className="text-xs px-2 py-1 border rounded bg-background" />
-                  <button onClick={addAttachment} className="text-xs rounded px-2 py-1 bg-foreground text-background">Add</button>
+                  <button onClick={addAttachment} className="text-xs rounded px-2 py-1 bg-foreground text-background hover:opacity-90 transition-opacity">Add</button>
                 </div>
               </div>
 
+              {/* Selected dates chips displayed above Description */}
+              {(data.dueDate || tempStartDate) && (
+                <div className="rounded border border-black/10 dark:border-white/15 p-2">
+                  <div className="flex items-center gap-3 text-xs">
+                    {tempStartDate && (
+                      <span className="px-2 py-1 rounded bg-background border">Start {new Date(tempStartDate).toLocaleDateString()}</span>
+                    )}
+                    {data.dueDate && (
+                      <span className="px-2 py-1 rounded bg-background border">Due {new Date(data.dueDate).toLocaleString()}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Description */}
               <div>
                 <p className="text-sm font-semibold">Description</p>
                 <textarea
@@ -370,6 +586,7 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
                 />
               </div>
 
+              {/* Attachments */}
               {data.attachments.length > 0 && (
                 <div>
                   <p className="text-sm font-semibold">Attachments</p>
@@ -384,6 +601,7 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
                 </div>
               )}
 
+              {/* Checklists */}
               <div>
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold">Checklists</p>
@@ -396,10 +614,21 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
                       <div key={cl.id} className="rounded border border-black/10 dark:border-white/15 p-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-foreground/80">
-                              <path d="M9 11l-2 2-1-1-1.5 1.5L7 15l3.5-3.5L9 11z" />
-                              <path d="M4 6h16v2H4V6zm0 10h16v2H4v-2zm0-5h16v2H4v-2z" />
-                            </svg>
+                            <span
+                              className="w-4 h-4 opacity-80 inline-block"
+                              style={{
+                                WebkitMaskImage: 'url(/icons/check-mark-box.svg)',
+                                maskImage: 'url(/icons/check-mark-box.svg)',
+                                backgroundColor: 'currentColor',
+                                WebkitMaskRepeat: 'no-repeat',
+                                maskRepeat: 'no-repeat',
+                                WebkitMaskPosition: 'center',
+                                maskPosition: 'center',
+                                WebkitMaskSize: 'contain',
+                                maskSize: 'contain',
+                              }}
+                              aria-hidden
+                            />
                             {editingChecklistId === cl.id ? (
                               <input
                                 autoFocus
@@ -454,16 +683,28 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
                                 title="Delete item"
                                 onClick={() => deleteChecklistItem(it.id)}
                               >
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-                                  <path d="M9 3h6v2h5v2H4V5h5V3zm2 6h2v9h-2V9z" />
-                                </svg>
+                                <span
+                                  className="w-4 h-4 inline-block"
+                                  style={{
+                                    WebkitMaskImage: 'url(/icons/trash.svg)',
+                                    maskImage: 'url(/icons/trash.svg)',
+                                    backgroundColor: 'currentColor',
+                                    WebkitMaskRepeat: 'no-repeat',
+                                    maskRepeat: 'no-repeat',
+                                    WebkitMaskPosition: 'center',
+                                    maskPosition: 'center',
+                                    WebkitMaskSize: 'contain',
+                                    maskSize: 'contain',
+                                  }}
+                                  aria-hidden
+                                />
                               </button>
                             </li>
                           ))}
                           <li className="flex items-center gap-2">
                             <input
                               placeholder="Add an item"
-                              className="text-xs px-2 py-1 border rounded bg-background"
+                              className="flex-1 w-full text-xs px-2 py-1 border rounded bg-background"
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") {
                                   const t = (e.currentTarget as HTMLInputElement).value;
@@ -481,8 +722,9 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
               </div>
             </div>
 
+            {/* Right column */}
             <div className="space-y-4">
-              <div className="rounded border border-black/10 dark:border-white/15 p-3">
+              <div className="rounded border border-black/10 dark:border-white/15 p-3 bg-foreground/5">
                 <p className="text-sm font-semibold">Comments and activity</p>
                 <div className="mt-2">
                   <textarea
@@ -495,27 +737,28 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
                     <button onClick={addComment} className="text-xs rounded px-2 py-1 bg-foreground text-background">Comment</button>
                   </div>
                 </div>
-                <ul className="mt-3 space-y-2 max-h-64 overflow-auto">
-                  {data.comments.map((c) => (
-                    <li key={c.id} className="text-sm">
-                      <div className="text-xs text-foreground/60">{c.author?.name || c.author?.email} • {new Date(c.createdAt).toLocaleString()}</div>
-                      <div>{c.content}</div>
-                    </li>
-                  ))}
-                </ul>
+                {loadingComments ? (
+                  <div className="mt-3 space-y-2 animate-pulse">
+                    <div className="h-3 rounded bg-foreground/10 w-3/5" />
+                    <div className="h-3 rounded bg-foreground/10 w-2/5" />
+                    <div className="h-3 rounded bg-foreground/10 w-4/5" />
+                  </div>
+                ) : data.comments.length === 0 ? (
+                  <p className="mt-3 text-xs text-foreground/60">No comments yet</p>
+                ) : (
+                  <ul className="mt-3 space-y-2 max-h-64 overflow-auto">
+                    {data.comments.map((c) => (
+                      <li key={c.id} className="text-sm">
+                        <div className="text-xs text-foreground/60">{c.author?.name || c.author?.email} • {new Date(c.createdAt).toLocaleString()}</div>
+                        <div>{c.content}</div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
-              <div className="rounded border border-black/10 dark:border-white/15 p-3">
-                <p className="text-sm font-semibold">Due date</p>
-                <input
-                  type="datetime-local"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  onBlur={saveBasics}
-                  className="mt-2 text-sm px-2 py-1 border rounded bg-background w-full"
-                />
-              </div>
             </div>
+
           </div>
         </div>
       </div>

@@ -1,6 +1,27 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export async function GET(req: Request, { params }: { params: Promise<{ cardId: string }> }) {
+  try {
+    const { cardId } = await params;
+    if (!cardId) return NextResponse.json({ error: "cardId required" }, { status: 400 });
+    const { searchParams } = new URL(req.url);
+    const take = Math.max(1, Math.min(200, Number(searchParams.get("take") ?? 50)));
+
+    const comments = await prisma.comment.findMany({
+      where: { cardId },
+      orderBy: { createdAt: "desc" },
+      take,
+      include: { author: { select: { id: true, name: true, email: true, image: true } } },
+    });
+
+    return NextResponse.json(comments);
+  } catch (err) {
+    console.error("GET /api/cards/[cardId]/comments error", err);
+    return NextResponse.json({ error: "Failed to list comments" }, { status: 500 });
+  }
+}
+
 export async function POST(req: Request, { params }: { params: Promise<{ cardId: string }> }) {
   try {
     const { cardId } = await params;

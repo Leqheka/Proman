@@ -8,9 +8,10 @@ export default async function BoardPage({ params }: { params: { boardId: string 
   let boardBackground = "";
   let lists: Array<{ id: string; title: string; order: number; cards: Array<{ id: string; title: string; order: number }> }> = [];
   let boards: Array<{ id: string; title: string }> = [];
+  let archivedCards: Array<{ id: string; title: string; order: number; listId: string }> = [];
 
   try {
-    const { boardId } = params;
+    const { boardId } = await params;
     currentBoardId = boardId;
     const board = await prisma.board.findUnique({
       where: { id: boardId },
@@ -31,6 +32,12 @@ export default async function BoardPage({ params }: { params: { boardId: string 
       },
     });
 
+    archivedCards = await prisma.card.findMany({
+      where: { boardId: boardId, archived: true },
+      orderBy: { order: "asc" },
+      select: { id: true, title: true, order: true, listId: true },
+    });
+
     boards = await prisma.board.findMany({ select: { id: true, title: true }, orderBy: { updatedAt: "desc" } });
   } catch (err) {
     // Quietly degrade when DB is unreachable; keep defaults so the page can decide what to render.
@@ -46,23 +53,10 @@ export default async function BoardPage({ params }: { params: { boardId: string 
     );
   }
 
-  const DEFAULT_BG = "https://picsum.photos/id/1018/1600/900";
-  const bgRaw = (boardBackground && boardBackground !== "/default-bg.jpg") ? boardBackground : DEFAULT_BG;
-  const bgUrl = (bgRaw && bgRaw.startsWith("http")) ? `/api/image-proxy?url=${encodeURIComponent(bgRaw)}` : bgRaw;
-
   return (
-    <div
-      className="min-h-screen text-foreground"
-      style={{
-        backgroundImage: `url(${bgUrl}), linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)`,
-        backgroundSize: "cover, auto",
-        backgroundPosition: "center, center",
-      }}
-    >
-      <main className="mx-auto max-w-none py-0">
-        <BoardToolbar boards={boards} currentBoardId={currentBoardId} boardTitle={boardTitle} />
-        <BoardContentClient boardId={currentBoardId} initialLists={lists} />
-      </main>
+    <div className="min-h-screen bg-background text-foreground" style={{ backgroundImage: boardBackground ? `url(${boardBackground})` : undefined }}>
+      <BoardToolbar boards={boards} currentBoardId={currentBoardId} boardTitle={boardTitle} />
+      <BoardContentClient boardId={currentBoardId} initialLists={lists} archivedCards={archivedCards} />
     </div>
   );
 }

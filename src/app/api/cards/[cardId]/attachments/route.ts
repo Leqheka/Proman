@@ -1,6 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export async function GET(_req: Request, { params }: { params: Promise<{ cardId: string }> }) {
+  try {
+    const { cardId } = await params;
+    if (!cardId) return NextResponse.json({ error: "cardId required" }, { status: 400 });
+    const attachments = await prisma.attachment.findMany({
+      where: { cardId },
+      orderBy: { id: "desc" },
+    });
+    return NextResponse.json(attachments);
+  } catch (err) {
+    console.error("GET /api/cards/[cardId]/attachments error", err);
+    return NextResponse.json({ error: "Failed to list attachments" }, { status: 500 });
+  }
+}
+
 export async function POST(req: Request, { params }: { params: Promise<{ cardId: string }> }) {
   try {
     const { cardId } = await params;

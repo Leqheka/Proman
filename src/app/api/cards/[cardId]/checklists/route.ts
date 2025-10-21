@@ -1,6 +1,22 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export async function GET(_req: Request, { params }: { params: Promise<{ cardId: string }> }) {
+  try {
+    const { cardId } = await params;
+    if (!cardId) return NextResponse.json({ error: "cardId required" }, { status: 400 });
+    const checklists = await prisma.checklist.findMany({
+      where: { cardId },
+      include: { items: true },
+      orderBy: { id: "asc" },
+    });
+    return NextResponse.json(checklists);
+  } catch (err) {
+    console.error("GET /api/cards/[cardId]/checklists error", err);
+    return NextResponse.json({ error: "Failed to list checklists" }, { status: 500 });
+  }
+}
+
 export async function POST(req: Request, { params }: { params: Promise<{ cardId: string }> }) {
   try {
     const { cardId } = await params;
@@ -23,7 +39,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ cardId:
       }
     });
 
-    return NextResponse.json(created!, { status: 201 });
+    const withItems = await prisma.checklist.findUnique({ where: { id: created!.id }, include: { items: true } });
+    return NextResponse.json(withItems!, { status: 201 });
   } catch (err) {
     console.error("POST /api/cards/[cardId]/checklists error", err);
     return NextResponse.json({ error: "Failed to add checklist" }, { status: 500 });
