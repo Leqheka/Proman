@@ -33,8 +33,9 @@ export async function POST(req: Request) {
       ownerId = user.id;
     }
 
+    const DEFAULT_BG = "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1600&auto=format&fit=crop&q=60";
     const board = await prisma.board.create({
-      data: { title, ownerId },
+      data: { title, ownerId, background: DEFAULT_BG },
     });
     return NextResponse.json(board, { status: 201 });
   } catch (err) {

@@ -23,11 +23,9 @@
 # misc
 .DS_Store
 *.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Ignore Prisma SQLite dev database
+prisma/dev.db
+prisma/*.db-journal
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)

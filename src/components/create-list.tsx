@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-export default function CreateList({ boardId }: { boardId: string }) {
+export default function CreateList({ boardId, onCreated }: { boardId: string; onCreated?: () => void }) {
   const [title, setTitle] = useState("");
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -22,6 +22,7 @@ export default function CreateList({ boardId }: { boardId: string }) {
       if (res.ok) {
         setTitle("");
         router.refresh();
+        onCreated?.();
       } else {
         console.error("Create list failed", await res.text());
       }
