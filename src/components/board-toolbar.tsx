@@ -6,10 +6,9 @@ import { useState } from "react";
 type BoardRef = { id: string; title: string };
 
 const STOCKS = [
-  "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1600&auto=format&fit=crop&q=60",
-  "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1600&auto=format&fit=crop&q=60",
-  "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1600&auto=format&fit=crop&q=60",
-  "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=1600&auto=format&fit=crop&q=60",
+  "https://picsum.photos/id/1018/1600/900",
+  "https://picsum.photos/id/1024/1600/900",
+  "https://picsum.photos/id/1035/1600/900",
 ];
 
 export default function BoardToolbar({
@@ -23,6 +22,8 @@ export default function BoardToolbar({
 }) {
   const router = useRouter();
   const [openBg, setOpenBg] = useState(false);
+
+  const toProxy = (u: string) => (u && u.startsWith("http") ? `/api/image-proxy?url=${encodeURIComponent(u)}` : u);
 
   async function changeBackground(url: string) {
     try {
@@ -67,7 +68,7 @@ export default function BoardToolbar({
                         changeBackground(u);
                         setOpenBg(false);
                       }}
-                      style={{ backgroundImage: `url(${u})`, backgroundSize: "cover", backgroundPosition: "center" }}
+                      style={{ backgroundImage: `url(${toProxy(u)})`, backgroundSize: "cover", backgroundPosition: "center" }}
                       aria-label="Pick background"
                     />
                   ))}

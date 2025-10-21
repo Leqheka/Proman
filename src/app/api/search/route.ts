@@ -24,7 +24,7 @@ export async function GET(req: Request) {
           board: { select: { title: true } },
           list: { select: { title: true } },
         },
-        orderBy: { updatedAt: "desc" },
+        orderBy: { order: "desc" },
         take: 20,
       }),
       prisma.board.findMany({

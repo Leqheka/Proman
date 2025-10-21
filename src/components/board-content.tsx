@@ -6,6 +6,7 @@ import { SortableContext, useSortable, arrayMove, verticalListSortingStrategy, h
 import { CSS } from "@dnd-kit/utilities";
 import CreateCard from "./create-card";
 import AddListTile from "./add-list-tile";
+import CardModal from "./card-modal";
 
 export type CardItem = { id: string; title: string; order: number };
 export type ListItem = { id: string; title: string; order: number; cards: CardItem[] };
@@ -20,11 +21,18 @@ function SortableListWrapper({ list, children }: { list: ListItem; children: Rea
   );
 }
 
-function SortableCard({ card }: { card: CardItem }) {
+function SortableCard({ card, onOpen }: { card: CardItem; onOpen: (id: string) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: card.id });
   const style = { transform: CSS.Transform.toString(transform), transition } as React.CSSProperties;
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="rounded border border-black/10 dark:border-white/15 bg-foreground/5 p-3 hover:bg-foreground/10 hover:shadow-sm transition-colors">
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      onClick={() => onOpen(card.id)}
+      className="rounded border border-black/10 dark:border-white/15 bg-foreground/5 p-3 hover:bg-foreground/10 hover:shadow-sm transition-colors cursor-pointer"
+    >
       <p className="text-sm">{card.title}</p>
     </div>
   );
@@ -32,6 +40,7 @@ function SortableCard({ card }: { card: CardItem }) {
 
 export default function BoardContent({ boardId, initialLists }: { boardId: string; initialLists: ListItem[] }) {
   const [lists, setLists] = React.useState<ListItem[]>(initialLists);
+  const [openedCardId, setOpenedCardId] = React.useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -86,91 +95,110 @@ export default function BoardContent({ boardId, initialLists }: { boardId: strin
       return;
     }
 
-    // Dragging cards
-    const origin = findListByCardId(activeId);
-    const overAsCard = findListByCardId(overId);
-    const overListIndex = overAsCard ? overAsCard.listIndex : lists.findIndex((l) => l.id === overId);
+    let persistMove: { cardId: string; fromListId: string; toListId: string; toIndex: number } | null = null;
 
-    if (origin) {
+    setLists((curr) => {
+      const findIn = (cardId: string): { listIndex: number; cardIndex: number } | null => {
+        for (let i = 0; i < curr.length; i++) {
+          const idx = curr[i].cards.findIndex((c) => c.id === cardId);
+          if (idx >= 0) return { listIndex: i, cardIndex: idx };
+        }
+        return null;
+      };
+
+      const origin = findIn(activeId);
+      const overAsCard = findIn(overId);
+      const overListIndex = overAsCard ? overAsCard.listIndex : curr.findIndex((l) => l.id === overId);
+
+      if (!origin) return curr;
+
       const fromListIndex = origin.listIndex;
       const fromCardIndex = origin.cardIndex;
 
       // same list reorder
       if (overAsCard && overAsCard.listIndex === fromListIndex) {
-        const list = lists[fromListIndex];
+        const list = curr[fromListIndex];
         const reordered = arrayMove(list.cards, fromCardIndex, overAsCard.cardIndex);
-        const next = [...lists];
+        const next = [...curr];
         next[fromListIndex] = { ...list, cards: reordered };
-        setLists(next);
-        moveCard(activeId, list.id, list.id, overAsCard.cardIndex);
-        return;
+        persistMove = { cardId: activeId, fromListId: list.id, toListId: list.id, toIndex: overAsCard.cardIndex };
+        return next;
       }
 
       // move to a specific card in another list
       if (overAsCard && overAsCard.listIndex !== fromListIndex) {
-        const moving = lists[fromListIndex].cards[fromCardIndex];
-        const next = [...lists];
-        const fromCards = [...lists[fromListIndex].cards];
-        fromCards.splice(fromCardIndex, 1);
-        next[fromListIndex] = { ...lists[fromListIndex], cards: fromCards };
-        const toCards = [...lists[overAsCard.listIndex].cards];
+        const moving = curr[fromListIndex].cards[fromCardIndex];
+        const next = [...curr];
+        const fromCards = curr[fromListIndex].cards.filter((_, i) => i !== fromCardIndex);
+        next[fromListIndex] = { ...curr[fromListIndex], cards: fromCards };
+        const destIdx = overAsCard.listIndex;
+        const toCardsBase = curr[destIdx].cards.filter((c) => c.id !== moving.id); // dedupe if already present
+        const toCards = [...toCardsBase];
         toCards.splice(overAsCard.cardIndex, 0, moving);
-        next[overAsCard.listIndex] = { ...lists[overAsCard.listIndex], cards: toCards };
-        setLists(next);
-        moveCard(moving.id, lists[fromListIndex].id, lists[overAsCard.listIndex].id, overAsCard.cardIndex);
-        return;
+        next[destIdx] = { ...curr[destIdx], cards: toCards };
+        persistMove = { cardId: moving.id, fromListId: curr[fromListIndex].id, toListId: curr[destIdx].id, toIndex: overAsCard.cardIndex };
+        return next;
       }
 
       // dropped in empty area of a list
       if (overListIndex !== -1) {
-        const moving = lists[fromListIndex].cards[fromCardIndex];
-        const next = [...lists];
-        const fromCards = [...lists[fromListIndex].cards];
-        fromCards.splice(fromCardIndex, 1);
-        next[fromListIndex] = { ...lists[fromListIndex], cards: fromCards };
-        const toCards = [...lists[overListIndex].cards];
-        const insertIndex = toCards.length;
+        const moving = curr[fromListIndex].cards[fromCardIndex];
+        const next = [...curr];
+        const fromCards = curr[fromListIndex].cards.filter((_, i) => i !== fromCardIndex);
+        next[fromListIndex] = { ...curr[fromListIndex], cards: fromCards };
+        const toCardsBase = curr[overListIndex].cards.filter((c) => c.id !== moving.id); // dedupe if already present
+        const insertIndex = toCardsBase.length;
+        const toCards = [...toCardsBase];
         toCards.splice(insertIndex, 0, moving);
-        next[overListIndex] = { ...lists[overListIndex], cards: toCards };
-        setLists(next);
-        moveCard(moving.id, lists[fromListIndex].id, lists[overListIndex].id, insertIndex);
+        next[overListIndex] = { ...curr[overListIndex], cards: toCards };
+        persistMove = { cardId: moving.id, fromListId: curr[fromListIndex].id, toListId: curr[overListIndex].id, toIndex: insertIndex };
+        return next;
       }
+
+      return curr;
+    });
+
+    if (persistMove !== null) {
+      moveCard(persistMove.cardId, persistMove.fromListId, persistMove.toListId, persistMove.toIndex);
     }
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={lists.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
-        <div className="pt-10 px-6 h-[calc(100vh-96px)] overflow-x-auto pb-1 flex items-start gap-4">
-          {lists.length === 0 ? (
-            <div className="rounded-lg border border-black/10 dark:border-white/15 p-6 w-72 shrink-0 bg-gray-100">
-              <p className="text-sm">No lists yet.</p>
-              <p className="text-xs text-foreground/70">Create a list to organize your cards.</p>
-            </div>
-          ) : (
-            <>
-              {lists.map((l) => (
-                <SortableListWrapper key={l.id} list={l}>
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-bold">{l.title}</p>
-                  </div>
-                  <SortableContext items={l.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-                    <div className="mt-3 flex flex-col gap-2 max-h-[calc(100vh-160px)] overflow-y-auto pr-1">
-                      {l.cards.length === 0 ? (
-                        <p className="text-xs text-foreground/60">No cards</p>
-                      ) : (
-                        l.cards.map((c) => <SortableCard key={c.id} card={c} />)
-                      )}
+    <> 
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={lists.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
+          <div className="pt-10 px-6 h-[calc(100vh-96px)] overflow-x-auto pb-1 flex items-start gap-4">
+            {lists.length === 0 ? (
+              <div className="rounded-lg border border-black/10 dark:border-white/15 p-6 w-72 shrink-0 bg-gray-100">
+                <p className="text-sm">No lists yet.</p>
+                <p className="text-xs text-foreground/70">Create a list to organize your cards.</p>
+              </div>
+            ) : (
+              <>
+                {lists.map((l) => (
+                  <SortableListWrapper key={l.id} list={l}>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-bold">{l.title}</p>
                     </div>
-                  </SortableContext>
-                  <CreateCard listId={l.id} />
-                </SortableListWrapper>
-              ))}
-              <AddListTile boardId={boardId} />
-            </>
-          )}
-        </div>
-      </SortableContext>
-    </DndContext>
+                    <SortableContext items={l.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+                      <div className="mt-3 flex flex-col gap-2 max-h-[calc(100vh-160px)] overflow-y-auto pr-1">
+                        {l.cards.length === 0 ? (
+                          <p className="text-xs text-foreground/60">No cards</p>
+                        ) : (
+                          l.cards.map((c) => <SortableCard key={c.id} card={c} onOpen={setOpenedCardId} />)
+                        )}
+                      </div>
+                    </SortableContext>
+                    <CreateCard listId={l.id} />
+                  </SortableListWrapper>
+                ))}
+                <AddListTile boardId={boardId} />
+              </>
+            )}
+          </div>
+        </SortableContext>
+      </DndContext>
+      {openedCardId && <CardModal cardId={openedCardId} onClose={() => setOpenedCardId(null)} />}
+    </>
   );
 }

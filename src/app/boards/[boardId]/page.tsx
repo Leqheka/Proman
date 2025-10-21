@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import BoardToolbar from "@/components/board-toolbar";
 import BoardContentClient from "@/components/board-content-client";
 
-export default async function BoardPage({ params }: { params: Promise<{ boardId: string }> }) {
+export default async function BoardPage({ params }: { params: { boardId: string } }) {
   let boardTitle = "";
   let currentBoardId = "";
   let boardBackground = "";
@@ -10,7 +10,7 @@ export default async function BoardPage({ params }: { params: Promise<{ boardId:
   let boards: Array<{ id: string; title: string }> = [];
 
   try {
-    const { boardId } = await params;
+    const { boardId } = params;
     currentBoardId = boardId;
     const board = await prisma.board.findUnique({
       where: { id: boardId },
@@ -46,10 +46,18 @@ export default async function BoardPage({ params }: { params: Promise<{ boardId:
     );
   }
 
+  const DEFAULT_BG = "https://picsum.photos/id/1018/1600/900";
+  const bgRaw = (boardBackground && boardBackground !== "/default-bg.jpg") ? boardBackground : DEFAULT_BG;
+  const bgUrl = (bgRaw && bgRaw.startsWith("http")) ? `/api/image-proxy?url=${encodeURIComponent(bgRaw)}` : bgRaw;
+
   return (
     <div
       className="min-h-screen text-foreground"
-      style={boardBackground ? { backgroundImage: `url(${boardBackground})`, backgroundSize: "cover", backgroundPosition: "center" } : { backgroundImage: "linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)" }}
+      style={{
+        backgroundImage: `url(${bgUrl}), linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)`,
+        backgroundSize: "cover, auto",
+        backgroundPosition: "center, center",
+      }}
     >
       <main className="mx-auto max-w-none py-0">
         <BoardToolbar boards={boards} currentBoardId={currentBoardId} boardTitle={boardTitle} />
