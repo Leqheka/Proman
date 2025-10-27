@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import CreateBoard from "@/components/create-board";
 import HomeScene from "@/components/home-scene";
 
+export const revalidate = 60; // cache homepage data for snappier loads
+
 export default async function Home() {
   let boards: Array<{ id: string; title: string; background: string | null }>;
   try {
@@ -15,13 +17,18 @@ export default async function Home() {
     boards = [];
   }
 
-  const DEFAULT_BG = "https://picsum.photos/id/1018/1600/900";
+  // Smaller, stable mountain fallback for legacy boards without background
+  const DEFAULT_BG = "https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-4.0.3&w=800&q=80&auto=format";
 
   const normalizeUnsplash = (u: string) => {
     try {
       const url = new URL(u);
-      if ((url.hostname === "images.unsplash.com" || url.hostname === "plus.unsplash.com") && !url.searchParams.has("ixlib")) {
-        url.searchParams.set("ixlib", "rb-4.0.3");
+      if ((url.hostname === "images.unsplash.com" || url.hostname === "plus.unsplash.com")) {
+        if (!url.searchParams.has("ixlib")) url.searchParams.set("ixlib", "rb-4.0.3");
+        // Thumbnails: prefer compressed, smaller payload
+        if (!url.searchParams.has("w")) url.searchParams.set("w", "800");
+        if (!url.searchParams.has("q")) url.searchParams.set("q", "80");
+        if (!url.searchParams.has("auto")) url.searchParams.set("auto", "format");
         return url.toString();
       }
       return u;

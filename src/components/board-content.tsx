@@ -71,6 +71,22 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     return null;
   }
 
+  // Optimistic helpers
+  function addCardToList(listId: string, card: { id: string; title: string; order: number }) {
+    setLists((curr) => {
+      const idx = curr.findIndex((l) => l.id === listId);
+      if (idx === -1) return curr;
+      const next = [...curr];
+      const list = next[idx];
+      next[idx] = { ...list, cards: [...list.cards, { id: card.id, title: card.title, order: card.order }] };
+      return next;
+    });
+  }
+
+  function addList(newList: { id: string; title: string; order: number }) {
+    setLists((curr) => [...curr, { id: newList.id, title: newList.title, order: newList.order, cards: [] }]);
+  }
+
   async function reorderLists(newOrder: ListItem[]) {
     setLists(newOrder);
     try {
@@ -298,10 +314,10 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
                         )}
                       </div>
                     </SortableContext>
-                    <CreateCard listId={l.id} />
+                    <CreateCard listId={l.id} onCreated={(card) => addCardToList(l.id, card)} />
                   </SortableListWrapper>
                 ))}
-                <AddListTile boardId={boardId} />
+                <AddListTile boardId={boardId} onCreated={(list) => addList(list)} />
                 {/* Archives list */}
                 <div className="w-72 shrink-0 self-start rounded-lg border border-black/10 dark:border-white/15 bg-gray-100 p-3">
                   <div className="flex items-center justify-between">
@@ -318,8 +334,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
                             <span className="text-sm">{c.title}</span>
                           </div>
                         </div>
-                      ))
-                    )}
+                      ))}
                   </div>
                 </div>
               </>

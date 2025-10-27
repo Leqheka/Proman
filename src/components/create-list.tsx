@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-export default function CreateList({ boardId, onCreated }: { boardId: string; onCreated?: () => void }) {
+export default function CreateList({ boardId, onCreated }: { boardId: string; onCreated?: (list: { id: string; title: string; order: number }) => void }) {
   const [title, setTitle] = useState("");
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -20,9 +20,12 @@ export default function CreateList({ boardId, onCreated }: { boardId: string; on
         body: JSON.stringify({ title: t }),
       });
       if (res.ok) {
+        const created = await res.json();
         setTitle("");
-        router.refresh();
-        onCreated?.();
+        // Optimistically inform parent with the created list
+        onCreated?.(created);
+        // Optional background refresh; does not block UI
+        try { router.refresh(); } catch {}
       } else {
         console.error("Create list failed", await res.text());
       }

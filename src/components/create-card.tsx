@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-export default function CreateCard({ listId }: { listId: string }) {
+export default function CreateCard({ listId, onCreated }: { listId: string; onCreated?: (card: { id: string; title: string; order: number }) => void }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -21,9 +21,13 @@ export default function CreateCard({ listId }: { listId: string }) {
         body: JSON.stringify({ title: t }),
       });
       if (res.ok) {
+        const created = await res.json();
         setTitle("");
         setOpen(false);
-        router.refresh();
+        // Optimistically update parent without waiting for router refresh
+        onCreated?.(created);
+        // Optional: soft refresh to reconcile server state later without blocking UI
+        try { router.refresh(); } catch {}
       } else {
         console.error("Create card failed", await res.text());
       }
@@ -33,8 +37,8 @@ export default function CreateCard({ listId }: { listId: string }) {
   if (!open) {
     return (
       <button
+        className="mt-2 w-full rounded border border-dashed border-black/10 dark:border-white/15 p-2 text-left bg-foreground/5 hover:bg-foreground/10"
         onClick={() => setOpen(true)}
-        className="mt-2 text-xs text-foreground/70 hover:text-foreground"
       >
         + Add a card
       </button>
@@ -53,17 +57,11 @@ export default function CreateCard({ listId }: { listId: string }) {
       <button
         type="submit"
         disabled={isPending || title.trim().length === 0}
-        className="rounded bg-black text-white px-3 py-2 text-xs disabled:opacity-50 dark:bg-white dark:text-black"
+        className="rounded bg-black text-white px-3 py-2 disabled:opacity-50 dark:bg-white dark:text-black"
       >
         {isPending ? "Adding…" : "Add"}
       </button>
-      <button
-        type="button"
-        onClick={() => { setOpen(false); setTitle(""); }}
-        className="rounded border px-3 py-2 text-xs"
-      >
-        Cancel
-      </button>
+      <button type="button" className="text-xs" onClick={() => setOpen(false)}>Cancel</button>
     </form>
   );
 }
