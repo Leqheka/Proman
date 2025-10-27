@@ -29,7 +29,7 @@ export default function HomeScene({ children }: { children: React.ReactNode }) {
     } catch {}
   }
 
-  // Route remote backgrounds through the image proxy to avoid browser ORB blocks
+  // Use a relative proxy path to keep SSR and client styles identical
   const toProxy = (u: string) => (u && u.startsWith("http") ? `/api/image-proxy?url=${encodeURIComponent(u)}` : u);
 
   const appliedBg = bg ?? DEFAULT_HOME_BG;
@@ -37,6 +37,7 @@ export default function HomeScene({ children }: { children: React.ReactNode }) {
     backgroundImage: `url(${toProxy(appliedBg)}), linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)`,
     backgroundSize: "cover, auto",
     backgroundPosition: "center, center",
+    backgroundRepeat: "no-repeat, no-repeat",
   };
 
   return (
@@ -53,7 +54,7 @@ export default function HomeScene({ children }: { children: React.ReactNode }) {
                       key={u}
                       className="h-20 rounded overflow-hidden border border-black/10 dark:border-white/15"
                       onClick={() => changeBackground(u)}
-                      style={{ backgroundImage: `url(${toProxy(u)}), linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)`, backgroundSize: "cover, auto", backgroundPosition: "center, center" }}
+                      style={{ backgroundImage: `url(${toProxy(u)}), linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)`, backgroundSize: "cover, auto", backgroundPosition: "center, center", backgroundRepeat: "no-repeat, no-repeat" }}
                       aria-label="Pick background"
                     />
                   ))}

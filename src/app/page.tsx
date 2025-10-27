@@ -4,7 +4,7 @@ import CreateBoard from "@/components/create-board";
 import HomeScene from "@/components/home-scene";
 
 export default async function Home() {
-  let boards: Array<{ id: string; title: string; background: string | null }>; 
+  let boards: Array<{ id: string; title: string; background: string | null }>;
   try {
     boards = await prisma.board.findMany({
       select: { id: true, title: true, background: true },
@@ -16,6 +16,20 @@ export default async function Home() {
   }
 
   const DEFAULT_BG = "https://picsum.photos/id/1018/1600/900";
+
+  const normalizeUnsplash = (u: string) => {
+    try {
+      const url = new URL(u);
+      if ((url.hostname === "images.unsplash.com" || url.hostname === "plus.unsplash.com") && !url.searchParams.has("ixlib")) {
+        url.searchParams.set("ixlib", "rb-4.0.3");
+        return url.toString();
+      }
+      return u;
+    } catch {
+      return u;
+    }
+  };
+
   const toProxy = (u: string) => (u && u.startsWith("http") ? `/api/image-proxy?url=${encodeURIComponent(u)}` : u);
 
   return (
@@ -40,7 +54,8 @@ export default async function Home() {
             ) : (
 
               boards.map((b) => {
-                const bgRaw = (b.background && b.background !== "/default-bg.jpg") ? b.background : DEFAULT_BG;
+                const raw = (b.background && b.background !== "/default-bg.jpg") ? b.background : DEFAULT_BG;
+                const bgRaw = normalizeUnsplash(raw);
                 const bgUrl = toProxy(bgRaw);
                 return (
                   <div key={b.id} className="rounded-lg border border-black/10 dark:border-white/15 overflow-hidden">

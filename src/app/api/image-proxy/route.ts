@@ -15,6 +15,19 @@ function isAllowed(urlStr: string): boolean {
   }
 }
 
+function normalizeUrl(raw: string) {
+  try {
+    const u = new URL(raw);
+    // Be tolerant with Unsplash: add ixlib if missing to avoid 403s
+    if ((u.hostname === "images.unsplash.com" || u.hostname === "plus.unsplash.com") && !u.searchParams.has("ixlib")) {
+      u.searchParams.set("ixlib", "rb-4.0.3");
+    }
+    return u.toString();
+  } catch {
+    return raw;
+  }
+}
+
 function fallbackSvg() {
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
@@ -49,12 +62,14 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Invalid or disallowed URL" }, { status: 400 });
     }
 
-    const upstream = await fetch(url, {
+    const target = normalizeUrl(url);
+
+    const upstream = await fetch(target, {
       headers: {
+        // A minimal, realistic UA and Accept. Avoid setting Referer to unblock some CDNs.
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
         "Accept": "image/avif,image/webp,image/*,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
-        "Referer": new URL(url).origin + "/",
       },
       cache: "no-store",
       redirect: "follow",
