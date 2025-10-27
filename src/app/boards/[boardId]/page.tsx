@@ -53,8 +53,10 @@ export default async function BoardPage({ params }: { params: { boardId: string 
     );
   }
 
+  const toProxy = (u: string) => (u && u.startsWith("http") ? `/api/image-proxy?url=${encodeURIComponent(u)}` : u);
+
   return (
-    <div className="min-h-screen bg-background text-foreground" style={{ backgroundImage: boardBackground ? `url(${boardBackground})` : undefined }}>
+    <div className="min-h-screen bg-background text-foreground" style={{ backgroundImage: boardBackground ? `url(${toProxy(boardBackground)})` : undefined }}>
       <BoardToolbar boards={boards} currentBoardId={currentBoardId} boardTitle={boardTitle} />
       <BoardContentClient boardId={currentBoardId} initialLists={lists} archivedCards={archivedCards} />
     </div>
