@@ -46,6 +46,7 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
   const [boardChecklists, setBoardChecklists] = React.useState<Array<{ id: string; title: string }>>([]);
   const [editingItemId, setEditingItemId] = React.useState<string | null>(null);
   const [editingItemTitle, setEditingItemTitle] = React.useState<string>("");
+  const [loadError, setLoadError] = React.useState<string | null>(null);
 
   // Dates popover state
   const [showDatesMenu, setShowDatesMenu] = React.useState(false);
@@ -57,17 +58,31 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
   const [recurring, setRecurring] = React.useState<string>("Never");
   const [reminder, setReminder] = React.useState<string>("1 Day before");
 
+  const datesMenuWrapRef = React.useRef<HTMLDivElement | null>(null);
+  const checklistMenuWrapRef = React.useRef<HTMLDivElement | null>(null);
+
   React.useEffect(() => {
     const controller = new AbortController();
     async function fetchCard() {
       try {
         setLoading(true);
         const resp = await fetch(`/api/cards/${cardId}?summary=1`, { signal: controller.signal });
+        if (!resp.ok) {
+          setLoadError("Failed to load card");
+          setLoading(false);
+          return;
+        }
         const summary = await resp.json();
-        setData(summary);
-        setTitle(summary.title ?? "");
-        setDescription(summary.description ?? "");
-        setDueDate(summary.dueDate ? new Date(summary.dueDate).toISOString().slice(0, 16) : "");
+        const normalized = {
+          ...summary,
+          attachments: Array.isArray(summary.attachments) ? summary.attachments : [],
+          comments: Array.isArray(summary.comments) ? summary.comments : [],
+          checklists: Array.isArray(summary.checklists) ? summary.checklists : [],
+        } as CardDetail;
+        setData(normalized);
+        setTitle(normalized.title ?? "");
+        setDescription(normalized.description ?? "");
+        setDueDate(normalized.dueDate ? new Date(normalized.dueDate).toISOString().slice(0, 16) : "");
         setLoading(false);
         setLoadingComments(true);
         setLoadingChecklists(true);
@@ -106,6 +121,21 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
   function openDatesMenu() {
     setShowDatesMenu((s) => !s);
   }
+
+  React.useEffect(() => {
+    if (!showDatesMenu) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      const container = datesMenuWrapRef.current;
+      if (container && !container.contains(target)) {
+        setShowDatesMenu(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [showDatesMenu]);
 
   function getMonthCells(d: Date) {
     const year = d.getFullYear(), month = d.getMonth();
@@ -208,6 +238,21 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
       return next;
     });
   }
+
+  React.useEffect(() => {
+    if (!showChecklistMenu) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      const container = checklistMenuWrapRef.current;
+      if (container && !container.contains(target)) {
+        setShowChecklistMenu(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [showChecklistMenu]);
 
   async function addChecklist(title: string, sourceId?: string | null) {
     const t = title.trim();
@@ -382,7 +427,7 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
     return (
       <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center">
         <div className="rounded bg-background p-6 shadow w-[800px]">
-          <p className="text-sm">Loading card...</p>
+          <p className="text-sm">{loadError ? loadError : "Loading card..."}</p>
         </div>
       </div>
     );
@@ -413,7 +458,7 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
               <div className="flex items-center gap-2">
                 <span className="text-xs">Add:</span>
                 <button className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Labels</button>
-                <div className="relative">
+                <div className="relative" ref={datesMenuWrapRef}>
                   <button onClick={openDatesMenu} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Dates</button>
                   {showDatesMenu && (
                     <div className="absolute z-20 mt-2 w-[280px] rounded border border-black/10 dark:border-white/15 bg-background p-3 shadow">
@@ -460,13 +505,16 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
                             <input type="checkbox" checked={useDue} onChange={(e) => setUseDue(e.target.checked)} />
                             <span>Due date</span>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="grid grid-cols-1 gap-2">
                             <input
                               type="date"
                               value={tempDueDate ? tempDueDate.split("T")[0] : ""}
                               onChange={(e) => {
-                                const time = tempDueDate.split("T")[1] || "18:00";
-                                setTempDueDate(`${e.target.value}T${time}`);
+                                const v = e.target.value;
+                                setTempDueDate((prev) => {
+                                  const time = prev ? prev.split("T")[1] || "" : "";
+                                  return v ? `${v}${time ? `T${time}` : ""}` : "";
+                                });
                               }}
                               disabled={!useDue}
                               className="border rounded px-1 py-[2px] bg-background"
@@ -475,11 +523,14 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
                               type="time"
                               value={tempDueDate ? tempDueDate.split("T")[1] || "" : ""}
                               onChange={(e) => {
-                                const date = tempDueDate.split("T")[0] || new Date().toISOString().slice(0, 10);
-                                setTempDueDate(`${date}T${e.target.value}`);
+                                const v = e.target.value;
+                                setTempDueDate((prev) => {
+                                  const date = prev ? prev.split("T")[0] || "" : "";
+                                  return date ? `${date}${v ? `T${v}` : ""}` : "";
+                                });
                               }}
                               disabled={!useDue}
-                              className="border rounded px-1 py-[2px] bg-background w-24"
+                              className="border rounded px-1 py-[2px] bg-background w-full"
                             />
                           </div>
                         </label>
@@ -521,7 +572,7 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
                     </div>
                   )}
                 </div>
-                <div className="relative">
+                <div className="relative" ref={checklistMenuWrapRef}>
                   <button onClick={openChecklistMenu} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Checklist</button>
                   {showChecklistMenu && (
                     <div className="absolute z-20 mt-2 w-64 rounded border border-black/10 dark:border-white/15 bg-background p-3 shadow">

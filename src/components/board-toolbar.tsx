@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 type BoardRef = { id: string; title: string };
 
@@ -15,26 +15,54 @@ export default function BoardToolbar({
   boards,
   currentBoardId,
   boardTitle,
+  onBackgroundChanged,
 }: {
   boards: BoardRef[];
   currentBoardId: string;
   boardTitle: string;
+  onBackgroundChanged?: (url: string) => void;
 }) {
   const router = useRouter();
   const [openBg, setOpenBg] = useState(false);
+  const bgMenuWrapRef = useRef<HTMLDivElement | null>(null);
+
+  // Close Change background menu on outside click or Escape
+  useEffect(() => {
+    if (!openBg) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      const container = bgMenuWrapRef.current;
+      if (container && !container.contains(target)) {
+        setOpenBg(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenBg(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [openBg]);
 
   const toProxy = (u: string) => (u && u.startsWith("http") ? `/api/image-proxy?url=${encodeURIComponent(u)}` : u);
 
   async function changeBackground(url: string) {
     try {
+      // Optimistically change local background without a full refresh
+      onBackgroundChanged?.(url);
       await fetch(`/api/boards/${currentBoardId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ background: url }),
       });
-      router.refresh();
+      // No blocking refresh; UI already reflects change
     } catch (err) {
       console.error("Failed to change background", err);
+      // As a fallback, try a soft refresh to reconcile
+      try { router.refresh(); } catch {}
     }
   }
 
@@ -55,7 +83,7 @@ export default function BoardToolbar({
           </select>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <div className="relative">
+          <div className="relative" ref={bgMenuWrapRef}>
             <button onClick={() => setOpenBg((v) => !v)} className="text-xs rounded px-2 py-1 bg-foreground/5">Change background</button>
             {openBg && (
               <div className="absolute right-0 mt-2 w-64 rounded border border-black/10 dark:border-white/15 bg-background p-2 shadow">

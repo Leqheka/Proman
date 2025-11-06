@@ -3,7 +3,17 @@
 import { useState } from "react";
 import CreateList from "./create-list";
 
-export default function AddListTile({ boardId, onCreated }: { boardId: string; onCreated?: (list: { id: string; title: string; order: number }) => void }) {
+export default function AddListTile({
+  boardId,
+  onOptimisticCreate,
+  onFinalize,
+  onRollback,
+}: {
+  boardId: string;
+  onOptimisticCreate?: (list: { id: string; title: string; order: number }) => void;
+  onFinalize?: (prevId: string, created: { id: string; title: string; order: number }) => void;
+  onRollback?: (prevId: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   if (!open) {
     return (
@@ -20,10 +30,12 @@ export default function AddListTile({ boardId, onCreated }: { boardId: string; o
       <div className="mb-2 text-sm">Add list</div>
       <CreateList
         boardId={boardId}
-        onCreated={(list) => {
+        onOptimisticCreate={(list) => {
+          onOptimisticCreate?.(list);
           setOpen(false);
-          onCreated?.(list);
         }}
+        onFinalize={(prevId, created) => onFinalize?.(prevId, created)}
+        onRollback={(prevId) => onRollback?.(prevId)}
       />
       <button className="mt-2 text-xs" onClick={() => setOpen(false)}>Cancel</button>
     </div>

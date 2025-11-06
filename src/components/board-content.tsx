@@ -21,6 +21,10 @@ function SortableListWrapper({ list, children }: { list: ListItem; children: Rea
   );
 }
 
+function isTempCardId(id: string) {
+  return id.startsWith("temp-card-");
+}
+
 function SortableCard({ card, onOpen, onToggleArchive, onUpdateTitle }: { card: CardItem; onOpen: (id: string) => void; onToggleArchive: (card: CardItem, checked: boolean) => void; onUpdateTitle: (cardId: string, newTitle: string) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: card.id });
   const style = { transform: CSS.Transform.toString(transform), transition } as React.CSSProperties;
@@ -33,10 +37,14 @@ function SortableCard({ card, onOpen, onToggleArchive, onUpdateTitle }: { card: 
       {...listeners}
       onMouseEnter={() => {
         if (prefetched.current) return;
+        if (isTempCardId(card.id)) return;
         prefetched.current = true;
         fetch(`/api/cards/${card.id}?summary=1`).catch(() => {});
       }}
-      onClick={() => onOpen(card.id)}
+      onClick={() => {
+        if (isTempCardId(card.id)) return; // guard against opening temp card modal
+        onOpen(card.id);
+      }}
       className="group relative rounded border border-black/10 dark:border-white/15 bg-foreground/5 p-3 hover:bg-foreground/10 hover:shadow-sm transition-colors cursor-pointer"
     >
       {/* Hover-only checkbox, centered left */}
@@ -83,8 +91,56 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     });
   }
 
+  // New: Optimistic card insertion and reconciliation
+  function addOptimisticCard(listId: string, card: { id: string; title: string; order: number }) {
+    setLists((curr) => {
+      const idx = curr.findIndex((l) => l.id === listId);
+      if (idx === -1) return curr;
+      const next = [...curr];
+      const list = next[idx];
+      next[idx] = { ...list, cards: [...list.cards, { id: card.id, title: card.title, order: card.order }] };
+      return next;
+    });
+  }
+
+  function reconcileCardId(tempId: string, created: { id: string; title: string; order: number }) {
+    setLists((curr) => {
+      const next = curr.map((list) => {
+        const ci = list.cards.findIndex((c) => c.id === tempId);
+        if (ci === -1) return list;
+        const cards = [...list.cards];
+        cards[ci] = { id: created.id, title: created.title, order: created.order };
+        return { ...list, cards };
+      });
+      return next;
+    });
+  }
+
+  function removeCardById(cardId: string) {
+    setLists((curr) => curr.map((list) => ({ ...list, cards: list.cards.filter((c) => c.id !== cardId) })));
+  }
+
   function addList(newList: { id: string; title: string; order: number }) {
     setLists((curr) => [...curr, { id: newList.id, title: newList.title, order: newList.order, cards: [] }]);
+  }
+
+  // New: Optimistic list insertion and reconciliation
+  function addOptimisticList(newList: { id: string; title: string; order: number }) {
+    setLists((curr) => [...curr, { id: newList.id, title: newList.title, order: newList.order, cards: [] }]);
+  }
+
+  function reconcileListId(tempId: string, created: { id: string; title: string; order: number }) {
+    setLists((curr) => {
+      const idx = curr.findIndex((l) => l.id === tempId);
+      if (idx === -1) return curr;
+      const next = [...curr];
+      next[idx] = { ...next[idx], id: created.id, title: created.title, order: created.order };
+      return next;
+    });
+  }
+
+  function removeListById(listId: string) {
+    setLists((curr) => curr.filter((l) => l.id !== listId));
   }
 
   async function reorderLists(newOrder: ListItem[]) {
@@ -314,10 +370,20 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
                         )}
                       </div>
                     </SortableContext>
-                    <CreateCard listId={l.id} onCreated={(card) => addCardToList(l.id, card)} />
+                    <CreateCard
+                      listId={l.id}
+                      onOptimisticCreate={(card) => addOptimisticCard(l.id, card)}
+                      onFinalize={(prevId, created) => reconcileCardId(prevId, created)}
+                      onRollback={(prevId) => removeCardById(prevId)}
+                    />
                   </SortableListWrapper>
                 ))}
-                <AddListTile boardId={boardId} onCreated={(list) => addList(list)} />
+                <AddListTile
+                  boardId={boardId}
+                  onOptimisticCreate={(list) => addOptimisticList(list)}
+                  onFinalize={(prevId, created) => reconcileListId(prevId, created)}
+                  onRollback={(prevId) => removeListById(prevId)}
+                />
                 {/* Archives list */}
                 <div className="w-72 shrink-0 self-start rounded-lg border border-black/10 dark:border-white/15 bg-gray-100 p-3">
                   <div className="flex items-center justify-between">
@@ -327,14 +393,17 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
                     {archives.length === 0 ? (
                       <p className="text-xs text-foreground/60">No archived cards</p>
                     ) : (
-                      archives.map((c) => (
-                        <div key={c.id} className="rounded border border-black/10 dark:border-white/15 bg-foreground/5 p-3">
-                          <div className="flex items-center gap-2">
-                            <input type="checkbox" checked onChange={(e) => toggleArchive(c, e.target.checked)} />
-                            <span className="text-sm">{c.title}</span>
+                      <>
+                        {archives.map((c) => (
+                          <div key={c.id} className="rounded border border-black/10 dark:border-white/15 bg-foreground/5 p-3">
+                            <div className="flex items-center gap-2">
+                              <input type="checkbox" checked onChange={(e) => toggleArchive(c, e.target.checked)} />
+                              <span className="text-sm">{c.title}</span>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </>
+                    )}
                   </div>
                 </div>
               </>
