@@ -105,6 +105,7 @@ export default function BoardToolbar({
             )}
           </div>
           <button className="text-xs rounded px-2 py-1 bg-foreground/5" title="Board settings">Board settings</button>
+          <a href={`/boards/${currentBoardId}/members`} className="text-xs rounded px-2 py-1 bg-foreground/5" title="Members">Members</a>
         </div>
       </div>
     </div>

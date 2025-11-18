@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Avatar from "./avatar";
 
 type Member = { id: string; name?: string | null; email: string; image?: string | null };
 
@@ -60,15 +61,21 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
 
   const datesMenuWrapRef = React.useRef<HTMLDivElement | null>(null);
   const checklistMenuWrapRef = React.useRef<HTMLDivElement | null>(null);
+  // Added: members menu state and ref
+  const membersMenuWrapRef = React.useRef<HTMLDivElement | null>(null);
+  const [showMembersMenu, setShowMembersMenu] = React.useState(false);
+  const [boardMembers, setBoardMembers] = React.useState<Member[]>([]);
 
   React.useEffect(() => {
     const controller = new AbortController();
     async function fetchCard() {
       try {
         setLoading(true);
+        setLoadError(null);
         const resp = await fetch(`/api/cards/${cardId}?summary=1`, { signal: controller.signal });
         if (!resp.ok) {
-          setLoadError("Failed to load card");
+          const status = resp.status;
+          setLoadError(status === 404 ? "Card not found" : "Failed to load card");
           setLoading(false);
           return;
         }
@@ -106,6 +113,8 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
           console.error("Failed to load card", err);
           setLoadingComments(false);
           setLoadingChecklists(false);
+          setLoadError("Failed to load card");
+          setLoading(false);
         }
       }
     }
@@ -122,20 +131,68 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
     setShowDatesMenu((s) => !s);
   }
 
+  // Added: open members menu, fetch board members, and outside-click handling
+  function openMembersMenu() {
+    setShowMembersMenu((s) => {
+      const next = !s;
+      if (!s) fetchBoardMembers();
+      return next;
+    });
+  }
+
+  async function fetchBoardMembers() {
+    const boardId = data?.board?.id || data?.list?.boardId;
+    if (!boardId) return;
+    try {
+      const resp = await fetch(`/api/boards/${boardId}/members`);
+      if (resp.ok) {
+        const members = await resp.json();
+        setBoardMembers(members);
+      }
+    } catch (err) {
+      console.error("Failed to fetch board members", err);
+    }
+  }
+
   React.useEffect(() => {
-    if (!showDatesMenu) return;
+    if (!showMembersMenu) return;
     const onPointerDown = (e: PointerEvent) => {
       const target = e.target as Node;
-      const container = datesMenuWrapRef.current;
+      const container = membersMenuWrapRef.current;
       if (container && !container.contains(target)) {
-        setShowDatesMenu(false);
+        setShowMembersMenu(false);
       }
     };
     document.addEventListener("pointerdown", onPointerDown);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
     };
-  }, [showDatesMenu]);
+  }, [showMembersMenu]);
+
+  // Added: toggle assignment for a member
+  async function toggleAssignment(m: Member) {
+    const assigned = !!data?.members?.some((mm) => mm.id === m.id);
+    try {
+      if (!assigned) {
+        const resp = await fetch(`/api/cards/${cardId}/assignments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: m.id }),
+        });
+        if (resp.ok) {
+          const created = await resp.json();
+          setData((d) => (d ? { ...d, members: [...d.members, created.user] } : d));
+        }
+      } else {
+        const resp = await fetch(`/api/cards/${cardId}/assignments/${m.id}`, { method: "DELETE" });
+        if (resp.ok) {
+          setData((d) => (d ? { ...d, members: d.members.filter((mm) => mm.id !== m.id) } : d));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to toggle assignment", err);
+    }
+  }
 
   function getMonthCells(d: Date) {
     const year = d.getFullYear(), month = d.getMonth();
@@ -604,22 +661,65 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
                     </div>
                   )}
                 </div>
-                <button className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Members</button>
-                <div className="flex items-center gap-2">
+                <div className="relative" ref={membersMenuWrapRef}>
+                  <button onClick={openMembersMenu} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Members</button>
+                  {showMembersMenu && (
+                    <div className="absolute z-20 mt-2 w-64 rounded border border-black/10 dark:border-white/15 bg-background p-3 shadow">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-semibold">Assign members</p>
+                        <button className="text-xs" onClick={() => setShowMembersMenu(false)}>×</button>
+                      </div>
+                      {boardMembers.length === 0 ? (
+                        <p className="text-xs text-foreground/60">No board members</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {boardMembers.map((m) => {
+                            const assigned = !!data?.members?.some((mm) => mm.id === m.id);
+                            return (
+                              <li key={m.id} className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-sm">{m.name || m.email}</p>
+                                  <p className="text-[11px] text-foreground/60">{m.email}</p>
+                                </div>
+                                <button
+                                  onClick={() => toggleAssignment(m)}
+                                  className={`text-xs rounded px-2 py-1 ${assigned ? "bg-foreground text-background" : "bg-foreground/5 hover:bg-foreground/10"}`}
+                                >
+                                  {assigned ? "Assigned" : "Assign"}
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                   )}
+                 </div>
+                 <div className="flex items-center gap-2">
                   <input value={newAttachmentUrl} onChange={(e) => setNewAttachmentUrl(e.target.value)} placeholder="Attachment URL" className="text-xs px-2 py-1 border rounded bg-background" />
                   <button onClick={addAttachment} className="text-xs rounded px-2 py-1 bg-foreground text-background hover:opacity-90 transition-opacity">Add</button>
                 </div>
               </div>
 
               {/* Selected dates chips displayed above Description */}
-              {(data.dueDate || tempStartDate) && (
+              {(data?.dueDate || tempStartDate) && (
                 <div className="rounded border border-black/10 dark:border-white/15 p-2">
                   <div className="flex items-center gap-3 text-xs">
                     {tempStartDate && (
                       <span className="px-2 py-1 rounded bg-background border">Start {new Date(tempStartDate).toLocaleDateString()}</span>
                     )}
-                    {data.dueDate && (
+                    {data?.dueDate && (
                       <span className="px-2 py-1 rounded bg-background border">Due {new Date(data.dueDate).toLocaleString()}</span>
+                    )}
+                    {!!(data?.members && data.members.length) && (
+                      <div className="ml-auto flex items-center gap-1">
+                        {data.members.slice(0, 6).map((m) => (
+                          <Avatar key={m.id} name={m.name || undefined} email={m.email} image={m.image || undefined} size={18} />
+                        ))}
+                        {data.members.length > 6 && (
+                          <span className="text-[10px] text-foreground/60">+{data.members.length - 6}</span>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

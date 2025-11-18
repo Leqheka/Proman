@@ -1,14 +1,16 @@
 "use client";
 
 import React from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, useSortable, arrayMove, verticalListSortingStrategy, horizontalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import CreateCard from "./create-card";
 import AddListTile from "./add-list-tile";
 import CardModal from "./card-modal";
+import Avatar from "./avatar";
 
-export type CardItem = { id: string; title: string; order: number; listId?: string };
+export type CardItem = { id: string; title: string; order: number; listId?: string; dueDate?: string | null; hasDescription?: boolean; checklistCount?: number; commentCount?: number; attachmentCount?: number; assignmentCount?: number; members?: Array<{ id: string; name: string | null; email: string; image: string | null }> };
 export type ListItem = { id: string; title: string; order: number; cards: CardItem[] };
 
 function SortableListWrapper({ list, children }: { list: ListItem; children: React.ReactNode }) {
@@ -25,10 +27,40 @@ function isTempCardId(id: string) {
   return id.startsWith("temp-card-");
 }
 
+function formatDueDate(iso?: string | null) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const month = d.toLocaleString(undefined, { month: "short" });
+  const day = d.getDate();
+  return `${month} ${day}`;
+}
+
+function getDueStatus(iso?: string | null): "overdue" | "today" | "soon" | "none" {
+  if (!iso) return "none";
+  const due = new Date(iso);
+  const now = new Date();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  if (due.getTime() < startToday.getTime()) return "overdue";
+  if (due.getTime() <= endToday.getTime()) return "today";
+  const soonThreshold = new Date(startToday.getTime() + 3 * 24 * 60 * 60 * 1000);
+  if (due.getTime() <= soonThreshold.getTime()) return "soon";
+  return "none";
+}
+
 function SortableCard({ card, onOpen, onToggleArchive, onUpdateTitle }: { card: CardItem; onOpen: (id: string) => void; onToggleArchive: (card: CardItem, checked: boolean) => void; onUpdateTitle: (cardId: string, newTitle: string) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: card.id });
   const style = { transform: CSS.Transform.toString(transform), transition } as React.CSSProperties;
   const prefetched = React.useRef(false);
+  const dueStatus = getDueStatus(card.dueDate);
+  const dueClasses =
+    dueStatus === "overdue"
+      ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800"
+      : dueStatus === "today"
+      ? "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800"
+      : dueStatus === "soon"
+      ? "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800"
+      : "bg-background border border-black/10 dark:border-white/15";
   return (
     <div
       ref={setNodeRef}
@@ -58,6 +90,123 @@ function SortableCard({ card, onOpen, onToggleArchive, onUpdateTitle }: { card: 
       <span className="block text-sm transition-all duration-200 ease-out group-hover:pl-6">
         {card.title}
       </span>
+
+
+      {/* Metadata icon row using masked SVGs and unified color */}
+      {(card.dueDate || card.hasDescription || (card.checklistCount ?? 0) > 0 || (card.commentCount ?? 0) > 0 || (card.attachmentCount ?? 0) > 0 || (card.assignmentCount ?? 0) > 0) && (
+        <div className="mt-2 flex items-center gap-3 text-[11px] text-foreground/70 group-hover:pl-6 transition-all duration-200 ease-out">
+          {card.dueDate && (
+            <span className={`inline-flex items-center gap-1 px-2 py-[2px] rounded ${dueClasses}`}>
+              <span
+                className="w-3.5 h-3.5 inline-block"
+                style={{
+                  WebkitMaskImage: 'url(/icons/calendar.svg)',
+                  maskImage: 'url(/icons/calendar.svg)',
+                  backgroundColor: 'currentColor',
+                  WebkitMaskRepeat: 'no-repeat',
+                  maskRepeat: 'no-repeat',
+                  WebkitMaskPosition: 'center',
+                  maskPosition: 'center',
+                  WebkitMaskSize: 'contain',
+                  maskSize: 'contain',
+                }}
+                aria-hidden
+              />
+              <span>{formatDueDate(card.dueDate)}</span>
+            </span>
+          )}
+          {card.hasDescription && (
+            <span className="inline-flex items-center gap-1">
+              <span
+                className="w-3.5 h-3.5 inline-block"
+                style={{
+                  WebkitMaskImage: 'url(/icons/note.svg)',
+                  maskImage: 'url(/icons/note.svg)',
+                  backgroundColor: 'currentColor',
+                  WebkitMaskRepeat: 'no-repeat',
+                  maskRepeat: 'no-repeat',
+                  WebkitMaskPosition: 'center',
+                  maskPosition: 'center',
+                  WebkitMaskSize: 'contain',
+                  maskSize: 'contain',
+                }}
+                aria-hidden
+              />
+            </span>
+          )}
+          {(card.checklistCount ?? 0) > 0 && (
+            <span className="inline-flex items-center gap-1">
+              <span
+                className="w-3.5 h-3.5 inline-block"
+                style={{
+                  WebkitMaskImage: 'url(/icons/checklist.svg)',
+                  maskImage: 'url(/icons/checklist.svg)',
+                  backgroundColor: 'currentColor',
+                  WebkitMaskRepeat: 'no-repeat',
+                  maskRepeat: 'no-repeat',
+                  WebkitMaskPosition: 'center',
+                  maskPosition: 'center',
+                  WebkitMaskSize: 'contain',
+                  maskSize: 'contain',
+                }}
+                aria-hidden
+              />
+              <span>{card.checklistCount}</span>
+            </span>
+          )}
+          {(card.commentCount ?? 0) > 0 && (
+            <span className="inline-flex items-center gap-1">
+              <span
+                className="w-3.5 h-3.5 inline-block"
+                style={{
+                  WebkitMaskImage: 'url(/icons/comment.svg)',
+                  maskImage: 'url(/icons/comment.svg)',
+                  backgroundColor: 'currentColor',
+                  WebkitMaskRepeat: 'no-repeat',
+                  maskRepeat: 'no-repeat',
+                  WebkitMaskPosition: 'center',
+                  maskPosition: 'center',
+                  WebkitMaskSize: 'contain',
+                  maskSize: 'contain',
+                }}
+                aria-hidden
+              />
+              <span>{card.commentCount}</span>
+            </span>
+          )}
+          {(card.attachmentCount ?? 0) > 0 && (
+            <span className="inline-flex items-center gap-1">
+              <span
+                className="w-3.5 h-3.5 inline-block"
+                style={{
+                  WebkitMaskImage: 'url(/icons/attachment.svg)',
+                  maskImage: 'url(/icons/attachment.svg)',
+                  backgroundColor: 'currentColor',
+                  WebkitMaskRepeat: 'no-repeat',
+                  maskRepeat: 'no-repeat',
+                  WebkitMaskPosition: 'center',
+                  maskPosition: 'center',
+                  WebkitMaskSize: 'contain',
+                  maskSize: 'contain',
+                }}
+                aria-hidden
+              />
+              <span>{card.attachmentCount}</span>
+            </span>
+          )}
+          {/* Move avatars to align with icons */}
+          {!!(card.members && card.members.length) && (
+            <div className="ml-auto flex items-center gap-1">
+              {card.members.slice(0, 5).map((m) => (
+                <Avatar key={m.id} name={m.name || undefined} email={m.email} image={m.image || undefined} size={18} />
+              ))}
+              {card.members.length > 5 && (
+                <span className="text-[10px] text-foreground/60">+{card.members.length - 5}</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -66,6 +215,20 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
   const [lists, setLists] = React.useState<ListItem[]>(initialLists);
   const [archives, setArchives] = React.useState<CardItem[]>(archivedCards);
   const [openedCardId, setOpenedCardId] = React.useState<string | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  React.useEffect(() => {
+    const id = searchParams.get("openCard");
+    if (!id) return;
+    setOpenedCardId(id);
+    const controller = new AbortController();
+    fetch(`/api/cards/${id}?summary=1`, { signal: controller.signal }).catch((err) => {
+      if ((err as any)?.name !== "AbortError") {
+      }
+    });
+    return () => controller.abort();
+  }, [searchParams]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -79,7 +242,6 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     return null;
   }
 
-  // Optimistic helpers
   function addCardToList(listId: string, card: { id: string; title: string; order: number }) {
     setLists((curr) => {
       const idx = curr.findIndex((l) => l.id === listId);
@@ -91,12 +253,12 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     });
   }
 
-  // New: Optimistic card insertion and reconciliation
   function addOptimisticCard(listId: string, card: { id: string; title: string; order: number }) {
     setLists((curr) => {
       const idx = curr.findIndex((l) => l.id === listId);
       if (idx === -1) return curr;
       const next = [...curr];
+
       const list = next[idx];
       next[idx] = { ...list, cards: [...list.cards, { id: card.id, title: card.title, order: card.order }] };
       return next;
@@ -317,6 +479,8 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
   async function handleCloseModal() {
     const id = openedCardId;
     setOpenedCardId(null);
+    // Clear openCard from URL without a full navigation
+    try { router.replace(window.location.pathname); } catch {}
     if (!id) return;
     try {
       const res = await fetch(`/api/cards/${id}?summary=1`);

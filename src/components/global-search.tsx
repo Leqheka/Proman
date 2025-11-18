@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface SearchResult {
@@ -26,14 +26,18 @@ export default function GlobalSearch() {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
   const debounced = useDebounced(q, 300);
   const router = useRouter();
+  const wrapRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     async function run() {
       const s = debounced.trim();
       if (!s) {
         setResults([]);
+        setOpen(false);
+        setActiveIndex(0);
         return;
       }
       try {
@@ -41,7 +45,8 @@ export default function GlobalSearch() {
         if (!resp.ok) return;
         const data = await resp.json();
         setResults(data ?? []);
-        setOpen(true);
+        setOpen((data ?? []).length > 0);
+        setActiveIndex(0);
       } catch (err) {
         console.error("Search failed", err);
       }
@@ -49,14 +54,54 @@ export default function GlobalSearch() {
     run();
   }, [debounced]);
 
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!open) return;
+      if (e.key === "Escape") {
+        setOpen(false);
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveIndex((i) => Math.min(i + 1, Math.max(results.length - 1, 0)));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveIndex((i) => Math.max(i - 1, 0));
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const r = results[activeIndex];
+        if (!r) return;
+        if (r.type === "card" && r.boardId) {
+          router.push(`/boards/${r.boardId}?openCard=${r.id}`);
+        } else if (r.type === "board") {
+          router.push(`/boards/${r.id}`);
+        }
+        setOpen(false);
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, results, activeIndex, router]);
+
+  useEffect(() => {
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as Node;
+      const container = wrapRef.current;
+      if (container && !container.contains(target)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, []);
+
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const s = q.trim();
     if (!s) return;
-    // For now, navigate to the first card result's board
     const first = results[0];
     if (first?.type === "card" && first.boardId) {
-      router.push(`/boards/${first.boardId}`);
+      router.push(`/boards/${first.boardId}?openCard=${first.id}`);
     } else if (first?.type === "board" && first.id) {
       router.push(`/boards/${first.id}`);
     }
@@ -65,7 +110,7 @@ export default function GlobalSearch() {
   const visible = open && results.length > 0;
 
   return (
-    <div className="relative w-full max-w-xl">
+    <div ref={wrapRef} className="relative w-full max-w-xl">
       <form onSubmit={onSubmit} className="flex items-center gap-2 rounded bg-foreground/5 px-3 py-1">
         <input
           value={q}
@@ -78,12 +123,13 @@ export default function GlobalSearch() {
       {visible && (
         <div className="absolute z-50 mt-2 w-full rounded border border-black/10 dark:border-white/15 bg-background shadow">
           <ul className="max-h-72 overflow-auto">
-            {results.map((r) => (
+            {results.map((r, i) => (
               <li
                 key={`${r.type}:${r.id}`}
-                className="px-3 py-2 text-sm hover:bg-foreground/5 cursor-pointer"
+                className={`px-3 py-2 text-sm cursor-pointer ${i === activeIndex ? "bg-foreground/10" : "hover:bg-foreground/5"}`}
+                onMouseEnter={() => setActiveIndex(i)}
                 onClick={() => {
-                  if (r.type === "card" && r.boardId) router.push(`/boards/${r.boardId}`);
+                  if (r.type === "card" && r.boardId) router.push(`/boards/${r.boardId}?openCard=${r.id}`);
                   else if (r.type === "board") router.push(`/boards/${r.id}`);
                   setOpen(false);
                 }}

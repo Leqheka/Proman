@@ -5,12 +5,28 @@ export default async function BoardPage({ params }: { params: { boardId: string 
   let boardTitle = "";
   let currentBoardId = "";
   let boardBackground = "";
-  let lists: Array<{ id: string; title: string; order: number; cards: Array<{ id: string; title: string; order: number }> }> = [];
+  let lists: Array<{
+    id: string;
+    title: string;
+    order: number;
+    cards: Array<{
+      id: string;
+      title: string;
+      order: number;
+      dueDate?: Date | null;
+      hasDescription?: boolean;
+      commentsCount?: number;
+      attachmentsCount?: number;
+      checklistsCount?: number;
+      membersCount?: number;
+      members?: Array<{ id: string; name: string | null; email: string; image: string | null }>;
+    }>;
+  }> = [];
   let boards: Array<{ id: string; title: string }> = [];
   let archivedCards: Array<{ id: string; title: string; order: number; listId: string }> = [];
 
   try {
-    const { boardId } = await params;
+    const { boardId } = params; // use params directly
     currentBoardId = boardId;
     const board = await prisma.board.findUnique({
       where: { id: boardId },
@@ -19,17 +35,43 @@ export default async function BoardPage({ params }: { params: { boardId: string 
     boardTitle = board?.title ?? "Board";
     boardBackground = board?.background ?? "";
 
-    lists = await prisma.list.findMany({
+    const rawLists = await prisma.list.findMany({
       where: { boardId: boardId },
       orderBy: { order: "asc" },
       include: {
         cards: {
           where: { archived: false },
           orderBy: { order: "asc" },
-          select: { id: true, title: true, order: true },
+          select: {
+            id: true,
+            title: true,
+            order: true,
+            dueDate: true,
+            description: true,
+            assignments: { select: { user: { select: { id: true, name: true, email: true, image: true } } } },
+            _count: { select: { comments: true, attachments: true, checklists: true, assignments: true } },
+          },
         },
       },
     });
+
+    lists = rawLists.map((l) => ({
+      id: l.id,
+      title: l.title,
+      order: l.order,
+      cards: l.cards.map((c) => ({
+        id: c.id,
+        title: c.title,
+        order: c.order,
+        dueDate: c.dueDate ?? null,
+        hasDescription: !!c.description && c.description.trim().length > 0,
+        commentsCount: (c as any)._count?.comments ?? 0,
+        attachmentsCount: (c as any)._count?.attachments ?? 0,
+        checklistsCount: (c as any)._count?.checklists ?? 0,
+        membersCount: (c as any)._count?.assignments ?? 0,
+        members: (c as any).assignments?.map((a: any) => ({ id: a.user.id, name: a.user.name, email: a.user.email, image: a.user.image })) ?? [],
+      })),
+    }));
 
     archivedCards = await prisma.card.findMany({
       where: { boardId: boardId, archived: true },
@@ -39,17 +81,8 @@ export default async function BoardPage({ params }: { params: { boardId: string 
 
     boards = await prisma.board.findMany({ select: { id: true, title: true }, orderBy: { updatedAt: "desc" } });
   } catch (err) {
-    // Quietly degrade when DB is unreachable; keep defaults so the page can decide what to render.
-  }
-
-  if (!boardTitle) {
-    return (
-      <div className="min-h-screen bg-background text-foreground">
-        <main className="mx-auto max-w-5xl px-6 py-16">
-          <p className="text-sm">Board not found.</p>
-        </main>
-      </div>
-    );
+    currentBoardId = currentBoardId || params.boardId;
+    boardTitle = boardTitle || "Board";
   }
 
   return (
@@ -58,7 +91,7 @@ export default async function BoardPage({ params }: { params: { boardId: string 
       boardTitle={boardTitle}
       initialBackground={boardBackground}
       boards={boards}
-      initialLists={lists}
+      initialLists={lists as any}
       archivedCards={archivedCards}
     />
   );

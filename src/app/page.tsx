@@ -12,8 +12,13 @@ export default async function Home() {
       select: { id: true, title: true, background: true },
       orderBy: { updatedAt: "desc" },
     });
-  } catch (err) {
-    console.error("Failed to fetch boards", err);
+  } catch (err: any) {
+    // Graceful fallback: quietly degrade when the database is unreachable or Prisma throws
+    const isDbUnreachable = err?.code === "P1001" || (typeof err?.name === "string" && err.name.includes("PrismaClientKnownRequestError"));
+    if (process.env.NODE_ENV === "development") {
+      // Use a mild warning to avoid noisy error overlays in dev
+      console.warn(isDbUnreachable ? "Database unreachable; rendering home with no boards." : "Failed to fetch boards; rendering empty list.");
+    }
     boards = [];
   }
 
