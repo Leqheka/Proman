@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { revalidateTag } from "next/cache";
 
 export async function GET(
   req: Request,
@@ -89,7 +90,13 @@ export async function PATCH(
     const updated = await prisma.card.update({
       where: { id: cardId },
       data,
+      include: { list: { select: { boardId: true } } },
     });
+
+    try {
+      const bId = (updated as any)?.list?.boardId;
+      if (bId) revalidateTag(`board:${bId}`);
+    } catch {}
 
     return NextResponse.json(updated);
   } catch (err) {

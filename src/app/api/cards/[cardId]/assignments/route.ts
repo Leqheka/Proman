@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { revalidateTag } from "next/cache";
 
 // List assigned members for a card
 export async function GET(_req: Request, { params }: { params: Promise<{ cardId: string }> }) {
@@ -39,6 +40,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ cardId:
       where: { userId_cardId: { userId, cardId } },
       include: { user: { select: { id: true, name: true, email: true, image: true } } },
     });
+
+    try {
+      const card = await prisma.card.findUnique({ where: { id: cardId }, select: { boardId: true } });
+      if (card?.boardId) revalidateTag(`board:${card.boardId}`);
+    } catch {}
 
     return NextResponse.json(full, { status: 201 });
   } catch (err) {

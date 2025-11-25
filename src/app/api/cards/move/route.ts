@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { revalidateTag } from "next/cache";
 
 export async function POST(req: Request) {
   try {
@@ -60,6 +61,10 @@ export async function POST(req: Request) {
       }
     });
 
+    // Invalidate cached board page for this card's board
+    try {
+      if (card.boardId) revalidateTag(`board:${card.boardId}`);
+    } catch {}
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("POST /api/cards/move error", err);
