@@ -17,7 +17,7 @@ function SortableListWrapper({ list, children }: { list: ListItem; children: Rea
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: list.id });
   const style = { transform: CSS.Transform.toString(transform), transition } as React.CSSProperties;
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="w-72 shrink-0 self-start rounded-lg border border-black/10 dark:border-white/15 bg-gray-100 p-3">
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="w-72 shrink-0 self-start mt-2 mb-4 rounded-lg border border-black/10 dark:border-white/15 bg-gray-100 p-3 max-h-full flex flex-col">
       {children}
     </div>
   );
@@ -79,22 +79,22 @@ function SortableCard({ card, onOpen, onToggleArchive, onUpdateTitle }: { card: 
       }}
       className="group relative rounded border border-black/10 dark:border-white/15 bg-foreground/5 p-3 hover:bg-foreground/10 hover:shadow-sm transition-colors cursor-pointer"
     >
-      {/* Hover-only checkbox, centered left */}
-      <input
-        type="checkbox"
-        className="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity"
-        onClick={(e) => e.stopPropagation()}
-        onChange={(e) => onToggleArchive(card, e.target.checked)}
-      />
-      {/* Title slides right on hover to make room for checkbox */}
-      <span className="block text-sm transition-all duration-200 ease-out group-hover:pl-6">
-        {card.title}
-      </span>
+      {/* Header: checkbox always visible next to title */}
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => onToggleArchive(card, e.target.checked)}
+        />
+        <span className="text-sm font-medium truncate">
+          {card.title}
+        </span>
+      </div>
 
 
-      {/* Metadata icon row using masked SVGs and unified color */}
-      {(card.dueDate || card.hasDescription || (card.checklistCount ?? 0) > 0 || (card.commentCount ?? 0) > 0 || (card.attachmentCount ?? 0) > 0 || (card.assignmentCount ?? 0) > 0) && (
-        <div className="mt-2 flex items-center gap-3 text-[11px] text-foreground/70 group-hover:pl-6 transition-all duration-200 ease-out">
+      {/* Metadata icon row: wraps to new lines when crowded */}
+      {(card.dueDate || card.hasDescription || (card.checklistCount ?? 0) > 0 || (card.commentCount ?? 0) > 0 || (card.attachmentCount ?? 0) > 0 || (card.assignmentCount ?? 0) > 0 || (card.members?.length ?? 0) > 0) && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] text-foreground/70">
           {card.dueDate && (
             <span className={`inline-flex items-center gap-1 px-2 py-[2px] rounded ${dueClasses}`}>
               <span
@@ -441,6 +441,37 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     patchCard(cardId, { title: newTitle });
   }
 
+  // Reflect modal changes (due date, members, checklist count) in list view immediately
+  function handleCardUpdated(patch: { id: string; title?: string; dueDate?: string | null; checklistCount?: number; assignmentCount?: number; members?: CardItem["members"] }) {
+    const { id, title, dueDate, checklistCount, assignmentCount, members } = patch;
+    setLists((curr) => {
+      const loc = findListByCardId(id);
+      if (!loc) return curr;
+      const next = [...curr];
+      const list = next[loc.listIndex];
+      const cards = [...list.cards];
+      const prev = cards[loc.cardIndex];
+      cards[loc.cardIndex] = {
+        ...prev,
+        ...(title !== undefined ? { title } : {}),
+        ...(dueDate !== undefined ? { dueDate } : {}),
+        ...(checklistCount !== undefined ? { checklistCount } : {}),
+        ...(assignmentCount !== undefined ? { assignmentCount } : {}),
+        ...(members !== undefined ? { members } : {}),
+      };
+      next[loc.listIndex] = { ...list, cards };
+      return next;
+    });
+    setArchives((curr) => curr.map((c) => (c.id === id ? {
+      ...c,
+      ...(title !== undefined ? { title } : {}),
+      ...(dueDate !== undefined ? { dueDate } : {}),
+      ...(checklistCount !== undefined ? { checklistCount } : {}),
+      ...(assignmentCount !== undefined ? { assignmentCount } : {}),
+      ...(members !== undefined ? { members } : {}),
+    } : c)));
+  }
+
   function toggleArchive(card: CardItem, checked: boolean) {
     if (checked) {
       // move from lists to archives
@@ -512,7 +543,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     <> 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={lists.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
-          <div className="pt-10 px-6 h-[calc(100vh-96px)] overflow-x-auto pb-1 flex items-start gap-4">
+          <div className="pt-10 px-6 h-[calc(100vh-40px)] overflow-x-auto overflow-y-hidden pb-8 flex items-start gap-2">
             {lists.length === 0 ? (
               <div className="rounded-lg border border-black/10 dark:border-white/15 p-6 w-72 shrink-0 bg-gray-100">
                 <p className="text-sm">No lists yet.</p>
@@ -526,7 +557,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
                       <p className="text-sm font-bold">{l.title}</p>
                     </div>
                     <SortableContext items={l.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-                      <div className="mt-3 flex flex-col gap-2 max-h-[calc(100vh-160px)] overflow-y-auto pr-1">
+                      <div className="mt-4 flex flex-col gap-2 pr-1 pb-4 flex-1 min-h-0 overflow-y-auto">
                         {l.cards.length === 0 ? (
                           <p className="text-xs text-foreground/60">No cards</p>
                         ) : (
@@ -553,7 +584,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-bold">Archives</p>
                   </div>
-                  <div className="mt-3 flex flex-col gap-2 max-h-[calc(100vh-160px)] overflow-y-auto pr-1">
+                  <div className="mt-4 flex flex-col gap-2 max-h-[calc(100vh-160px)] overflow-y-auto pr-1 pb-4">
                     {archives.length === 0 ? (
                       <p className="text-xs text-foreground/60">No archived cards</p>
                     ) : (
@@ -575,7 +606,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
           </div>
         </SortableContext>
       </DndContext>
-      {openedCardId && <CardModal cardId={openedCardId} onClose={handleCloseModal} />}
+      {openedCardId && <CardModal cardId={openedCardId} onClose={handleCloseModal} onCardUpdated={handleCardUpdated} />}
     </>
   );
 }

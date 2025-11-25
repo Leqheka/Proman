@@ -28,7 +28,7 @@ type CardDetail = {
   members: Member[];
 };
 
-export default function CardModal({ cardId, onClose }: { cardId: string; onClose: () => void }) {
+export default function CardModal({ cardId, onClose, onCardUpdated }: { cardId: string; onClose: () => void; onCardUpdated?: (patch: { id: string; title?: string; dueDate?: string | null; checklistCount?: number; assignmentCount?: number; members?: Member[] }) => void }) {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [data, setData] = React.useState<CardDetail | null>(null);
@@ -85,6 +85,7 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
           attachments: Array.isArray(summary.attachments) ? summary.attachments : [],
           comments: Array.isArray(summary.comments) ? summary.comments : [],
           checklists: Array.isArray(summary.checklists) ? summary.checklists : [],
+          members: Array.isArray(summary.members) ? summary.members : [],
         } as CardDetail;
         setData(normalized);
         setTitle(normalized.title ?? "");
@@ -94,18 +95,32 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
         setLoadingComments(true);
         setLoadingChecklists(true);
         // Fetch heavy sections in parallel without blocking initial render
-        const [commentsRes, attachmentsRes, checklistsRes] = await Promise.allSettled([
+        const [commentsRes, attachmentsRes, checklistsRes, assignmentsRes] = await Promise.allSettled([
           fetch(`/api/cards/${cardId}/comments?take=50`, { signal: controller.signal }),
           fetch(`/api/cards/${cardId}/attachments`, { signal: controller.signal }),
           fetch(`/api/cards/${cardId}/checklists`, { signal: controller.signal }),
+          fetch(`/api/cards/${cardId}/assignments`, { signal: controller.signal }),
         ]);
-        const comments =
-          commentsRes.status === "fulfilled" && commentsRes.value.ok ? await commentsRes.value.json() : [];
-        const attachments =
-          attachmentsRes.status === "fulfilled" && attachmentsRes.value.ok ? await attachmentsRes.value.json() : [];
-        const checklists =
-          checklistsRes.status === "fulfilled" && checklistsRes.value.ok ? await checklistsRes.value.json() : [];
-        setData((d) => (d ? { ...d, comments, attachments, checklists } : d));
+        const commentsOk = commentsRes.status === "fulfilled" && commentsRes.value.ok;
+        const attachmentsOk = attachmentsRes.status === "fulfilled" && attachmentsRes.value.ok;
+        const checklistsOk = checklistsRes.status === "fulfilled" && checklistsRes.value.ok;
+        const assignmentsOk = assignmentsRes.status === "fulfilled" && assignmentsRes.value.ok;
+
+        const comments = commentsOk ? await commentsRes.value.json() : undefined;
+        const attachments = attachmentsOk ? await attachmentsRes.value.json() : undefined;
+        const checklists = checklistsOk ? await checklistsRes.value.json() : undefined;
+        const members = assignmentsOk ? await assignmentsRes.value.json() : undefined;
+
+        setData((d) => {
+          if (!d) return d;
+          return {
+            ...d,
+            ...(comments !== undefined ? { comments } : {}),
+            ...(attachments !== undefined ? { attachments } : {}),
+            ...(checklists !== undefined ? { checklists } : {}),
+            ...(members !== undefined ? { members } : {}),
+          };
+        });
         setLoadingComments(false);
         setLoadingChecklists(false);
       } catch (err) {
@@ -182,11 +197,17 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
         if (resp.ok) {
           const created = await resp.json();
           setData((d) => (d ? { ...d, members: [...d.members, created.user] } : d));
+          if (onCardUpdated) {
+            const nextMembers = [...(data?.members ?? []), created.user];
+            onCardUpdated({ id: cardId, members: nextMembers, assignmentCount: nextMembers.length });
+          }
         }
       } else {
         const resp = await fetch(`/api/cards/${cardId}/assignments/${m.id}`, { method: "DELETE" });
         if (resp.ok) {
-          setData((d) => (d ? { ...d, members: d.members.filter((mm) => mm.id !== m.id) } : d));
+          const nextMembers = (data?.members ?? []).filter((mm) => mm.id !== m.id);
+          setData((d) => (d ? { ...d, members: nextMembers } : d));
+          if (onCardUpdated) onCardUpdated({ id: cardId, members: nextMembers, assignmentCount: nextMembers.length });
         }
       }
     } catch (err) {
@@ -217,6 +238,7 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
       if (resp.ok) {
         const updated = await resp.json();
         setData((d) => (d ? { ...d, title: updated.title, description: updated.description ?? "", dueDate: updated.dueDate } : d));
+        if (onCardUpdated) onCardUpdated({ id: cardId, title: updated.title, dueDate: updated.dueDate ?? null });
       }
     } catch (err) {
       console.error("Failed to save", err);
@@ -236,6 +258,7 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
         const updated = await resp.json();
         setData((d) => (d ? { ...d, dueDate: updated.dueDate } : d));
         setDueDate(updated.dueDate ? new Date(updated.dueDate).toISOString().slice(0, 16) : "");
+        if (onCardUpdated) onCardUpdated({ id: cardId, dueDate: updated.dueDate ?? null });
       }
     } catch (err) {
       console.error("Failed to update due date", err);
@@ -323,6 +346,10 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
       if (resp.ok) {
         const created = await resp.json();
         setData((d) => (d ? { ...d, checklists: [...d.checklists, created] } : d));
+        if (onCardUpdated) {
+          const nextCount = (data?.checklists.length ?? 0) + 1;
+          onCardUpdated({ id: cardId, checklistCount: nextCount });
+        }
       }
     } catch (err) {
       console.error("Failed to add checklist", err);
@@ -358,7 +385,9 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
     try {
       const resp = await fetch(`/api/checklists/${checklistId}`, { method: "DELETE" });
       if (resp.ok) {
+        const nextCount = Math.max(0, (data?.checklists.length ?? 0) - 1);
         setData((d) => (d ? { ...d, checklists: d.checklists.filter((c) => c.id !== checklistId) } : d));
+        if (onCardUpdated) onCardUpdated({ id: cardId, checklistCount: nextCount });
       }
     } catch (err) {
       console.error("Failed to delete checklist", err);
@@ -508,8 +537,8 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
             <button onClick={onClose} className="ml-3 text-xs rounded px-2 py-1 bg-foreground/5">Close</button>
           </div>
 
-          <div className="grid grid-cols-[1fr_320px] gap-6 p-4">
-            {/* Left column */}
+          <div className="grid grid-cols-[1fr_320px] gap-6 p-4 min-h-[600px] items-stretch">
+             {/* Left column */}
             <div className="space-y-6">
               {/* Top Add toolbar with Dates popover */}
               <div className="flex items-center gap-2">
@@ -701,29 +730,27 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
                 </div>
               </div>
 
-              {/* Selected dates chips displayed above Description */}
-              {(data?.dueDate || tempStartDate) && (
-                <div className="rounded border border-black/10 dark:border-white/15 p-2">
-                  <div className="flex items-center gap-3 text-xs">
-                    {tempStartDate && (
-                      <span className="px-2 py-1 rounded bg-background border">Start {new Date(tempStartDate).toLocaleDateString()}</span>
-                    )}
-                    {data?.dueDate && (
-                      <span className="px-2 py-1 rounded bg-background border">Due {new Date(data.dueDate).toLocaleString()}</span>
-                    )}
-                    {!!(data?.members && data.members.length) && (
-                      <div className="ml-auto flex items-center gap-1">
-                        {data.members.slice(0, 6).map((m) => (
-                          <Avatar key={m.id} name={m.name || undefined} email={m.email} image={m.image || undefined} size={18} />
-                        ))}
-                        {data.members.length > 6 && (
-                          <span className="text-[10px] text-foreground/60">+{data.members.length - 6}</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
+              {/* Dates and members bar (always visible) */}
+              <div className="rounded border border-black/10 dark:border-white/15 p-2">
+                <div className="flex items-center gap-3 text-xs">
+                  {tempStartDate && (
+                    <span className="px-2 py-1 rounded bg-background border">Start {new Date(tempStartDate).toLocaleDateString()}</span>
+                  )}
+                  {data?.dueDate && (
+                    <span className="px-2 py-1 rounded bg-background border">Due {new Date(data.dueDate).toLocaleString()}</span>
+                  )}
+                  {!!(data?.members && data.members.length) && (
+                    <div className="ml-auto flex items-center gap-1">
+                      {data.members.slice(0, 6).map((m) => (
+                        <Avatar key={m.id} name={m.name || undefined} email={m.email} image={m.image || undefined} size={18} />
+                      ))}
+                      {data.members.length > 6 && (
+                        <span className="text-[10px] text-foreground/60">+{data.members.length - 6}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
 
               {/* Description */}
               <div>
@@ -874,41 +901,41 @@ export default function CardModal({ cardId, onClose }: { cardId: string; onClose
             </div>
 
             {/* Right column */}
-            <div className="space-y-4">
-              <div className="rounded border border-black/10 dark:border-white/15 p-3 bg-foreground/5">
-                <p className="text-sm font-semibold">Comments and activity</p>
-                <div className="mt-2">
-                  <textarea
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="Write a comment..."
-                    className="w-full h-20 text-sm border rounded p-2 bg-background"
-                  />
-                  <div className="mt-2 flex justify-end">
-                    <button onClick={addComment} className="text-xs rounded px-2 py-1 bg-foreground text-background">Comment</button>
-                  </div>
-                </div>
-                {loadingComments ? (
-                  <div className="mt-3 space-y-2 animate-pulse">
-                    <div className="h-3 rounded bg-foreground/10 w-3/5" />
-                    <div className="h-3 rounded bg-foreground/10 w-2/5" />
-                    <div className="h-3 rounded bg-foreground/10 w-4/5" />
-                  </div>
-                ) : data.comments.length === 0 ? (
-                  <p className="mt-3 text-xs text-foreground/60">No comments yet</p>
-                ) : (
-                  <ul className="mt-3 space-y-2 max-h-64 overflow-auto">
-                    {data.comments.map((c) => (
-                      <li key={c.id} className="text-sm">
-                        <div className="text-xs text-foreground/60">{c.author?.name || c.author?.email} • {new Date(c.createdAt).toLocaleString()}</div>
-                        <div>{c.content}</div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-            </div>
+            <div className="h-full">
+              <div className="rounded border border-black/10 dark:border-white/15 p-3 bg-foreground/5 h-full flex flex-col">
+                 <p className="text-sm font-semibold">Comments and activity</p>
+                 <div className="mt-2">
+                   <textarea
+                     value={commentText}
+                     onChange={(e) => setCommentText(e.target.value)}
+                     placeholder="Write a comment..."
+                     className="w-full h-20 text-sm border rounded p-2 bg-background"
+                   />
+                   <div className="mt-2 flex justify-end">
+                     <button onClick={addComment} className="text-xs rounded px-2 py-1 bg-foreground text-background">Comment</button>
+                   </div>
+                 </div>
+                 {loadingComments ? (
+                   <div className="mt-3 space-y-2 animate-pulse">
+                     <div className="h-3 rounded bg-foreground/10 w-3/5" />
+                     <div className="h-3 rounded bg-foreground/10 w-2/5" />
+                     <div className="h-3 rounded bg-foreground/10 w-4/5" />
+                   </div>
+                 ) : data.comments.length === 0 ? (
+                   <p className="mt-3 text-xs text-foreground/60">No comments yet</p>
+                 ) : (
+                  <ul className="mt-3 space-y-2 overflow-auto flex-1">
+                     {data.comments.map((c) => (
+                       <li key={c.id} className="text-sm">
+                         <div className="text-xs text-foreground/60">{c.author?.name || c.author?.email} • {new Date(c.createdAt).toLocaleString()}</div>
+                         <div>{c.content}</div>
+                       </li>
+                     ))}
+                   </ul>
+                 )}
+               </div>
+ 
+             </div>
 
           </div>
         </div>

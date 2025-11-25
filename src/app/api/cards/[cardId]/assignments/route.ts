@@ -1,6 +1,25 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// List assigned members for a card
+export async function GET(_req: Request, { params }: { params: Promise<{ cardId: string }> }) {
+  try {
+    const { cardId } = await params;
+    if (!cardId) return NextResponse.json({ error: "cardId required" }, { status: 400 });
+
+    const assignments = await prisma.cardAssignment.findMany({
+      where: { cardId },
+      include: { user: { select: { id: true, name: true, email: true, image: true } } },
+      orderBy: { createdAt: "asc" },
+    });
+    const members = assignments.map((a) => a.user);
+    return NextResponse.json(members);
+  } catch (err) {
+    console.error("GET /api/cards/[cardId]/assignments error", err);
+    return NextResponse.json({ error: "Failed to list assignments" }, { status: 500 });
+  }
+}
+
 // Assign a member to a card
 export async function POST(req: Request, { params }: { params: Promise<{ cardId: string }> }) {
   try {

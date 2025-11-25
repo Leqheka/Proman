@@ -44,7 +44,7 @@ export default function BoardPageClient({
   const appliedBg = bg ? toProxy(normalizeUnsplash(bg)) : undefined;
 
   return (
-    <div className="min-h-screen bg-background text-foreground" style={{ backgroundImage: appliedBg ? `url(${appliedBg})` : undefined }}>
+    <div className="fixed inset-0 overflow-hidden bg-background text-foreground" style={{ backgroundImage: appliedBg ? `url(${appliedBg})` : undefined }}>
       <BoardToolbar boards={boards} currentBoardId={currentBoardId} boardTitle={boardTitle} onBackgroundChanged={setBg} />
       <BoardContentClient boardId={currentBoardId} initialLists={initialLists} archivedCards={archivedCards} />
     </div>
