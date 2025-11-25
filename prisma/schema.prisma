@@ -66,6 +66,7 @@ model List {
   cards   Card[]
 
   @@index([boardId])
+  @@index([boardId, order])
 }
 
 model Card {
@@ -91,6 +92,8 @@ model Card {
 
   @@index([listId])
   @@index([boardId])
+  @@index([listId, archived, order])
+  @@index([boardId, archived])
 }
 
 model Label {

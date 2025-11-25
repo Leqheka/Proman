@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { revalidateTag } from "next/cache";
 
 // Remove a member from the board
 export async function DELETE(_req: Request, { params }: { params: Promise<{ boardId: string; userId: string }> }) {
@@ -8,6 +9,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ boar
     if (!boardId || !userId) return NextResponse.json({ error: "boardId and userId required" }, { status: 400 });
 
     await prisma.membership.delete({ where: { userId_boardId: { userId, boardId } } });
+    try { revalidateTag(`board:${boardId}`); } catch {}
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("DELETE /api/boards/[boardId]/members/[userId] error", err);
@@ -35,7 +37,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ boardI
       where: { userId_boardId: { userId, boardId } },
       data: { role: role as any },
     });
-
+    try { revalidateTag(`board:${boardId}`); } catch {}
     return NextResponse.json({ ok: true, role: updated.role });
   } catch (err) {
     console.error("PATCH /api/boards/[boardId]/members/[userId] error", err);

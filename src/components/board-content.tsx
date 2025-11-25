@@ -13,7 +13,7 @@ import Avatar from "./avatar";
 export type CardItem = { id: string; title: string; order: number; listId?: string; dueDate?: string | null; hasDescription?: boolean; checklistCount?: number; commentCount?: number; attachmentCount?: number; assignmentCount?: number; members?: Array<{ id: string; name: string | null; email: string; image: string | null }> };
 export type ListItem = { id: string; title: string; order: number; cards: CardItem[] };
 
-function SortableListWrapper({ list, children }: { list: ListItem; children: React.ReactNode }) {
+function SortableListWrapperBase({ list, children }: { list: ListItem; children: React.ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: list.id });
   const style = { transform: CSS.Transform.toString(transform), transition } as React.CSSProperties;
   return (
@@ -22,6 +22,10 @@ function SortableListWrapper({ list, children }: { list: ListItem; children: Rea
     </div>
   );
 }
+
+const SortableListWrapper = React.memo(SortableListWrapperBase, (prev, next) => {
+  return prev.list.id === next.list.id && prev.list.title === next.list.title && prev.list.cards === next.list.cards;
+});
 
 function isTempCardId(id: string) {
   return id.startsWith("temp-card-");
@@ -48,7 +52,7 @@ function getDueStatus(iso?: string | null): "overdue" | "today" | "soon" | "none
   return "none";
 }
 
-function SortableCard({ card, onOpen, onToggleArchive, onUpdateTitle }: { card: CardItem; onOpen: (id: string) => void; onToggleArchive: (card: CardItem, checked: boolean) => void; onUpdateTitle: (cardId: string, newTitle: string) => void }) {
+function SortableCardBase({ card, onOpen, onToggleArchive, onUpdateTitle }: { card: CardItem; onOpen: (id: string) => void; onToggleArchive: (card: CardItem, checked: boolean) => void; onUpdateTitle: (cardId: string, newTitle: string) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: card.id });
   const style = { transform: CSS.Transform.toString(transform), transition } as React.CSSProperties;
   const prefetched = React.useRef(false);
@@ -210,6 +214,27 @@ function SortableCard({ card, onOpen, onToggleArchive, onUpdateTitle }: { card: 
     </div>
   );
 }
+
+const SortableCard = React.memo(SortableCardBase, (prev, next) => {
+  const a = prev.card;
+  const b = next.card;
+  if (a.id !== b.id) return false;
+  if (a.title !== b.title) return false;
+  if (a.dueDate !== b.dueDate) return false;
+  if ((a.hasDescription ?? false) !== (b.hasDescription ?? false)) return false;
+  if ((a.checklistCount ?? 0) !== (b.checklistCount ?? 0)) return false;
+  if ((a.commentCount ?? 0) !== (b.commentCount ?? 0)) return false;
+  if ((a.attachmentCount ?? 0) !== (b.attachmentCount ?? 0)) return false;
+  if ((a.assignmentCount ?? 0) !== (b.assignmentCount ?? 0)) return false;
+  const lenA = a.members?.length ?? 0;
+  const lenB = b.members?.length ?? 0;
+  if (lenA !== lenB) return false;
+  if (!lenA) return true;
+  for (let i = 0; i < Math.min(5, lenA); i++) {
+    if ((a.members![i]?.id ?? "") !== (b.members![i]?.id ?? "")) return false;
+  }
+  return true;
+});
 
 export default function BoardContent({ boardId, initialLists, archivedCards = [] }: { boardId: string; initialLists: ListItem[]; archivedCards?: CardItem[] }) {
   const [lists, setLists] = React.useState<ListItem[]>(initialLists);

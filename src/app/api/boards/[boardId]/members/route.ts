@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { revalidateTag } from "next/cache";
 
 // List board members
 export async function GET(_req: Request, { params }: { params: Promise<{ boardId: string }> }) {
@@ -61,13 +62,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ boardId
       create: { userId: user.id, boardId, role: (role as any) ?? "EDITOR" },
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       id: user.id,
       name: user.name,
       email: user.email,
       image: user.image,
       role: membership.role,
     }, { status: 201 });
+    try { revalidateTag(`board:${boardId}`); } catch {}
+    return response;
   } catch (err) {
     console.error("POST /api/boards/[boardId]/members error", err);
     return NextResponse.json({ error: "Failed to add member" }, { status: 500 });
