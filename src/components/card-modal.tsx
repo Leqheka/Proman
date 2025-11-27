@@ -101,6 +101,9 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
           setTitle(pre.title);
           setDescription(pre.description);
           setDueDate(pre.dueDate ? new Date(pre.dueDate).toISOString().slice(0, 16) : "");
+          if ((pre.checklistCount || 0) > 0) {
+            setLoadingChecklists(true);
+          }
           setLoading(false);
         } else {
           setLoading(true);
@@ -134,13 +137,11 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
         if ((normalized.checklistCount || 0) > 0) {
           setLoadingChecklists(true);
         }
-        // Defer heavy sections until after first paint / idle time
+        // Run heavy loads just after paint to avoid long idle delays
         const schedule = (fn: () => void) => {
           try {
-            // @ts-ignore
-            if (typeof window !== "undefined" && typeof (window as any).requestIdleCallback === "function") {
-              // @ts-ignore
-              (window as any).requestIdleCallback(fn);
+            if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+              window.requestAnimationFrame(() => fn());
             } else {
               setTimeout(fn, 0);
             }
@@ -919,7 +920,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold">Checklists</p>
                 </div>
-                {loadingChecklists && (data.checklistCount || 0) > 0 ? (
+                {(data.checklistCount || 0) > 0 && data.checklists.length === 0 ? (
                   <div className="mt-2 space-y-2 animate-pulse">
                     <div className="h-4 rounded bg-foreground/10 w-2/5" />
                     <div className="h-3 rounded bg-foreground/10 w-4/5" />
