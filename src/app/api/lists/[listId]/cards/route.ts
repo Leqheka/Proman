@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(_req: Request, { params }: { params: Promise<{ listId: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ listId: string }> }) {
   try {
     const { listId } = await params;
+    const { searchParams } = new URL(req.url);
+    const take = Math.max(1, Math.min(500, Number(searchParams.get("take") ?? 50)));
+    const cursor = searchParams.get("cursor") || undefined;
     const cards = await prisma.card.findMany({
       where: { listId, archived: false },
       orderBy: { order: "asc" },
+      take,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
     return NextResponse.json(cards);
   } catch (err) {

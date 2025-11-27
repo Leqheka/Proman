@@ -1,14 +1,18 @@
 "use client";
 
 import React from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, useSortable, arrayMove, verticalListSortingStrategy, horizontalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import CreateCard from "./create-card";
 import AddListTile from "./add-list-tile";
-import CardModal from "./card-modal";
 import Avatar from "./avatar";
+const CardModal = dynamic(() => import("./card-modal"), {
+  ssr: false,
+  loading: () => <div className="px-6 pt-10">Loading card...</div>,
+});
 
 export type CardItem = { id: string; title: string; order: number; listId?: string; dueDate?: string | null; hasDescription?: boolean; checklistCount?: number; commentCount?: number; attachmentCount?: number; assignmentCount?: number; members?: Array<{ id: string; name: string | null; email: string; image: string | null }> };
 export type ListItem = { id: string; title: string; order: number; cards: CardItem[] };
@@ -240,6 +244,17 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
   const [lists, setLists] = React.useState<ListItem[]>(initialLists);
   const [archives, setArchives] = React.useState<CardItem[]>(archivedCards);
   const [openedCardId, setOpenedCardId] = React.useState<string | null>(null);
+  const [listPaging, setListPaging] = React.useState<Record<string, { hasMore: boolean; cursor: string | null; loading: boolean; total: number }>>(() => {
+    const take = 100;
+    const init: Record<string, { hasMore: boolean; cursor: string | null; loading: boolean; total: number }> = {};
+    for (const l of initialLists) {
+      const total = (l as any).totalCardCount ?? (l.cards?.length ?? 0);
+      const hasMore = (l.cards?.length ?? 0) < total;
+      const cursor = l.cards?.length ? l.cards[l.cards.length - 1].id : null;
+      init[l.id] = { hasMore, cursor, loading: false, total };
+    }
+    return init;
+  });
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -276,6 +291,10 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
       next[idx] = { ...list, cards: [...list.cards, { id: card.id, title: card.title, order: card.order }] };
       return next;
     });
+    setListPaging((curr) => ({
+      ...curr,
+      [listId]: { ...(curr[listId] || { hasMore: false, cursor: null, loading: false, total: 0 }), cursor: card.id, total: (curr[listId]?.total ?? 0) + 1, hasMore: (curr[listId]?.total ?? 0) + 1 > (lists.find((l) => l.id === listId)?.cards.length ?? 0) + 1 },
+    }));
   }
 
   function addOptimisticCard(listId: string, card: { id: string; title: string; order: number }) {
@@ -288,6 +307,10 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
       next[idx] = { ...list, cards: [...list.cards, { id: card.id, title: card.title, order: card.order }] };
       return next;
     });
+    setListPaging((curr) => ({
+      ...curr,
+      [listId]: { ...(curr[listId] || { hasMore: false, cursor: null, loading: false, total: 0 }), cursor: card.id, total: (curr[listId]?.total ?? 0) + 1, hasMore: (curr[listId]?.total ?? 0) + 1 > (lists.find((l) => l.id === listId)?.cards.length ?? 0) + 1 },
+    }));
   }
 
   function reconcileCardId(tempId: string, created: { id: string; title: string; order: number }) {
@@ -301,10 +324,58 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
       });
       return next;
     });
+    // Update cursor for the list that contains the temp card
+    setListPaging((curr) => {
+      const loc = findListByCardId(tempId);
+      if (!loc) return curr;
+      const listId = lists[loc.listIndex].id;
+      return { ...curr, [listId]: { ...(curr[listId] || { hasMore: false, cursor: null, loading: false, total: 0 }), cursor: created.id } };
+    });
   }
 
   function removeCardById(cardId: string) {
     setLists((curr) => curr.map((list) => ({ ...list, cards: list.cards.filter((c) => c.id !== cardId) })));
+  }
+
+  async function loadMoreCards(listId: string) {
+    const page = listPaging[listId];
+    if (!page?.hasMore || page.loading) return;
+    const cursor = page.cursor;
+    try {
+      setListPaging((curr) => ({ ...curr, [listId]: { ...(curr[listId] || { hasMore: false, cursor: null, loading: false, total: 0 }), loading: true } }));
+      const params = new URLSearchParams();
+      params.set("take", String(50));
+      if (cursor) params.set("cursor", cursor);
+      const resp = await fetch(`/api/lists/${listId}/cards?${params.toString()}`);
+      if (resp.ok) {
+        const next: CardItem[] = await resp.json();
+        setLists((curr) => {
+          const idx = curr.findIndex((l) => l.id === listId);
+          if (idx === -1) return curr;
+          const list = curr[idx];
+          const existingIds = new Set(list.cards.map((c) => c.id));
+          const appended = next.filter((c) => !existingIds.has(c.id));
+          const cards = [...list.cards, ...appended];
+          const updated = [...curr];
+          updated[idx] = { ...list, cards };
+          return updated;
+        });
+        const take = 50;
+        const newCursor = next.length ? next[next.length - 1].id : cursor;
+        setListPaging((curr) => {
+          const prev = curr[listId] || { total: 0 } as any;
+          const list = lists.find((l) => l.id === listId);
+          const currentLen = list ? list.cards.length + next.length : next.length;
+          const stillHasMore = currentLen < (prev.total ?? currentLen);
+          return { ...curr, [listId]: { ...prev, hasMore: stillHasMore, cursor: newCursor, loading: false } };
+        });
+      } else {
+        setListPaging((curr) => ({ ...curr, [listId]: { ...(curr[listId] || { hasMore: false, cursor: null, loading: false, total: 0 }), loading: false } }));
+      }
+    } catch (err) {
+      console.error("Failed to load more cards", err);
+      setListPaging((curr) => ({ ...curr, [listId]: { ...(curr[listId] || { hasMore: false, cursor: null, loading: false, total: 0 }), loading: false } }));
+    }
   }
 
   function addList(newList: { id: string; title: string; order: number }) {
@@ -371,7 +442,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
       return;
     }
 
-    let persistMove: { cardId: string; fromListId: string; toListId: string; toIndex: number } | null = null;
+    let persistMove: any = null;
 
     setLists((curr) => {
       const findIn = (cardId: string): { listIndex: number; cardIndex: number } | null => {
@@ -434,8 +505,9 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
       return curr;
     });
 
-    if (persistMove !== null) {
-      moveCard(persistMove.cardId, persistMove.fromListId, persistMove.toListId, persistMove.toIndex);
+    const pm = persistMove;
+    if (pm) {
+      moveCard(pm.cardId, pm.fromListId, pm.toListId, pm.toIndex);
     }
   }
 
@@ -467,7 +539,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
   }
 
   // Reflect modal changes (due date, members, checklist count) in list view immediately
-  function handleCardUpdated(patch: { id: string; title?: string; dueDate?: string | null; checklistCount?: number; assignmentCount?: number; members?: CardItem["members"] }) {
+  function handleCardUpdated(patch: { id: string; title?: string; dueDate?: string | null; checklistCount?: number; assignmentCount?: number; members?: Array<{ id: string; name?: string | null; email: string; image?: string | null }> }) {
     const { id, title, dueDate, checklistCount, assignmentCount, members } = patch;
     setLists((curr) => {
       const loc = findListByCardId(id);
@@ -482,7 +554,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
         ...(dueDate !== undefined ? { dueDate } : {}),
         ...(checklistCount !== undefined ? { checklistCount } : {}),
         ...(assignmentCount !== undefined ? { assignmentCount } : {}),
-        ...(members !== undefined ? { members } : {}),
+        ...(members !== undefined ? { members: members.map((m) => ({ ...m, name: m.name ?? null, image: m.image ?? null })) } : {}),
       };
       next[loc.listIndex] = { ...list, cards };
       return next;
@@ -493,7 +565,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
       ...(dueDate !== undefined ? { dueDate } : {}),
       ...(checklistCount !== undefined ? { checklistCount } : {}),
       ...(assignmentCount !== undefined ? { assignmentCount } : {}),
-      ...(members !== undefined ? { members } : {}),
+      ...(members !== undefined ? { members: members.map((m) => ({ ...m, name: m.name ?? null, image: m.image ?? null })) } : {}),
     } : c)));
   }
 
@@ -564,16 +636,106 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     }
   }
 
+  function ListCardsVirtualized({ cards, onOpen, onToggleArchive, onUpdateTitle, onNearEnd }: { cards: CardItem[]; onOpen: (id: string) => void; onToggleArchive: (card: CardItem, checked: boolean) => void; onUpdateTitle: (cardId: string, newTitle: string) => void; onNearEnd?: () => void }) {
+    const containerRef = React.useRef<HTMLDivElement | null>(null);
+    const [scrollTop, setScrollTop] = React.useState(0);
+    const [containerHeight, setContainerHeight] = React.useState(0);
+    const ITEM_HEIGHT = 72; // approximate card height
+    const BUFFER = 5;
+
+    React.useEffect(() => {
+      const el = containerRef.current;
+      if (!el) return;
+      setContainerHeight(el.clientHeight);
+      const onScroll = () => setScrollTop(el.scrollTop);
+      el.addEventListener("scroll", onScroll);
+      const onResize = () => setContainerHeight(el.clientHeight);
+      window.addEventListener("resize", onResize);
+      return () => {
+        el.removeEventListener("scroll", onScroll);
+        window.removeEventListener("resize", onResize);
+      };
+    }, []);
+
+    if (cards.length === 0) {
+      return <div className="mt-4 pr-1 pb-4 flex-1 min-h-0 overflow-y-auto"><p className="text-xs text-foreground/60">No cards</p></div>;
+    }
+
+    // Only virtualize for large lists to avoid complexity for small ones
+    if (cards.length < 50) {
+      return (
+        <div ref={containerRef} className="mt-4 flex flex-col gap-2 pr-1 pb-4 flex-1 min-h-0 overflow-y-auto">
+          {cards.map((c) => (
+            <SortableCard key={c.id} card={c} onOpen={onOpen} onToggleArchive={onToggleArchive} onUpdateTitle={onUpdateTitle} />
+          ))}
+        </div>
+      );
+    }
+
+    const visibleCount = Math.ceil((containerHeight || 400) / ITEM_HEIGHT) + BUFFER * 2;
+    const startIndex = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - BUFFER);
+    const endIndex = Math.min(cards.length, startIndex + visibleCount);
+    const topSpacer = startIndex * ITEM_HEIGHT;
+    const bottomSpacer = (cards.length - endIndex) * ITEM_HEIGHT;
+
+    // Trigger near-end callback to preload next page when approaching bottom
+    React.useEffect(() => {
+      if (!onNearEnd) return;
+      const NEAR_END_BUFFER = Math.max(BUFFER, 3);
+      if (endIndex >= cards.length - NEAR_END_BUFFER) {
+        onNearEnd();
+      }
+    }, [endIndex, cards.length, onNearEnd]);
+
+    return (
+      <div ref={containerRef} className="mt-4 flex flex-col pr-1 pb-4 flex-1 min-h-0 overflow-y-auto">
+        <div style={{ height: topSpacer }} />
+        <div className="flex flex-col gap-2">
+          {cards.slice(startIndex, endIndex).map((c) => (
+            <SortableCard key={c.id} card={c} onOpen={onOpen} onToggleArchive={onToggleArchive} onUpdateTitle={onUpdateTitle} />
+          ))}
+        </div>
+        <div style={{ height: bottomSpacer }} />
+      </div>
+    );
+  }
+
   return (
     <> 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={lists.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
           <div className="pt-10 px-6 h-[calc(100vh-40px)] overflow-x-auto overflow-y-hidden pb-8 flex items-start gap-2">
             {lists.length === 0 ? (
-              <div className="rounded-lg border border-black/10 dark:border-white/15 p-6 w-72 shrink-0 bg-gray-100">
-                <p className="text-sm">No lists yet.</p>
-                <p className="text-xs text-foreground/70">Create a list to organize your cards.</p>
-              </div>
+              <>
+                <AddListTile
+                  boardId={boardId}
+                  onOptimisticCreate={(list) => addOptimisticList(list)}
+                  onFinalize={(prevId, created) => reconcileListId(prevId, created)}
+                  onRollback={(prevId) => removeListById(prevId)}
+                />
+                {/* Archives list */}
+                <div className="w-72 shrink-0 self-start rounded-lg border border-black/10 dark:border-white/15 bg-gray-100 p-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-bold">Archives</p>
+                  </div>
+                  <div className="mt-4 flex flex-col gap-2 max-h-[calc(100vh-160px)] overflow-y-auto pr-1 pb-4">
+                    {archives.length === 0 ? (
+                      <p className="text-xs text-foreground/60">No archived cards</p>
+                    ) : (
+                      <>
+                        {archives.map((c) => (
+                          <div key={c.id} className="rounded border border-black/10 dark:border-white/15 bg-foreground/5 p-3">
+                            <div className="flex items-center gap-2">
+                              <input type="checkbox" checked onChange={(e) => toggleArchive(c, e.target.checked)} />
+                              <span className="text-sm">{c.title}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </>
             ) : (
               <>
                 {lists.map((l) => (
@@ -581,21 +743,29 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-bold">{l.title}</p>
                     </div>
-                    <SortableContext items={l.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-                      <div className="mt-4 flex flex-col gap-2 pr-1 pb-4 flex-1 min-h-0 overflow-y-auto">
-                        {l.cards.length === 0 ? (
-                          <p className="text-xs text-foreground/60">No cards</p>
-                        ) : (
-                          l.cards.map((c) => <SortableCard key={c.id} card={c} onOpen={setOpenedCardId} onToggleArchive={toggleArchive} onUpdateTitle={updateCardTitle} />)
-                        )}
-                      </div>
-                    </SortableContext>
-                    <CreateCard
-                      listId={l.id}
-                      onOptimisticCreate={(card) => addOptimisticCard(l.id, card)}
-                      onFinalize={(prevId, created) => reconcileCardId(prevId, created)}
-                      onRollback={(prevId) => removeCardById(prevId)}
-                    />
+                <SortableContext items={l.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+                  <ListCardsVirtualized cards={l.cards} onOpen={setOpenedCardId} onToggleArchive={toggleArchive} onUpdateTitle={updateCardTitle} onNearEnd={() => {
+                    const p = listPaging[l.id];
+                    if (p && p.hasMore && !p.loading) loadMoreCards(l.id);
+                  }} />
+                </SortableContext>
+                {listPaging[l.id]?.hasMore && (
+                  <div className="mt-2 flex justify-center">
+                    <button
+                      onClick={() => loadMoreCards(l.id)}
+                      disabled={!!listPaging[l.id]?.loading}
+                      className={`text-xs rounded px-3 py-1 ${listPaging[l.id]?.loading ? "bg-foreground/10" : "bg-foreground text-background"}`}
+                    >
+                      {listPaging[l.id]?.loading ? "Loading..." : "Load more cards"}
+                    </button>
+                  </div>
+                )}
+                <CreateCard
+                  listId={l.id}
+                  onOptimisticCreate={(card) => addOptimisticCard(l.id, card)}
+                  onFinalize={(prevId, created) => reconcileCardId(prevId, created)}
+                  onRollback={(prevId) => removeCardById(prevId)}
+                />
                   </SortableListWrapper>
                 ))}
                 <AddListTile

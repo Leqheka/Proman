@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { revalidateTag } from "next/cache";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ boardId: string }> }) {
   try {
@@ -26,7 +27,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ boardId
     const list = await prisma.list.create({
       data: { title, boardId, order: count },
     });
-    return NextResponse.json(list, { status: 201 });
+    const response = NextResponse.json(list, { status: 201 });
+    try { revalidateTag(`board:${boardId}`); } catch {}
+    return response;
   } catch (err) {
     console.error("POST /api/boards/:boardId/lists error", err);
     return NextResponse.json({ error: "Failed to create list" }, { status: 500 });

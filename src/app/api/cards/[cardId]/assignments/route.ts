@@ -8,11 +8,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ cardId:
     const { cardId } = await params;
     if (!cardId) return NextResponse.json({ error: "cardId required" }, { status: 400 });
 
-    const assignments = await prisma.cardAssignment.findMany({
-      where: { cardId },
-      include: { user: { select: { id: true, name: true, email: true, image: true } } },
-      orderBy: { createdAt: "asc" },
-    });
+  const assignments = await prisma.cardAssignment.findMany({
+    where: { cardId },
+    include: { user: { select: { id: true, name: true, email: true, image: true } } },
+  });
     const members = assignments.map((a) => a.user);
     return NextResponse.json(members);
   } catch (err) {

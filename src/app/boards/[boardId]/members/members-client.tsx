@@ -10,10 +10,12 @@ export default function MembersClient({
   boardId,
   boardTitle,
   initialMembers,
+  ownerId,
 }: {
   boardId: string;
   boardTitle: string;
   initialMembers: Member[];
+  ownerId?: string;
 }) {
   const [members, setMembers] = React.useState<Member[]>(initialMembers || []);
   const [email, setEmail] = React.useState("");
@@ -170,17 +172,23 @@ export default function MembersClient({
                     <span className="text-[11px] text-foreground/60">
                       {uploadingUserId === m.id ? "Uploading..." : ""}
                     </span>
-                    <form action={`/api/boards/${boardId}/members/${m.id}`} method="post">
-                      <input type="hidden" name="_method" value="PATCH" />
-                      <select name="role" className="text-xs px-2 py-1 border rounded bg-background" defaultValue={m.role}>
-                        <option value="EDITOR">Editor</option>
-                        <option value="VIEWER">Viewer</option>
-                      </select>
-                      <button className="ml-2 text-xs rounded px-2 py-1 bg-foreground/5">Update</button>
-                    </form>
+                    {m.role === "OWNER" || (ownerId && m.id === ownerId) ? (
+                      <span className="text-xs px-2 py-1 rounded bg-foreground/10" title="Board owner">
+                        Owner
+                      </span>
+                    ) : (
+                      <form action={`/api/boards/${boardId}/members/${m.id}`} method="post">
+                        <input type="hidden" name="_method" value="PATCH" />
+                        <select name="role" className="text-xs px-2 py-1 border rounded bg-background" defaultValue={m.role}>
+                          <option value="EDITOR">Editor</option>
+                          <option value="VIEWER">Viewer</option>
+                        </select>
+                        <button className="ml-2 text-xs rounded px-2 py-1 bg-foreground/5">Update</button>
+                      </form>
+                    )}
                     <form action={`/api/boards/${boardId}/members/${m.id}`} method="post" className="inline">
                       <input type="hidden" name="_method" value="DELETE" />
-                      <button className="text-xs rounded px-2 py-1 bg-red-600 text-background">Remove</button>
+                      <button className="text-xs rounded px-2 py-1 bg-red-600 text-background" disabled={m.role === "OWNER" || (!!ownerId && m.id === ownerId)} title={(m.role === "OWNER" || (!!ownerId && m.id === ownerId)) ? "Owner cannot be removed" : ""}>Remove</button>
                     </form>
                   </div>
                 </li>

@@ -12,32 +12,62 @@ async function loadBoardData(boardId: string) {
     where: { boardId },
     orderBy: { order: "asc" },
     include: {
+      _count: { select: { cards: true } },
       cards: {
         where: { archived: false },
         orderBy: { order: "asc" },
+        take: 50,
         select: {
           id: true,
           title: true,
           order: true,
           dueDate: true,
-          description: true,
-          assignments: { select: { user: { select: { id: true, name: true, email: true, image: true } } } },
+          assignments: {
+            take: 6,
+            select: { user: { select: { id: true, name: true, email: true, image: true } } },
+          },
           _count: { select: { comments: true, attachments: true, checklists: true, assignments: true } },
         },
       },
     },
   });
 
+  // Accurate counts for non-archived cards per list (to drive paging UI)
+  const nonArchivedCountsRaw = await prisma.card.groupBy({
+    by: ["listId"],
+    where: { boardId, archived: false },
+    _count: { _all: true },
+  });
+  const nonArchivedCountMap = new Map<string, number>(
+    nonArchivedCountsRaw.map((r) => [r.listId, (r as any)._count?._all ?? 0])
+  );
+
+  // Compute hasDescription without fetching full description content
+  const described = await prisma.card.findMany({
+    where: {
+      boardId,
+      archived: false,
+      AND: [
+        { description: { not: null } },
+        { description: { not: "" } },
+      ],
+    },
+    select: { id: true },
+  });
+  const hasDescIds = new Set(described.map((c) => c.id));
+
   const lists = rawLists.map((l) => ({
     id: l.id,
     title: l.title,
     order: l.order,
+    // Use accurate non-archived total to avoid showing "Load more" when unnecessary
+    totalCardCount: nonArchivedCountMap.get(l.id) ?? (l.cards?.length ?? 0),
     cards: l.cards.map((c) => ({
       id: c.id,
       title: c.title,
       order: c.order,
       dueDate: c.dueDate ?? null,
-      hasDescription: !!c.description && c.description.trim().length > 0,
+      hasDescription: hasDescIds.has(c.id),
       commentCount: (c as any)._count?.comments ?? 0,
       attachmentCount: (c as any)._count?.attachments ?? 0,
       checklistCount: (c as any)._count?.checklists ?? 0,
@@ -73,8 +103,8 @@ async function getBoardDataCached(boardId: string) {
   return cached();
 }
 
-export default async function BoardPage({ params }: { params: { boardId: string } }) {
-  const { boardId } = params;
+export default async function BoardPage({ params }: { params: Promise<{ boardId: string }> }) {
+  const { boardId } = await params;
   try {
     const data = await getBoardDataCached(boardId);
     return (
@@ -90,7 +120,7 @@ export default async function BoardPage({ params }: { params: { boardId: string 
   } catch (err) {
     return (
       <BoardPageClient
-        currentBoardId={boardId}
+        currentBoardId={(await params).boardId}
         boardTitle={"Board"}
         initialBackground={""}
         boards={[]}

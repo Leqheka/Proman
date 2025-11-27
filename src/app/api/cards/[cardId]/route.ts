@@ -7,19 +7,21 @@ export async function GET(
   { params }: { params: Promise<{ cardId: string }> }
 ) {
   try {
+    const t0 = Date.now();
     const { cardId } = await params;
     if (!cardId) return NextResponse.json({ error: "cardId required" }, { status: 400 });
 
     const { searchParams } = new URL(req.url);
     const summaryParam = (searchParams.get("summary") ?? "").toLowerCase();
     const isSummary = summaryParam === "1" || summaryParam === "true" || summaryParam === "yes";
+    const commentsCursor = searchParams.get("commentsCursor") || undefined;
 
     const include = isSummary
       ? {
           list: { select: { id: true, title: true, boardId: true } },
           board: { select: { id: true, title: true } },
           labels: { include: { label: true } },
-          assignments: { include: { user: { select: { id: true, name: true, email: true, image: true } } } },
+          // Exclude assignments in summary to trim initial payload
         }
       : {
           list: { select: { id: true, title: true, boardId: true } },
@@ -29,8 +31,9 @@ export async function GET(
           },
           attachments: true,
           comments: {
-            orderBy: { createdAt: "desc" },
+            orderBy: { createdAt: "desc" as const },
             take: 50,
+            ...(commentsCursor ? { cursor: { id: commentsCursor }, skip: 1 } : {}),
             include: { author: { select: { id: true, name: true, email: true, image: true } } },
           },
           checklists: {
@@ -43,13 +46,15 @@ export async function GET(
       where: { id: cardId },
       include,
     });
+    console.info("[API/cards:id] query_ms=", Date.now() - t0, "summary=", isSummary);
 
     if (!card) return NextResponse.json({ error: "Card not found" }, { status: 404 });
 
     const result = {
       id: card.id,
       title: card.title,
-      description: card.description ?? "",
+      description: isSummary ? "" : (card.description ?? ""),
+      hasDescription: !!card.description && (card.description?.trim()?.length ?? 0) > 0,
       order: card.order,
       archived: card.archived,
       dueDate: card.dueDate,
@@ -59,7 +64,7 @@ export async function GET(
       attachments: isSummary ? [] : (card as any).attachments,
       comments: isSummary ? [] : (card as any).comments,
       checklists: isSummary ? [] : (card as any).checklists,
-      members: (card as any).assignments?.map((a: any) => a.user) ?? [],
+      members: isSummary ? [] : ((card as any).assignments?.map((a: any) => a.user) ?? []),
     };
     return NextResponse.json(result);
   } catch (err) {

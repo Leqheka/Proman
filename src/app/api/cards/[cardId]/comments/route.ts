@@ -7,11 +7,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ cardId: 
     if (!cardId) return NextResponse.json({ error: "cardId required" }, { status: 400 });
     const { searchParams } = new URL(req.url);
     const take = Math.max(1, Math.min(200, Number(searchParams.get("take") ?? 50)));
+    const cursor = searchParams.get("cursor") || undefined;
 
     const comments = await prisma.comment.findMany({
       where: { cardId },
       orderBy: { createdAt: "desc" },
       take,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       include: { author: { select: { id: true, name: true, email: true, image: true } } },
     });
 

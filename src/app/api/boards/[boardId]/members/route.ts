@@ -22,7 +22,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ boardId
     return NextResponse.json(members);
   } catch (err) {
     console.error("GET /api/boards/[boardId]/members error", err);
-    return NextResponse.json({ error: "Failed to list members" }, { status: 500 });
+    const msg = err instanceof Error ? err.message : "Failed to list members";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
@@ -50,17 +51,29 @@ export async function POST(req: Request, { params }: { params: Promise<{ boardId
     if (!boardId) return NextResponse.json({ error: "boardId required" }, { status: 400 });
     if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
 
-    const user = await prisma.user.upsert({
-      where: { email },
-      update: { name },
-      create: { email, name },
-    });
+    let user;
+    try {
+      user = await prisma.user.upsert({
+        where: { email },
+        update: { name },
+        create: { email, name },
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return NextResponse.json({ error: `user upsert failed: ${msg}` }, { status: 500 });
+    }
 
-    const membership = await prisma.membership.upsert({
-      where: { userId_boardId: { userId: user.id, boardId } },
-      update: { role: (role as any) ?? undefined },
-      create: { userId: user.id, boardId, role: (role as any) ?? "EDITOR" },
-    });
+    let membership;
+    try {
+      membership = await prisma.membership.upsert({
+        where: { userId_boardId: { userId: user.id, boardId } },
+        update: { role: (role as any) ?? undefined },
+        create: { userId: user.id, boardId, role: (role as any) ?? "EDITOR" },
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return NextResponse.json({ error: `membership upsert failed: ${msg}` }, { status: 500 });
+    }
 
     const response = NextResponse.json({
       id: user.id,
@@ -73,6 +86,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ boardId
     return response;
   } catch (err) {
     console.error("POST /api/boards/[boardId]/members error", err);
-    return NextResponse.json({ error: "Failed to add member" }, { status: 500 });
+    const msg = err instanceof Error ? err.message : "Failed to add member";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

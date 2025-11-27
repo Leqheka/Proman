@@ -37,6 +37,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated }: { cardId: 
   const [dueDate, setDueDate] = React.useState<string>("");
   const [commentText, setCommentText] = React.useState("");
   const [loadingComments, setLoadingComments] = React.useState(false);
+  const [loadingMoreComments, setLoadingMoreComments] = React.useState(false);
   const [loadingChecklists, setLoadingChecklists] = React.useState(false);
   const [newAttachmentUrl, setNewAttachmentUrl] = React.useState("");
   const [editingChecklistId, setEditingChecklistId] = React.useState<string | null>(null);
@@ -48,6 +49,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated }: { cardId: 
   const [editingItemId, setEditingItemId] = React.useState<string | null>(null);
   const [editingItemTitle, setEditingItemTitle] = React.useState<string>("");
   const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [hasMoreComments, setHasMoreComments] = React.useState(false);
+  const [commentsCursor, setCommentsCursor] = React.useState<string | null>(null);
 
   // Dates popover state
   const [showDatesMenu, setShowDatesMenu] = React.useState(false);
@@ -79,7 +82,9 @@ export default function CardModal({ cardId, onClose, onCardUpdated }: { cardId: 
           setLoading(false);
           return;
         }
+        const t0 = performance.now();
         const summary = await resp.json();
+        console.info("[CardModalPerf] summary_ms=", Math.round(performance.now() - t0));
         const normalized = {
           ...summary,
           attachments: Array.isArray(summary.attachments) ? summary.attachments : [],
@@ -92,37 +97,76 @@ export default function CardModal({ cardId, onClose, onCardUpdated }: { cardId: 
         setDescription(normalized.description ?? "");
         setDueDate(normalized.dueDate ? new Date(normalized.dueDate).toISOString().slice(0, 16) : "");
         setLoading(false);
-        setLoadingComments(true);
-        setLoadingChecklists(true);
-        // Fetch heavy sections in parallel without blocking initial render
-        const [commentsRes, attachmentsRes, checklistsRes, assignmentsRes] = await Promise.allSettled([
-          fetch(`/api/cards/${cardId}/comments?take=50`, { signal: controller.signal }),
-          fetch(`/api/cards/${cardId}/attachments`, { signal: controller.signal }),
-          fetch(`/api/cards/${cardId}/checklists`, { signal: controller.signal }),
-          fetch(`/api/cards/${cardId}/assignments`, { signal: controller.signal }),
-        ]);
-        const commentsOk = commentsRes.status === "fulfilled" && commentsRes.value.ok;
-        const attachmentsOk = attachmentsRes.status === "fulfilled" && attachmentsRes.value.ok;
-        const checklistsOk = checklistsRes.status === "fulfilled" && checklistsRes.value.ok;
-        const assignmentsOk = assignmentsRes.status === "fulfilled" && assignmentsRes.value.ok;
+        // Defer heavy sections until after first paint / idle time
+        const schedule = (fn: () => void) => {
+          try {
+            // @ts-ignore
+            if (typeof window !== "undefined" && typeof (window as any).requestIdleCallback === "function") {
+              // @ts-ignore
+              (window as any).requestIdleCallback(fn);
+            } else {
+              setTimeout(fn, 0);
+            }
+          } catch {
+            setTimeout(fn, 0);
+          }
+        };
+        schedule(async () => {
+          try {
+            setLoadingComments(true);
+            setLoadingChecklists(true);
+            const wantDescription = !!summary.hasDescription && !(summary.description && summary.description.length > 0);
+            const tf = async (name: string, url: string) => {
+              const t = performance.now();
+              const r = await fetch(url, { signal: controller.signal });
+              console.info(`[CardModalPerf] ${name}_ms=`, Math.round(performance.now() - t));
+              return r;
+            };
+            const [commentsRes, attachmentsRes, checklistsRes, assignmentsRes, descriptionRes] = await Promise.allSettled([
+              tf("comments", `/api/cards/${cardId}/comments?take=50`),
+              tf("attachments", `/api/cards/${cardId}/attachments?take=50`),
+              tf("checklists", `/api/cards/${cardId}/checklists`),
+              tf("assignments", `/api/cards/${cardId}/assignments`),
+              wantDescription ? tf("description", `/api/cards/${cardId}/description`) : Promise.resolve(null as any),
+            ]);
+            const commentsOk = commentsRes.status === "fulfilled" && commentsRes.value.ok;
+            const attachmentsOk = attachmentsRes.status === "fulfilled" && attachmentsRes.value.ok;
+            const checklistsOk = checklistsRes.status === "fulfilled" && checklistsRes.value.ok;
+            const assignmentsOk = assignmentsRes.status === "fulfilled" && assignmentsRes.value.ok;
+            const descriptionOk = wantDescription && descriptionRes.status === "fulfilled" && descriptionRes.value && descriptionRes.value.ok;
 
-        const comments = commentsOk ? await commentsRes.value.json() : undefined;
-        const attachments = attachmentsOk ? await attachmentsRes.value.json() : undefined;
-        const checklists = checklistsOk ? await checklistsRes.value.json() : undefined;
-        const members = assignmentsOk ? await assignmentsRes.value.json() : undefined;
+            const comments = commentsOk ? await commentsRes.value.json() : undefined;
+            const attachments = attachmentsOk ? await attachmentsRes.value.json() : undefined;
+            const checklists = checklistsOk ? await checklistsRes.value.json() : undefined;
+            const members = assignmentsOk ? await assignmentsRes.value.json() : undefined;
+            const descObj = descriptionOk ? await descriptionRes.value.json() : undefined;
 
-        setData((d) => {
-          if (!d) return d;
-          return {
-            ...d,
-            ...(comments !== undefined ? { comments } : {}),
-            ...(attachments !== undefined ? { attachments } : {}),
-            ...(checklists !== undefined ? { checklists } : {}),
-            ...(members !== undefined ? { members } : {}),
-          };
+            setData((d) => {
+              if (!d) return d;
+              return {
+                ...d,
+                ...(comments !== undefined ? { comments } : {}),
+                ...(attachments !== undefined ? { attachments } : {}),
+                ...(checklists !== undefined ? { checklists } : {}),
+                ...(members !== undefined ? { members } : {}),
+                ...(descObj !== undefined ? { description: descObj.description ?? "" } : {}),
+              };
+            });
+            if (Array.isArray(comments)) {
+              const take = 50;
+              setHasMoreComments(comments.length === take);
+              setCommentsCursor(comments.length ? comments[comments.length - 1].id : null);
+            }
+            if (Array.isArray(attachments)) {
+              const takeA = 50;
+              setHasMoreAttachments(attachments.length === takeA);
+              setAttachmentsCursor(attachments.length ? attachments[attachments.length - 1].id : null);
+            }
+          } finally {
+            setLoadingComments(false);
+            setLoadingChecklists(false);
+          }
         });
-        setLoadingComments(false);
-        setLoadingChecklists(false);
       } catch (err) {
         if ((err as any)?.name !== "AbortError") {
           console.error("Failed to load card", err);
@@ -278,9 +322,29 @@ export default function CardModal({ cardId, onClose, onCardUpdated }: { cardId: 
         const created = await resp.json();
         setData((d) => (d ? { ...d, comments: [created, ...d.comments] } : d));
         setCommentText("");
+        // After adding a new comment, keep cursor pointing to the last loaded older comment
       }
     } catch (err) {
       console.error("Failed to add comment", err);
+    }
+  }
+
+  async function loadMoreComments() {
+    if (!hasMoreComments || !commentsCursor) return;
+    try {
+      setLoadingMoreComments(true);
+      const resp = await fetch(`/api/cards/${cardId}/comments?take=50&cursor=${encodeURIComponent(commentsCursor)}`);
+      if (resp.ok) {
+        const next: Comment[] = await resp.json();
+        setData((d) => (d ? { ...d, comments: [...d.comments, ...next] } : d));
+        const take = 50;
+        setHasMoreComments(next.length === take);
+        setCommentsCursor(next.length ? next[next.length - 1].id : commentsCursor);
+      }
+    } catch (err) {
+      console.error("Failed to load more comments", err);
+    } finally {
+      setLoadingMoreComments(false);
     }
   }
 
@@ -506,6 +570,29 @@ export default function CardModal({ cardId, onClose, onCardUpdated }: { cardId: 
       }
     } catch (err) {
       console.error("Failed to add attachment", err);
+    }
+  }
+
+  const [hasMoreAttachments, setHasMoreAttachments] = React.useState(false);
+  const [attachmentsCursor, setAttachmentsCursor] = React.useState<string | null>(null);
+  const [loadingMoreAttachments, setLoadingMoreAttachments] = React.useState(false);
+
+  async function loadMoreAttachments() {
+    if (!hasMoreAttachments || !attachmentsCursor) return;
+    try {
+      setLoadingMoreAttachments(true);
+      const resp = await fetch(`/api/cards/${cardId}/attachments?take=50&cursor=${encodeURIComponent(attachmentsCursor)}`);
+      if (resp.ok) {
+        const next: Attachment[] = await resp.json();
+        setData((d) => (d ? { ...d, attachments: [...d.attachments, ...next] } : d));
+        const takeA = 50;
+        setHasMoreAttachments(next.length === takeA);
+        setAttachmentsCursor(next.length ? next[next.length - 1].id : attachmentsCursor);
+      }
+    } catch (err) {
+      console.error("Failed to load more attachments", err);
+    } finally {
+      setLoadingMoreAttachments(false);
     }
   }
 
@@ -776,6 +863,17 @@ export default function CardModal({ cardId, onClose, onCardUpdated }: { cardId: 
                       </li>
                     ))}
                   </ul>
+                  {hasMoreAttachments && (
+                    <div className="mt-2 flex justify-center">
+                      <button
+                        onClick={loadMoreAttachments}
+                        disabled={loadingMoreAttachments}
+                        className={`text-xs rounded px-3 py-1 ${loadingMoreAttachments ? "bg-foreground/10" : "bg-foreground text-background"}`}
+                      >
+                        {loadingMoreAttachments ? "Loading..." : "Load more"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -901,8 +999,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated }: { cardId: 
             </div>
 
             {/* Right column */}
-            <div className="h-full">
-              <div className="rounded border border-black/10 dark:border-white/15 p-3 bg-foreground/5 h-full flex flex-col">
+            <div className="h-full min-h-0">
+              <div className="rounded border border-black/10 dark:border-white/15 p-3 bg-foreground/5 h-full min-h-0 flex flex-col">
                  <p className="text-sm font-semibold">Comments and activity</p>
                  <div className="mt-2">
                    <textarea
@@ -924,18 +1022,31 @@ export default function CardModal({ cardId, onClose, onCardUpdated }: { cardId: 
                  ) : data.comments.length === 0 ? (
                    <p className="mt-3 text-xs text-foreground/60">No comments yet</p>
                  ) : (
-                  <ul className="mt-3 space-y-2 overflow-auto flex-1">
-                     {data.comments.map((c) => (
-                       <li key={c.id} className="text-sm">
-                         <div className="text-xs text-foreground/60">{c.author?.name || c.author?.email} • {new Date(c.createdAt).toLocaleString()}</div>
-                         <div>{c.content}</div>
-                       </li>
-                     ))}
-                   </ul>
+                  <>
+                    <ul className="mt-3 space-y-2 overflow-y-auto flex-1 min-h-0">
+                      {data.comments.map((c) => (
+                        <li key={c.id} className="text-sm">
+                          <div className="text-xs text-foreground/60">{c.author?.name || c.author?.email} • {new Date(c.createdAt).toLocaleString()}</div>
+                          <div>{c.content}</div>
+                        </li>
+                      ))}
+                    </ul>
+                    {hasMoreComments && (
+                      <div className="mt-3 flex justify-center">
+                        <button
+                          onClick={loadMoreComments}
+                          disabled={loadingMoreComments}
+                          className={`text-xs rounded px-3 py-1 ${loadingMoreComments ? "bg-foreground/10" : "bg-foreground text-background"}`}
+                        >
+                          {loadingMoreComments ? "Loading..." : "Load more"}
+                        </button>
+                      </div>
+                    )}
+                  </>
                  )}
                </div>
- 
-             </div>
+
+              </div>
 
           </div>
         </div>
