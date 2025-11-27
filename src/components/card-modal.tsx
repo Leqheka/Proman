@@ -9,7 +9,7 @@ type Attachment = { id: string; url: string; filename: string; size: number; typ
 
 type ChecklistItem = { id: string; title: string; completed: boolean };
 
-type Checklist = { id: string; title: string; items: ChecklistItem[] };
+type Checklist = { id: string; title: string; items: ChecklistItem[]; itemsCount?: number };
 
 type Comment = { id: string; content: string; createdAt: string; author: Member };
 
@@ -167,7 +167,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
             const promises: Array<Promise<any>> = [];
             promises.push(wantComments ? tf("comments", `/api/cards/${cardId}/comments?take=${TAKE}`) : Promise.resolve(null));
             promises.push(wantAttachments ? tf("attachments", `/api/cards/${cardId}/attachments?take=${TAKE}`) : Promise.resolve(null));
-            promises.push(wantChecklists ? tf("checklists", `/api/cards/${cardId}/checklists`) : Promise.resolve(null));
+            promises.push(wantChecklists ? tf("checklists", `/api/cards/${cardId}/checklists?withItems=0`) : Promise.resolve(null));
             promises.push(wantDescription ? tf("description", `/api/cards/${cardId}/description`) : Promise.resolve(null));
             const [commentsRes, attachmentsRes, checklistsRes, descriptionRes] = await Promise.allSettled(promises);
             const commentsOk = commentsRes.status === "fulfilled" && commentsRes.value && commentsRes.value.ok;
@@ -186,7 +186,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                 ...d,
                 ...(comments !== undefined ? { comments } : {}),
                 ...(attachments !== undefined ? { attachments } : {}),
-                ...(checklists !== undefined ? { checklists } : {}),
+                ...(checklists !== undefined ? { checklists: (checklists as any[]).map((cl: any) => ({ id: cl.id, title: cl.title, items: [], itemsCount: cl.itemsCount ?? 0 })) } : {}),
                 ...(descObj !== undefined ? { description: descObj.description ?? "" } : {}),
               };
             });
@@ -199,6 +199,28 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
               const takeA = TAKE;
               setHasMoreAttachments(attachments.length === takeA);
               setAttachmentsCursor(attachments.length ? attachments[attachments.length - 1].id : null);
+            }
+
+            if (Array.isArray(checklists)) {
+              const first = (checklists as any[]).slice(0, 3);
+              const itemPromises = first.map((cl: any) => tf("items", `/api/checklists/${cl.id}/items?take=200`));
+              const itemResults = await Promise.allSettled(itemPromises);
+              const itemsById = new Map<string, ChecklistItem[]>();
+              for (let i = 0; i < itemResults.length; i++) {
+                const r = itemResults[i];
+                const cl = first[i];
+                if (r.status === "fulfilled" && r.value.ok) {
+                  const arr = await r.value.json();
+                  itemsById.set(cl.id, arr);
+                }
+              }
+              setData((d) => {
+                if (!d) return d;
+                return {
+                  ...d,
+                  checklists: d.checklists.map((c) => (itemsById.has(c.id) ? { ...c, items: itemsById.get(c.id)! } : c)),
+                };
+              });
             }
           } finally {
             setLoadingComments(false);
@@ -973,6 +995,13 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                           <button onClick={() => deleteChecklist(cl.id)} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10">Delete</button>
                         </div>
                         <ul className="mt-2 space-y-2">
+                          {cl.items.length === 0 && (cl.itemsCount || 0) > 0 ? (
+                            <li className="space-y-2 animate-pulse">
+                              <div className="h-3 rounded bg-foreground/10 w-3/5" />
+                              <div className="h-3 rounded bg-foreground/10 w-2/5" />
+                              <div className="h-3 rounded bg-foreground/10 w-4/5" />
+                            </li>
+                          ) : null}
                           {cl.items.map((it) => (
                             <li key={it.id} className="group flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-foreground/5">
                               <div className="flex items-center gap-2">
