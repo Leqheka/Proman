@@ -26,9 +26,13 @@ type CardDetail = {
   comments: Comment[];
   checklists: Checklist[];
   members: Member[];
+  commentCount?: number;
+  attachmentCount?: number;
+  checklistCount?: number;
+  assignmentCount?: number;
 };
 
-export default function CardModal({ cardId, onClose, onCardUpdated }: { cardId: string; onClose: () => void; onCardUpdated?: (patch: { id: string; title?: string; dueDate?: string | null; checklistCount?: number; assignmentCount?: number; members?: Member[] }) => void }) {
+export default function CardModal({ cardId, onClose, onCardUpdated, initial }: { cardId: string; onClose: () => void; onCardUpdated?: (patch: { id: string; title?: string; dueDate?: string | null; checklistCount?: number; assignmentCount?: number; members?: Member[] }) => void; initial?: Partial<CardDetail> | null }) {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [data, setData] = React.useState<CardDetail | null>(null);
@@ -73,8 +77,34 @@ export default function CardModal({ cardId, onClose, onCardUpdated }: { cardId: 
     const controller = new AbortController();
     async function fetchCard() {
       try {
-        setLoading(true);
         setLoadError(null);
+        if (initial && initial.id === cardId) {
+          const pre: CardDetail = {
+            id: initial.id as string,
+            title: (initial.title as string) ?? "",
+            description: (initial.description as string) ?? "",
+            dueDate: (initial.dueDate as string | null) ?? null,
+            archived: !!initial.archived,
+            list: (initial.list as any) ?? { id: "", title: "", boardId: "" },
+            board: (initial.board as any) ?? { id: "", title: "" },
+            labels: (initial.labels as any) ?? [],
+            attachments: (initial.attachments as any) ?? [],
+            comments: (initial.comments as any) ?? [],
+            checklists: (initial.checklists as any) ?? [],
+            members: (initial.members as any) ?? [],
+            commentCount: Number(initial.commentCount || 0),
+            attachmentCount: Number(initial.attachmentCount || 0),
+            checklistCount: Number(initial.checklistCount || 0),
+            assignmentCount: Number(initial.assignmentCount || 0),
+          };
+          setData(pre);
+          setTitle(pre.title);
+          setDescription(pre.description);
+          setDueDate(pre.dueDate ? new Date(pre.dueDate).toISOString().slice(0, 16) : "");
+          setLoading(false);
+        } else {
+          setLoading(true);
+        }
         const resp = await fetch(`/api/cards/${cardId}?summary=1`, { signal: controller.signal });
         if (!resp.ok) {
           const status = resp.status;
@@ -91,6 +121,10 @@ export default function CardModal({ cardId, onClose, onCardUpdated }: { cardId: 
           comments: Array.isArray(summary.comments) ? summary.comments : [],
           checklists: Array.isArray(summary.checklists) ? summary.checklists : [],
           members: Array.isArray(summary.members) ? summary.members : [],
+          commentCount: Number(summary.commentCount || 0),
+          attachmentCount: Number(summary.attachmentCount || 0),
+          checklistCount: Number(summary.checklistCount || 0),
+          assignmentCount: Number(summary.assignmentCount || 0),
         } as CardDetail;
         setData(normalized);
         setTitle(normalized.title ?? "");
@@ -123,15 +157,18 @@ export default function CardModal({ cardId, onClose, onCardUpdated }: { cardId: 
               return r;
             };
             const TAKE = 20;
-            const [commentsRes, attachmentsRes, checklistsRes, descriptionRes] = await Promise.allSettled([
-              tf("comments", `/api/cards/${cardId}/comments?take=${TAKE}`),
-              tf("attachments", `/api/cards/${cardId}/attachments?take=${TAKE}`),
-              tf("checklists", `/api/cards/${cardId}/checklists`),
-              wantDescription ? tf("description", `/api/cards/${cardId}/description`) : Promise.resolve(null as any),
-            ]);
-            const commentsOk = commentsRes.status === "fulfilled" && commentsRes.value.ok;
-            const attachmentsOk = attachmentsRes.status === "fulfilled" && attachmentsRes.value.ok;
-            const checklistsOk = checklistsRes.status === "fulfilled" && checklistsRes.value.ok;
+            const wantComments = (normalized.commentCount || 0) > 0;
+            const wantAttachments = (normalized.attachmentCount || 0) > 0;
+            const wantChecklists = (normalized.checklistCount || 0) > 0;
+            const promises: Array<Promise<any>> = [];
+            promises.push(wantComments ? tf("comments", `/api/cards/${cardId}/comments?take=${TAKE}`) : Promise.resolve(null));
+            promises.push(wantAttachments ? tf("attachments", `/api/cards/${cardId}/attachments?take=${TAKE}`) : Promise.resolve(null));
+            promises.push(wantChecklists ? tf("checklists", `/api/cards/${cardId}/checklists`) : Promise.resolve(null));
+            promises.push(wantDescription ? tf("description", `/api/cards/${cardId}/description`) : Promise.resolve(null));
+            const [commentsRes, attachmentsRes, checklistsRes, descriptionRes] = await Promise.allSettled(promises);
+            const commentsOk = commentsRes.status === "fulfilled" && commentsRes.value && commentsRes.value.ok;
+            const attachmentsOk = attachmentsRes.status === "fulfilled" && attachmentsRes.value && attachmentsRes.value.ok;
+            const checklistsOk = checklistsRes.status === "fulfilled" && checklistsRes.value && checklistsRes.value.ok;
             const descriptionOk = wantDescription && descriptionRes.status === "fulfilled" && descriptionRes.value && descriptionRes.value.ok;
 
             const comments = commentsOk ? await commentsRes.value.json() : undefined;

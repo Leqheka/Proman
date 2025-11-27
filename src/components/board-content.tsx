@@ -263,6 +263,8 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     if (!id) return;
     setOpenedCardId(id);
     const controller = new AbortController();
+    // Preload modal chunk and warm API summary
+    import("./card-modal").catch(() => {});
     fetch(`/api/cards/${id}?summary=1`, { signal: controller.signal }).catch((err) => {
       if ((err as any)?.name !== "AbortError") {
       }
@@ -801,7 +803,36 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
           </div>
         </SortableContext>
       </DndContext>
-      {openedCardId && <CardModal cardId={openedCardId} onClose={handleCloseModal} onCardUpdated={handleCardUpdated} />}
+      {openedCardId && (
+        <CardModal
+          cardId={openedCardId}
+          onClose={handleCloseModal}
+          onCardUpdated={handleCardUpdated}
+          initial={(() => {
+            const loc = findListByCardId(openedCardId!);
+            if (!loc) return null;
+            const list = lists[loc.listIndex];
+            const c = list.cards[loc.cardIndex];
+            return {
+              id: c.id,
+              title: c.title,
+              description: "",
+              dueDate: c.dueDate ?? null,
+              list: { id: list.id, title: list.title, boardId },
+              board: { id: boardId, title: "" },
+              labels: [],
+              attachments: [],
+              comments: [],
+              checklists: [],
+              members: (c.members ?? []).map((m) => ({ id: m.id, name: m.name ?? null, email: m.email, image: m.image ?? null })),
+              checklistCount: c.checklistCount ?? 0,
+              commentCount: c.commentCount ?? 0,
+              attachmentCount: c.attachmentCount ?? 0,
+              assignmentCount: c.assignmentCount ?? 0,
+            } as any;
+          })()}
+        />
+      )}
     </>
   );
 }

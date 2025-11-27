@@ -21,7 +21,7 @@ export async function GET(
           list: { select: { id: true, title: true, boardId: true } },
           board: { select: { id: true, title: true } },
           labels: { include: { label: true } },
-          // Exclude assignments in summary to trim initial payload
+          _count: { select: { comments: true, attachments: true, checklists: true, assignments: true } },
         }
       : {
           list: { select: { id: true, title: true, boardId: true } },
@@ -65,6 +65,10 @@ export async function GET(
       comments: isSummary ? [] : (card as any).comments,
       checklists: isSummary ? [] : (card as any).checklists,
       members: isSummary ? [] : ((card as any).assignments?.map((a: any) => a.user) ?? []),
+      commentCount: isSummary ? ((card as any)._count?.comments ?? 0) : ((card as any).comments?.length ?? 0),
+      attachmentCount: isSummary ? ((card as any)._count?.attachments ?? 0) : ((card as any).attachments?.length ?? 0),
+      checklistCount: isSummary ? ((card as any)._count?.checklists ?? 0) : ((card as any).checklists?.length ?? 0),
+      assignmentCount: isSummary ? ((card as any)._count?.assignments ?? 0) : (((card as any).assignments?.length) ?? 0),
     };
     return NextResponse.json(result);
   } catch (err) {
