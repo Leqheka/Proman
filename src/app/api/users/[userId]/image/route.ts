@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import fs from "fs";
 import path from "path";
+import { createClient } from "@supabase/supabase-js";
 
 export async function POST(req: Request, { params }: { params: Promise<{ userId: string }> }) {
   try {
@@ -15,9 +16,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ userId:
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const uploadsDir = path.join(process.cwd(), "public", "uploads", "users", userId);
-    await fs.promises.mkdir(uploadsDir, { recursive: true });
-
     const origName = (file as any).name || `avatar`;
     const extFromType = (() => {
       const t = file.type || "";
@@ -27,13 +25,37 @@ export async function POST(req: Request, { params }: { params: Promise<{ userId:
       return path.extname(origName) || ".bin";
     })();
     const filename = `avatar${extFromType}`;
+
+    const isProd = process.env.NODE_ENV === "production" || !!process.env.VERCEL;
+    const supaUrl = process.env.SUPABASE_URL;
+    const supaKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supaBucket = process.env.SUPABASE_BUCKET || "uploads";
+
+    if (isProd) {
+      if (supaUrl && supaKey) {
+        const client = createClient(supaUrl, supaKey);
+        const pathInBucket = `users/${userId}/${filename}`;
+        const { error: upErr } = await client.storage.from(supaBucket).upload(pathInBucket, buffer, {
+          contentType: file.type || "application/octet-stream",
+          upsert: true,
+        });
+        if (upErr) {
+          return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+        }
+        const { data: pub } = client.storage.from(supaBucket).getPublicUrl(pathInBucket);
+        const publicUrl = pub.publicUrl || `https://supabase.storage/${supaBucket}/${pathInBucket}`;
+        await prisma.user.update({ where: { id: userId }, data: { image: publicUrl } });
+        return NextResponse.json({ image: publicUrl }, { status: 201 });
+      }
+      return NextResponse.json({ error: "External storage not configured" }, { status: 400 });
+    }
+
+    const uploadsDir = path.join(process.cwd(), "public", "uploads", "users", userId);
+    await fs.promises.mkdir(uploadsDir, { recursive: true });
     const filePath = path.join(uploadsDir, filename);
-
     await fs.promises.writeFile(filePath, buffer);
-
     const publicUrl = `/uploads/users/${userId}/${filename}`;
     await prisma.user.update({ where: { id: userId }, data: { image: publicUrl } });
-
     return NextResponse.json({ image: publicUrl }, { status: 201 });
   } catch (err) {
     console.error("POST /api/users/[userId]/image error", err);
