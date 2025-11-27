@@ -16,14 +16,14 @@ async function loadBoardData(boardId: string) {
       cards: {
         where: { archived: false },
         orderBy: { order: "asc" },
-        take: 50,
+        take: 30,
         select: {
           id: true,
           title: true,
           order: true,
           dueDate: true,
           assignments: {
-            take: 6,
+            take: 4,
             select: { user: { select: { id: true, name: true, email: true, image: true } } },
           },
           _count: { select: { comments: true, attachments: true, checklists: true, assignments: true } },

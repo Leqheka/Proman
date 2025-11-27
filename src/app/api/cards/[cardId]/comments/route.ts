@@ -6,7 +6,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ cardId: 
     const { cardId } = await params;
     if (!cardId) return NextResponse.json({ error: "cardId required" }, { status: 400 });
     const { searchParams } = new URL(req.url);
-    const take = Math.max(1, Math.min(200, Number(searchParams.get("take") ?? 50)));
+    const take = Math.max(1, Math.min(200, Number(searchParams.get("take") ?? 20)));
     const cursor = searchParams.get("cursor") || undefined;
 
     const comments = await prisma.comment.findMany({
@@ -17,7 +17,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ cardId: 
       include: { author: { select: { id: true, name: true, email: true, image: true } } },
     });
 
-    return NextResponse.json(comments);
+    const res = NextResponse.json(comments);
+    res.headers.set("cache-control", "public, max-age=30");
+    return res;
   } catch (err) {
     console.error("GET /api/cards/[cardId]/comments error", err);
     return NextResponse.json({ error: "Failed to list comments" }, { status: 500 });

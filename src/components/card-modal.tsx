@@ -122,23 +122,21 @@ export default function CardModal({ cardId, onClose, onCardUpdated }: { cardId: 
               console.info(`[CardModalPerf] ${name}_ms=`, Math.round(performance.now() - t));
               return r;
             };
-            const [commentsRes, attachmentsRes, checklistsRes, assignmentsRes, descriptionRes] = await Promise.allSettled([
-              tf("comments", `/api/cards/${cardId}/comments?take=50`),
-              tf("attachments", `/api/cards/${cardId}/attachments?take=50`),
+            const TAKE = 20;
+            const [commentsRes, attachmentsRes, checklistsRes, descriptionRes] = await Promise.allSettled([
+              tf("comments", `/api/cards/${cardId}/comments?take=${TAKE}`),
+              tf("attachments", `/api/cards/${cardId}/attachments?take=${TAKE}`),
               tf("checklists", `/api/cards/${cardId}/checklists`),
-              tf("assignments", `/api/cards/${cardId}/assignments`),
               wantDescription ? tf("description", `/api/cards/${cardId}/description`) : Promise.resolve(null as any),
             ]);
             const commentsOk = commentsRes.status === "fulfilled" && commentsRes.value.ok;
             const attachmentsOk = attachmentsRes.status === "fulfilled" && attachmentsRes.value.ok;
             const checklistsOk = checklistsRes.status === "fulfilled" && checklistsRes.value.ok;
-            const assignmentsOk = assignmentsRes.status === "fulfilled" && assignmentsRes.value.ok;
             const descriptionOk = wantDescription && descriptionRes.status === "fulfilled" && descriptionRes.value && descriptionRes.value.ok;
 
             const comments = commentsOk ? await commentsRes.value.json() : undefined;
             const attachments = attachmentsOk ? await attachmentsRes.value.json() : undefined;
             const checklists = checklistsOk ? await checklistsRes.value.json() : undefined;
-            const members = assignmentsOk ? await assignmentsRes.value.json() : undefined;
             const descObj = descriptionOk ? await descriptionRes.value.json() : undefined;
 
             setData((d) => {
@@ -148,17 +146,16 @@ export default function CardModal({ cardId, onClose, onCardUpdated }: { cardId: 
                 ...(comments !== undefined ? { comments } : {}),
                 ...(attachments !== undefined ? { attachments } : {}),
                 ...(checklists !== undefined ? { checklists } : {}),
-                ...(members !== undefined ? { members } : {}),
                 ...(descObj !== undefined ? { description: descObj.description ?? "" } : {}),
               };
             });
             if (Array.isArray(comments)) {
-              const take = 50;
+              const take = TAKE;
               setHasMoreComments(comments.length === take);
               setCommentsCursor(comments.length ? comments[comments.length - 1].id : null);
             }
             if (Array.isArray(attachments)) {
-              const takeA = 50;
+              const takeA = TAKE;
               setHasMoreAttachments(attachments.length === takeA);
               setAttachmentsCursor(attachments.length ? attachments[attachments.length - 1].id : null);
             }
