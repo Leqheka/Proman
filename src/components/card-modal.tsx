@@ -131,6 +131,9 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
         setDescription(normalized.description ?? "");
         setDueDate(normalized.dueDate ? new Date(normalized.dueDate).toISOString().slice(0, 16) : "");
         setLoading(false);
+        if ((normalized.checklistCount || 0) > 0) {
+          setLoadingChecklists(true);
+        }
         // Defer heavy sections until after first paint / idle time
         const schedule = (fn: () => void) => {
           try {
@@ -916,7 +919,13 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold">Checklists</p>
                 </div>
-                {data.checklists.length === 0 ? (
+                {loadingChecklists && (data.checklistCount || 0) > 0 ? (
+                  <div className="mt-2 space-y-2 animate-pulse">
+                    <div className="h-4 rounded bg-foreground/10 w-2/5" />
+                    <div className="h-3 rounded bg-foreground/10 w-4/5" />
+                    <div className="h-3 rounded bg-foreground/10 w-3/5" />
+                  </div>
+                ) : data.checklists.length === 0 ? (
                   <p className="text-xs text-foreground/60 mt-2">No checklists</p>
                 ) : (
                   <div className="mt-3 space-y-4">
