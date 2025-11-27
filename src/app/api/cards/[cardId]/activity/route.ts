@@ -8,9 +8,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ cardId: 
     const { searchParams } = new URL(req.url);
     const take = Math.max(1, Math.min(200, Number(searchParams.get("take") ?? 50)));
     const cursor = searchParams.get("cursor") || null;
+    const orderParam = (searchParams.get("order") || "desc").toLowerCase();
+    const orderBy = orderParam === "asc" ? "asc" : "desc";
+    const type = searchParams.get("type") || undefined;
     const rows = await prisma.activity.findMany({
-      where: { cardId },
-      orderBy: { createdAt: "desc" },
+      where: { cardId, ...(type ? { type } : {}) },
+      orderBy: { createdAt: orderBy as any },
       take,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       include: { user: { select: { id: true, name: true, email: true, image: true } } },

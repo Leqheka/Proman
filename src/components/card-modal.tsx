@@ -142,6 +142,13 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
         if ((normalized.checklistCount || 0) > 0) {
           setLoadingChecklists(true);
         }
+        try {
+          const respOne = await fetch(`/api/cards/${cardId}/activity?order=asc&type=CARD_CREATED&take=1`, { signal: controller.signal });
+          if (respOne.ok) {
+            const one = await respOne.json();
+            if (Array.isArray(one)) setActivities(one);
+          }
+        } catch {}
         // Run heavy loads just after paint to avoid long idle delays
         const schedule = (fn: () => void) => {
           try {
@@ -1123,7 +1130,24 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                   </div>
                 </div>
                 {!showDetails ? (
-                  <div className="mt-3 text-xs text-foreground/60">Details are hidden</div>
+                  <>
+                    <ul className="mt-3 space-y-3 overflow-y-auto flex-1 min-h-0">
+                      {activities.length === 0 ? (
+                        <li className="text-xs text-foreground/60">No activity yet</li>
+                      ) : (
+                        activities.slice(0, 1).map((a) => (
+                          <li key={`a-${a.id}`} className="text-sm">
+                            <div className="flex items-center gap-2">
+                              <Avatar image={a.user?.image || ""} name={a.user?.name || a.user?.email || ""} email={a.user?.email || ""} size={20} />
+                              <span className="font-semibold">{a.user?.name || a.user?.email || "Someone"}</span>
+                              <span className="text-foreground/80">{String(a.details?.message || a.type)}</span>
+                            </div>
+                            <div className="text-xs text-foreground/60">{new Date(a.createdAt).toLocaleString()}</div>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </>
                 ) : loadingComments || loadingActivity ? (
                   <div className="mt-3 space-y-2 animate-pulse">
                     <div className="h-3 rounded bg-foreground/10 w-3/5" />
@@ -1133,7 +1157,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                 ) : activities.length === 0 && data.comments.length === 0 ? (
                   <p className="mt-3 text-xs text-foreground/60">No activity yet</p>
                 ) : (
-                 <>
+                  <>
                    <ul className="mt-3 space-y-3 overflow-y-auto flex-1 min-h-0">
                      {[...activities.map((a) => ({ kind: "activity" as const, createdAt: a.createdAt, a })), ...data.comments.map((c) => ({ kind: "comment" as const, createdAt: c.createdAt, c }))]
                        .sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime())
