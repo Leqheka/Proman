@@ -10,6 +10,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ checkli
     if (!title) return NextResponse.json({ error: "title required" }, { status: 400 });
 
     const created = await prisma.checklistItem.create({ data: { checklistId, title } });
+    try {
+      const user = await prisma.user.upsert({ where: { email: "placeholder@local" }, update: {}, create: { email: "placeholder@local", name: "Placeholder" } });
+      const checklist = await prisma.checklist.findUnique({ where: { id: checklistId }, select: { cardId: true, card: { select: { boardId: true } } } });
+      await prisma.activity.create({
+        data: { type: "CHECKLIST_ITEM_CREATED", details: { message: `added item '${title}'` }, cardId: checklist?.cardId ?? undefined, boardId: checklist?.card?.boardId, userId: user.id } as any,
+      });
+    } catch {}
     return NextResponse.json(created, { status: 201 });
   } catch (err) {
     console.error("POST /api/checklists/[checklistId]/items error", err);

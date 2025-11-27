@@ -34,17 +34,33 @@ export async function POST(req: Request, { params }: { params: Promise<{ listId:
     });
     if (!list) return NextResponse.json({ error: "List not found" }, { status: 404 });
 
-    const count = await prisma.card.count({ where: { listId, archived: false } });
-    const card = await prisma.card.create({
-      data: {
-        title,
-        description,
-        listId,
-        boardId: list.boardId,
-        order: count,
-      },
+  const count = await prisma.card.count({ where: { listId, archived: false } });
+  const card = await prisma.card.create({
+    data: {
+      title,
+      description,
+      listId,
+      boardId: list.boardId,
+      order: count,
+    },
+  });
+  try {
+    const user = await prisma.user.upsert({
+      where: { email: "placeholder@local" },
+      update: {},
+      create: { email: "placeholder@local", name: "Placeholder" },
     });
-    return NextResponse.json(card, { status: 201 });
+    await prisma.activity.create({
+      data: {
+        type: "CARD_CREATED",
+        details: { message: `created card '${title}' in list`, listId },
+        cardId: card.id,
+        boardId: list.boardId,
+        userId: user.id,
+      } as any,
+    });
+  } catch {}
+  return NextResponse.json(card, { status: 201 });
   } catch (err) {
     console.error("POST /api/lists/:listId/cards error", err);
     return NextResponse.json({ error: "Failed to create card" }, { status: 500 });
