@@ -55,6 +55,11 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [hasMoreComments, setHasMoreComments] = React.useState(false);
   const [commentsCursor, setCommentsCursor] = React.useState<string | null>(null);
+  const [activities, setActivities] = React.useState<Array<{ id: string; type: string; details: any; createdAt: string; user?: Member | null }>>([]);
+  const [loadingActivity, setLoadingActivity] = React.useState(false);
+  const [showDetails, setShowDetails] = React.useState(false);
+  const [hasMoreActivity, setHasMoreActivity] = React.useState(false);
+  const [activityCursor, setActivityCursor] = React.useState<string | null>(null);
 
   // Dates popover state
   const [showDatesMenu, setShowDatesMenu] = React.useState(false);
@@ -151,7 +156,6 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
         };
         schedule(async () => {
           try {
-            setLoadingComments(true);
             setLoadingChecklists(true);
             const wantDescription = !!summary.hasDescription && !(summary.description && summary.description.length > 0);
             const tf = async (name: string, url: string) => {
@@ -161,21 +165,17 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
               return r;
             };
             const TAKE = 20;
-            const wantComments = (normalized.commentCount || 0) > 0;
             const wantAttachments = (normalized.attachmentCount || 0) > 0;
             const wantChecklists = (normalized.checklistCount || 0) > 0;
             const promises: Array<Promise<any>> = [];
-            promises.push(wantComments ? tf("comments", `/api/cards/${cardId}/comments?take=${TAKE}`) : Promise.resolve(null));
             promises.push(wantAttachments ? tf("attachments", `/api/cards/${cardId}/attachments?take=${TAKE}`) : Promise.resolve(null));
             promises.push(wantChecklists ? tf("checklists", `/api/cards/${cardId}/checklists?withItems=0`) : Promise.resolve(null));
             promises.push(wantDescription ? tf("description", `/api/cards/${cardId}/description`) : Promise.resolve(null));
-            const [commentsRes, attachmentsRes, checklistsRes, descriptionRes] = await Promise.allSettled(promises);
-            const commentsOk = commentsRes.status === "fulfilled" && commentsRes.value && commentsRes.value.ok;
+            const [attachmentsRes, checklistsRes, descriptionRes] = await Promise.allSettled(promises);
             const attachmentsOk = attachmentsRes.status === "fulfilled" && attachmentsRes.value && attachmentsRes.value.ok;
             const checklistsOk = checklistsRes.status === "fulfilled" && checklistsRes.value && checklistsRes.value.ok;
             const descriptionOk = wantDescription && descriptionRes.status === "fulfilled" && descriptionRes.value && descriptionRes.value.ok;
 
-            const comments = commentsOk ? await commentsRes.value.json() : undefined;
             const attachments = attachmentsOk ? await attachmentsRes.value.json() : undefined;
             const checklists = checklistsOk ? await checklistsRes.value.json() : undefined;
             const descObj = descriptionOk ? await descriptionRes.value.json() : undefined;
@@ -184,17 +184,11 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
               if (!d) return d;
               return {
                 ...d,
-                ...(comments !== undefined ? { comments } : {}),
                 ...(attachments !== undefined ? { attachments } : {}),
                 ...(checklists !== undefined ? { checklists: (checklists as any[]).map((cl: any) => ({ id: cl.id, title: cl.title, items: [], itemsCount: cl.itemsCount ?? 0 })) } : {}),
                 ...(descObj !== undefined ? { description: descObj.description ?? "" } : {}),
               };
             });
-            if (Array.isArray(comments)) {
-              const take = TAKE;
-              setHasMoreComments(comments.length === take);
-              setCommentsCursor(comments.length ? comments[comments.length - 1].id : null);
-            }
             if (Array.isArray(attachments)) {
               const takeA = TAKE;
               setHasMoreAttachments(attachments.length === takeA);
@@ -223,7 +217,6 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
               });
             }
           } finally {
-            setLoadingComments(false);
             setLoadingChecklists(false);
           }
         });
@@ -240,6 +233,44 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
     fetchCard();
     return () => controller.abort();
   }, [cardId]);
+
+  React.useEffect(() => {
+    if (!showDetails) return;
+    const controller = new AbortController();
+    async function loadDetails() {
+      try {
+        setLoadingComments(true);
+        setLoadingActivity(true);
+        const TAKE = 20;
+        const wantComments = (data?.commentCount || 0) > 0;
+        const promises: Array<Promise<any>> = [];
+        promises.push(wantComments ? fetch(`/api/cards/${cardId}/comments?take=${TAKE}`, { signal: controller.signal }) : Promise.resolve(null));
+        promises.push(fetch(`/api/cards/${cardId}/activity?take=50`, { signal: controller.signal }));
+        const [commentsRes, activityRes] = await Promise.allSettled(promises);
+        const commentsOk = commentsRes.status === "fulfilled" && commentsRes.value && commentsRes.value.ok;
+        const activityOk = activityRes.status === "fulfilled" && activityRes.value && activityRes.value.ok;
+        const comments = commentsOk ? await commentsRes.value.json() : undefined;
+        const activity = activityOk ? await activityRes.value.json() : [];
+        if (Array.isArray(comments)) {
+          setData((d) => (d ? { ...d, comments } : d));
+          const take = TAKE;
+          setHasMoreComments(comments.length === take);
+          setCommentsCursor(comments.length ? comments[comments.length - 1].id : null);
+        }
+        if (Array.isArray(activity)) {
+          setActivities(activity);
+          const takeA = 50;
+          setHasMoreActivity(activity.length === takeA);
+          setActivityCursor(activity.length ? activity[activity.length - 1].id : null);
+        }
+      } finally {
+        setLoadingComments(false);
+        setLoadingActivity(false);
+      }
+    }
+    loadDetails();
+    return () => controller.abort();
+  }, [showDetails]);
 
   // Keep tempDueDate synced with controlled dueDate input
   React.useEffect(() => {
@@ -1073,50 +1104,70 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
 
             {/* Right column */}
             <div className="h-full min-h-0">
-              <div className="rounded border border-black/10 dark:border-white/15 p-3 bg-foreground/5 h-full min-h-0 flex flex-col">
-                 <p className="text-sm font-semibold">Comments and activity</p>
-                 <div className="mt-2">
-                   <textarea
-                     value={commentText}
-                     onChange={(e) => setCommentText(e.target.value)}
-                     placeholder="Write a comment..."
-                     className="w-full h-20 text-sm border rounded p-2 bg-background"
-                   />
-                   <div className="mt-2 flex justify-end">
-                     <button onClick={addComment} className="text-xs rounded px-2 py-1 bg-foreground text-background">Comment</button>
-                   </div>
-                 </div>
-                 {loadingComments ? (
-                   <div className="mt-3 space-y-2 animate-pulse">
-                     <div className="h-3 rounded bg-foreground/10 w-3/5" />
-                     <div className="h-3 rounded bg-foreground/10 w-2/5" />
-                     <div className="h-3 rounded bg-foreground/10 w-4/5" />
-                   </div>
-                 ) : data.comments.length === 0 ? (
-                   <p className="mt-3 text-xs text-foreground/60">No comments yet</p>
-                 ) : (
-                  <>
-                    <ul className="mt-3 space-y-2 overflow-y-auto flex-1 min-h-0">
-                      {data.comments.map((c) => (
-                        <li key={c.id} className="text-sm">
-                          <div className="text-xs text-foreground/60">{c.author?.name || c.author?.email} • {new Date(c.createdAt).toLocaleString()}</div>
-                          <div>{c.content}</div>
-                        </li>
-                      ))}
-                    </ul>
-                    {hasMoreComments && (
-                      <div className="mt-3 flex justify-center">
-                        <button
-                          onClick={loadMoreComments}
-                          disabled={loadingMoreComments}
-                          className={`text-xs rounded px-3 py-1 ${loadingMoreComments ? "bg-foreground/10" : "bg-foreground text-background"}`}
-                        >
-                          {loadingMoreComments ? "Loading..." : "Load more"}
-                        </button>
-                      </div>
-                    )}
-                  </>
-                 )}
+            <div className="rounded border border-black/10 dark:border-white/15 p-3 bg-foreground/5 h-full min-h-0 flex flex-col">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold">Comments and activity</p>
+                  <button onClick={() => setShowDetails((s) => !s)} className="text-xs rounded px-3 py-1 border bg-background">
+                    {showDetails ? "Hide details" : "Show details"}
+                  </button>
+                </div>
+                <div className="mt-2">
+                  <textarea
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    placeholder="Write a comment..."
+                    className="w-full h-20 text-sm border rounded p-2 bg-background"
+                  />
+                  <div className="mt-2 flex justify-end">
+                    <button onClick={addComment} className="text-xs rounded px-2 py-1 bg-foreground text-background">Comment</button>
+                  </div>
+                </div>
+                {!showDetails ? (
+                  <div className="mt-3 text-xs text-foreground/60">Details are hidden</div>
+                ) : loadingComments || loadingActivity ? (
+                  <div className="mt-3 space-y-2 animate-pulse">
+                    <div className="h-3 rounded bg-foreground/10 w-3/5" />
+                    <div className="h-3 rounded bg-foreground/10 w-2/5" />
+                    <div className="h-3 rounded bg-foreground/10 w-4/5" />
+                  </div>
+                ) : activities.length === 0 && data.comments.length === 0 ? (
+                  <p className="mt-3 text-xs text-foreground/60">No activity yet</p>
+                ) : (
+                 <>
+                   <ul className="mt-3 space-y-3 overflow-y-auto flex-1 min-h-0">
+                     {[...activities.map((a) => ({ kind: "activity" as const, createdAt: a.createdAt, a })), ...data.comments.map((c) => ({ kind: "comment" as const, createdAt: c.createdAt, c }))]
+                       .sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime())
+                       .map((item) => (
+                         item.kind === "activity" ? (
+                           <li key={`a-${item.a.id}`} className="text-sm">
+                             <div className="flex items-center gap-2">
+                               <Avatar image={item.a.user?.image || ""} name={item.a.user?.name || item.a.user?.email || ""} email={item.a.user?.email || ""} size={20} />
+                               <span className="font-semibold">{item.a.user?.name || item.a.user?.email || "Someone"}</span>
+                               <span className="text-foreground/80">{String(item.a.details?.message || item.a.type)}</span>
+                             </div>
+                             <div className="text-xs text-foreground/60">{new Date(item.createdAt).toLocaleString()}</div>
+                           </li>
+                         ) : (
+                           <li key={`c-${item.c.id}`} className="text-sm">
+                             <div className="text-xs text-foreground/60">{item.c.author?.name || item.c.author?.email} • {new Date(item.c.createdAt).toLocaleString()}</div>
+                             <div>{item.c.content}</div>
+                           </li>
+                         )
+                       ))}
+                   </ul>
+                   {hasMoreComments && (
+                     <div className="mt-3 flex justify-center">
+                       <button
+                         onClick={loadMoreComments}
+                         disabled={loadingMoreComments}
+                         className={`text-xs rounded px-3 py-1 ${loadingMoreComments ? "bg-foreground/10" : "bg-foreground text-background"}`}
+                       >
+                         {loadingMoreComments ? "Loading..." : "Load more"}
+                       </button>
+                     </div>
+                   )}
+                 </>
+                )}
                </div>
 
               </div>
