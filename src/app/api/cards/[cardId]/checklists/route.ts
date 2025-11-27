@@ -20,10 +20,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ cardId: 
     }
     const rows = await prisma.checklist.findMany({
       where: { cardId },
-      select: { id: true, title: true, _count: { select: { items: true } } },
       orderBy: { id: "asc" },
+      include: { _count: { select: { items: true } } },
     });
-    const meta = rows.map((r) => ({ id: r.id, title: r.title, itemsCount: (r as any)._count?.items ?? 0 }));
+    const meta = rows.map((r: any) => ({ id: r.id, title: r.title, itemsCount: r._count?.items ?? 0 }));
     const res = NextResponse.json(meta);
     res.headers.set("cache-control", "public, max-age=15");
     return res;
