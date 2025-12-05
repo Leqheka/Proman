@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import dynamic from "next/dynamic";
+// import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, useSortable, arrayMove, verticalListSortingStrategy, horizontalListSortingStrategy } from "@dnd-kit/sortable";
@@ -9,10 +9,7 @@ import { CSS } from "@dnd-kit/utilities";
 import CreateCard from "./create-card";
 import AddListTile from "./add-list-tile";
 import Avatar from "./avatar";
-const CardModal = dynamic(() => import("./card-modal"), {
-  ssr: false,
-  loading: () => <div className="px-6 pt-10">Loading card...</div>,
-});
+import CardModal from "./card-modal";
 
 export type CardItem = { id: string; title: string; order: number; listId?: string; dueDate?: string | null; hasDescription?: boolean; checklistCount?: number; commentCount?: number; attachmentCount?: number; assignmentCount?: number; members?: Array<{ id: string; name: string | null; email: string; image: string | null }> };
 export type ListItem = { id: string; title: string; order: number; cards: CardItem[] };
@@ -80,6 +77,7 @@ function SortableCardBase({ card, onOpen, onToggleArchive, onUpdateTitle }: { ca
         if (isTempCardId(card.id)) return;
         prefetched.current = true;
         fetch(`/api/cards/${card.id}?summary=1`).catch(() => {});
+        import("./card-modal").catch(() => {});
       }}
       onClick={() => {
         if (isTempCardId(card.id)) return; // guard against opening temp card modal

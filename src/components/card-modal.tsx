@@ -56,6 +56,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
   const [hasMoreComments, setHasMoreComments] = React.useState(false);
   const [commentsCursor, setCommentsCursor] = React.useState<string | null>(null);
   const [activities, setActivities] = React.useState<Array<{ id: string; type: string; details: any; createdAt: string; user?: Member | null }>>([]);
+  const [creationActivity, setCreationActivity] = React.useState<{ id: string; type: string; details: any; createdAt: string; user?: Member | null } | null>(null);
   const [loadingActivity, setLoadingActivity] = React.useState(false);
   const [showDetails, setShowDetails] = React.useState(false);
   const [hasMoreActivity, setHasMoreActivity] = React.useState(false);
@@ -109,6 +110,10 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
           if ((pre.checklistCount || 0) > 0) {
             setLoadingChecklists(true);
           }
+          if (!creationActivity) {
+            const createdAtISO = (pre as any).createdAt ? (pre as any).createdAt : new Date().toISOString();
+            setCreationActivity({ id: `local-${cardId}`, type: "CARD_CREATED", details: { message: "Someone created this card" }, createdAt: createdAtISO, user: null });
+          }
           setLoading(false);
         } else {
           setLoading(true);
@@ -142,13 +147,25 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
         if ((normalized.checklistCount || 0) > 0) {
           setLoadingChecklists(true);
         }
+        if (!creationActivity) {
+          const createdAtISO = (normalized as any).createdAt ? (normalized as any).createdAt : new Date().toISOString();
+          setCreationActivity({ id: `local-${cardId}`, type: "CARD_CREATED", details: { message: "Someone created this card" }, createdAt: createdAtISO, user: null });
+        }
         try {
           const respOne = await fetch(`/api/cards/${cardId}/activity?order=asc&type=CARD_CREATED&take=1`, { signal: controller.signal });
           if (respOne.ok) {
             const one = await respOne.json();
-            if (Array.isArray(one)) setActivities(one);
+            if (Array.isArray(one) && one.length > 0) {
+              setCreationActivity(one[0]);
+            } else {
+              const createdAtISO = normalized && (normalized as any).createdAt ? (normalized as any).createdAt : new Date().toISOString();
+              setCreationActivity({ id: `local-${cardId}`, type: "CARD_CREATED", details: { message: "Someone created this card" }, createdAt: createdAtISO, user: null });
+            }
           }
-        } catch {}
+        } catch {
+          const createdAtISO = normalized && (normalized as any).createdAt ? (normalized as any).createdAt : new Date().toISOString();
+          setCreationActivity({ id: `local-${cardId}`, type: "CARD_CREATED", details: { message: "Someone created this card" }, createdAt: createdAtISO, user: null });
+        }
         // Run heavy loads just after paint to avoid long idle delays
         const schedule = (fn: () => void) => {
           try {
@@ -203,25 +220,22 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
             }
 
             if (Array.isArray(checklists)) {
-              const first = (checklists as any[]).slice(0, 3);
-              const itemPromises = first.map((cl: any) => tf("items", `/api/checklists/${cl.id}/items?take=200`));
-              const itemResults = await Promise.allSettled(itemPromises);
-              const itemsById = new Map<string, ChecklistItem[]>();
-              for (let i = 0; i < itemResults.length; i++) {
-                const r = itemResults[i];
-                const cl = first[i];
-                if (r.status === "fulfilled" && r.value.ok) {
-                  const arr = await r.value.json();
-                  itemsById.set(cl.id, arr);
+              const firstIds = (checklists as any[]).slice(0, 3).map((cl: any) => cl.id);
+              if (firstIds.length) {
+                const batched = await tf("items", `/api/cards/${cardId}/checklists/items?ids=${encodeURIComponent(firstIds.join(","))}&take=200`);
+                if (batched.ok) {
+                  const rows = await batched.json();
+                  const itemsById = new Map<string, ChecklistItem[]>();
+                  rows.forEach((r: any) => itemsById.set(r.id, r.items || []));
+                  setData((d) => {
+                    if (!d) return d;
+                    return {
+                      ...d,
+                      checklists: d.checklists.map((c) => (itemsById.has(c.id) ? { ...c, items: itemsById.get(c.id)! } : c)),
+                    };
+                  });
                 }
               }
-              setData((d) => {
-                if (!d) return d;
-                return {
-                  ...d,
-                  checklists: d.checklists.map((c) => (itemsById.has(c.id) ? { ...c, items: itemsById.get(c.id)! } : c)),
-                };
-              });
             }
           } finally {
             setLoadingChecklists(false);
@@ -250,14 +264,18 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
         setLoadingActivity(true);
         const TAKE = 20;
         const wantComments = (data?.commentCount || 0) > 0;
-        const promises: Array<Promise<any>> = [];
-        promises.push(wantComments ? fetch(`/api/cards/${cardId}/comments?take=${TAKE}`, { signal: controller.signal }) : Promise.resolve(null));
-        promises.push(fetch(`/api/cards/${cardId}/activity?take=50`, { signal: controller.signal }));
-        const [commentsRes, activityRes] = await Promise.allSettled(promises);
+        const [commentsRes, activityRes] = await Promise.allSettled([
+          wantComments ? fetch(`/api/cards/${cardId}/comments?take=${TAKE}`, { signal: controller.signal }) : Promise.resolve(null),
+          fetch(`/api/cards/${cardId}/activity?take=200`, { signal: controller.signal }),
+        ]);
         const commentsOk = commentsRes.status === "fulfilled" && commentsRes.value && commentsRes.value.ok;
         const activityOk = activityRes.status === "fulfilled" && activityRes.value && activityRes.value.ok;
-        const comments = commentsOk ? await commentsRes.value.json() : undefined;
-        const activity = activityOk ? await activityRes.value.json() : [];
+        const comments = commentsOk && commentsRes.value ? await commentsRes.value.json() : undefined;
+        let activity: any[] = activityOk ? await activityRes.value.json() : [];
+        const serverCreation = activity.filter((a) => a.type === "CARD_CREATED");
+        const creation = serverCreation.length ? serverCreation.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())[0] : creationActivity;
+        const withoutCreation = activity.filter((a) => a.type !== "CARD_CREATED").sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        if (creation) activity = [...withoutCreation, creation];
         if (Array.isArray(comments)) {
           setData((d) => (d ? { ...d, comments } : d));
           const take = TAKE;
@@ -508,6 +526,10 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
       if (resp.ok) {
         const created = await resp.json();
         setData((d) => (d ? { ...d, checklists: [...d.checklists, created] } : d));
+        setActivities((curr) => [
+          ...curr,
+          { id: `local-cl-${created.id}`, type: "CHECKLIST_CREATED", details: { message: `created checklist '${created.title}'` }, createdAt: new Date().toISOString(), user: null },
+        ]);
         if (onCardUpdated) {
           const nextCount = (data?.checklists.length ?? 0) + 1;
           onCardUpdated({ id: cardId, checklistCount: nextCount });
@@ -574,6 +596,10 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
             checklists: d.checklists.map((c) => (c.id === checklistId ? { ...c, items: [...c.items, created] } : c)),
           };
         });
+        setActivities((curr) => [
+          ...curr,
+          { id: `local-item-${created.id}`, type: "CHECKLIST_ITEM_CREATED", details: { message: `added item '${created.title}'` }, createdAt: new Date().toISOString(), user: null },
+        ]);
       }
     } catch (err) {
       console.error("Failed to add checklist item", err);
@@ -650,6 +676,187 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
     } catch (err) {
       console.error("Failed to toggle item", err);
     }
+  }
+
+  function VirtualChecklistItems({ cl }: { cl: Checklist }) {
+    const containerRef = React.useRef<HTMLDivElement | null>(null);
+    const [scrollTop, setScrollTop] = React.useState(0);
+    const [containerHeight, setContainerHeight] = React.useState(0);
+    const ITEM_HEIGHT = 28;
+    const BUFFER = 6;
+
+    React.useEffect(() => {
+      const el = containerRef.current;
+      if (!el) return;
+      setContainerHeight(el.clientHeight);
+      const onScroll = () => setScrollTop(el.scrollTop);
+      el.addEventListener("scroll", onScroll);
+      const onResize = () => setContainerHeight(el.clientHeight);
+      window.addEventListener("resize", onResize);
+      return () => {
+        el.removeEventListener("scroll", onScroll);
+        window.removeEventListener("resize", onResize);
+      };
+    }, []);
+
+    const items = cl.items;
+    const long = items.length >= 60;
+    if (!long) {
+      return (
+        <ul className="mt-2 space-y-2">
+          {items.length === 0 && (cl.itemsCount || 0) > 0 ? (
+            <li className="space-y-2 animate-pulse">
+              <div className="h-3 rounded bg-foreground/10 w-3/5" />
+              <div className="h-3 rounded bg-foreground/10 w-2/5" />
+              <div className="h-3 rounded bg-foreground/10 w-4/5" />
+            </li>
+          ) : null}
+          {items.map((it) => (
+            <li key={it.id} className="group flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-foreground/5">
+              <div className="flex items-center gap-2">
+                <input type="checkbox" checked={it.completed} onChange={(e) => toggleChecklistItem(it.id, e.target.checked)} />
+                {editingItemId === it.id ? (
+                  <input
+                    autoFocus
+                    value={editingItemTitle}
+                    onChange={(e) => setEditingItemTitle(e.target.value)}
+                    onBlur={() => updateChecklistItemTitle(it.id, editingItemTitle)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") updateChecklistItemTitle(it.id, editingItemTitle);
+                      if (e.key === "Escape") { setEditingItemId(null); setEditingItemTitle(""); }
+                    }}
+                    className="text-sm bg-transparent outline-none border rounded px-1"
+                  />
+                ) : (
+                  <button
+                    onClick={() => { setEditingItemId(it.id); setEditingItemTitle(it.title); }}
+                    className={`text-sm ${it.completed ? "line-through text-foreground/50" : ""}`}
+                  >
+                    {it.title}
+                  </button>
+                )}
+              </div>
+              <button
+                className="opacity-60 group-hover:opacity-100 text-foreground/70 hover:text-foreground"
+                title="Delete item"
+                onClick={() => deleteChecklistItem(it.id)}
+              >
+                <span
+                  className="w-4 h-4 inline-block"
+                  style={{
+                    WebkitMaskImage: 'url(/icons/trash.svg)',
+                    maskImage: 'url(/icons/trash.svg)',
+                    backgroundColor: 'currentColor',
+                    WebkitMaskRepeat: 'no-repeat',
+                    maskRepeat: 'no-repeat',
+                    WebkitMaskPosition: 'center',
+                    maskPosition: 'center',
+                    WebkitMaskSize: 'contain',
+                    maskSize: 'contain',
+                  }}
+                  aria-hidden
+                />
+              </button>
+            </li>
+          ))}
+          <li className="flex items-center gap-2">
+            <input
+              placeholder="Add an item"
+              className="flex-1 w-full text-xs px-2 py-1 border rounded bg-background"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const t = (e.currentTarget as HTMLInputElement).value;
+                  (e.currentTarget as HTMLInputElement).value = "";
+                  addChecklistItem(cl.id, t);
+                }
+              }}
+            />
+          </li>
+        </ul>
+      );
+    }
+
+    const total = items.length;
+    const start = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - BUFFER);
+    const end = Math.min(total, Math.ceil((scrollTop + containerHeight) / ITEM_HEIGHT) + BUFFER);
+    const visible = items.slice(start, end);
+
+    return (
+      <div className="mt-2">
+        {items.length === 0 && (cl.itemsCount || 0) > 0 ? (
+          <div className="space-y-2 animate-pulse">
+            <div className="h-3 rounded bg-foreground/10 w-3/5" />
+            <div className="h-3 rounded bg-foreground/10 w-2/5" />
+            <div className="h-3 rounded bg-foreground/10 w-4/5" />
+          </div>
+        ) : null}
+        <div ref={containerRef} className="space-y-2 overflow-y-auto max-h-64 min-h-0">
+          <div style={{ height: start * ITEM_HEIGHT }} />
+          {visible.map((it) => (
+            <div key={it.id} className="group flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-foreground/5">
+              <div className="flex items-center gap-2">
+                <input type="checkbox" checked={it.completed} onChange={(e) => toggleChecklistItem(it.id, e.target.checked)} />
+                {editingItemId === it.id ? (
+                  <input
+                    autoFocus
+                    value={editingItemTitle}
+                    onChange={(e) => setEditingItemTitle(e.target.value)}
+                    onBlur={() => updateChecklistItemTitle(it.id, editingItemTitle)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") updateChecklistItemTitle(it.id, editingItemTitle);
+                      if (e.key === "Escape") { setEditingItemId(null); setEditingItemTitle(""); }
+                    }}
+                    className="text-sm bg-transparent outline-none border rounded px-1"
+                  />
+                ) : (
+                  <button
+                    onClick={() => { setEditingItemId(it.id); setEditingItemTitle(it.title); }}
+                    className={`text-sm ${it.completed ? "line-through text-foreground/50" : ""}`}
+                  >
+                    {it.title}
+                  </button>
+                )}
+              </div>
+              <button
+                className="opacity-60 group-hover:opacity-100 text-foreground/70 hover:text-foreground"
+                title="Delete item"
+                onClick={() => deleteChecklistItem(it.id)}
+              >
+                <span
+                  className="w-4 h-4 inline-block"
+                  style={{
+                    WebkitMaskImage: 'url(/icons/trash.svg)',
+                    maskImage: 'url(/icons/trash.svg)',
+                    backgroundColor: 'currentColor',
+                    WebkitMaskRepeat: 'no-repeat',
+                    maskRepeat: 'no-repeat',
+                    WebkitMaskPosition: 'center',
+                    maskPosition: 'center',
+                    WebkitMaskSize: 'contain',
+                    maskSize: 'contain',
+                  }}
+                  aria-hidden
+                />
+              </button>
+            </div>
+          ))}
+          <div style={{ height: (total - end) * ITEM_HEIGHT }} />
+        </div>
+        <div className="flex items-center gap-2 mt-2">
+          <input
+            placeholder="Add an item"
+            className="flex-1 w-full text-xs px-2 py-1 border rounded bg-background"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const t = (e.currentTarget as HTMLInputElement).value;
+                (e.currentTarget as HTMLInputElement).value = "";
+                addChecklistItem(cl.id, t);
+              }
+            }}
+          />
+        </div>
+      </div>
+    );
   }
 
   async function addAttachment() {
@@ -1032,76 +1239,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                           </div>
                           <button onClick={() => deleteChecklist(cl.id)} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10">Delete</button>
                         </div>
-                        <ul className="mt-2 space-y-2">
-                          {cl.items.length === 0 && (cl.itemsCount || 0) > 0 ? (
-                            <li className="space-y-2 animate-pulse">
-                              <div className="h-3 rounded bg-foreground/10 w-3/5" />
-                              <div className="h-3 rounded bg-foreground/10 w-2/5" />
-                              <div className="h-3 rounded bg-foreground/10 w-4/5" />
-                            </li>
-                          ) : null}
-                          {cl.items.map((it) => (
-                            <li key={it.id} className="group flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-foreground/5">
-                              <div className="flex items-center gap-2">
-                                <input type="checkbox" checked={it.completed} onChange={(e) => toggleChecklistItem(it.id, e.target.checked)} />
-                                {editingItemId === it.id ? (
-                                  <input
-                                    autoFocus
-                                    value={editingItemTitle}
-                                    onChange={(e) => setEditingItemTitle(e.target.value)}
-                                    onBlur={() => updateChecklistItemTitle(it.id, editingItemTitle)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") updateChecklistItemTitle(it.id, editingItemTitle);
-                                      if (e.key === "Escape") { setEditingItemId(null); setEditingItemTitle(""); }
-                                    }}
-                                    className="text-sm bg-transparent outline-none border rounded px-1"
-                                  />
-                                ) : (
-                                  <button
-                                    onClick={() => { setEditingItemId(it.id); setEditingItemTitle(it.title); }}
-                                    className={`text-sm ${it.completed ? "line-through text-foreground/50" : ""}`}
-                                  >
-                                    {it.title}
-                                  </button>
-                                )}
-                              </div>
-                              <button
-                                className="opacity-60 group-hover:opacity-100 text-foreground/70 hover:text-foreground"
-                                title="Delete item"
-                                onClick={() => deleteChecklistItem(it.id)}
-                              >
-                                <span
-                                  className="w-4 h-4 inline-block"
-                                  style={{
-                                    WebkitMaskImage: 'url(/icons/trash.svg)',
-                                    maskImage: 'url(/icons/trash.svg)',
-                                    backgroundColor: 'currentColor',
-                                    WebkitMaskRepeat: 'no-repeat',
-                                    maskRepeat: 'no-repeat',
-                                    WebkitMaskPosition: 'center',
-                                    maskPosition: 'center',
-                                    WebkitMaskSize: 'contain',
-                                    maskSize: 'contain',
-                                  }}
-                                  aria-hidden
-                                />
-                              </button>
-                            </li>
-                          ))}
-                          <li className="flex items-center gap-2">
-                            <input
-                              placeholder="Add an item"
-                              className="flex-1 w-full text-xs px-2 py-1 border rounded bg-background"
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  const t = (e.currentTarget as HTMLInputElement).value;
-                                  (e.currentTarget as HTMLInputElement).value = "";
-                                  addChecklistItem(cl.id, t);
-                                }
-                              }}
-                            />
-                          </li>
-                        </ul>
+                        <VirtualChecklistItems cl={cl} />
                       </div>
                     ))}
                   </div>
@@ -1132,15 +1270,15 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                 {!showDetails ? (
                   <>
                     <ul className="mt-3 space-y-3 overflow-y-auto flex-1 min-h-0">
-                      {activities.length === 0 ? (
+                      {!creationActivity ? (
                         <li className="text-xs text-foreground/60">No activity yet</li>
                       ) : (
-                        activities.slice(0, 1).map((a) => (
+                        [creationActivity].map((a) => (
                           <li key={`a-${a.id}`} className="text-sm">
                             <div className="flex items-center gap-2">
                               <Avatar image={a.user?.image || ""} name={a.user?.name || a.user?.email || ""} email={a.user?.email || ""} size={20} />
                               <span className="font-semibold">{a.user?.name || a.user?.email || "Someone"}</span>
-                              <span className="text-foreground/80">{String(a.details?.message || a.type)}</span>
+                              <span className="text-foreground/80">{String(a.details?.message || "Someone created this card")}</span>
                             </div>
                             <div className="text-xs text-foreground/60">{new Date(a.createdAt).toLocaleString()}</div>
                           </li>
@@ -1158,27 +1296,32 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                   <p className="mt-3 text-xs text-foreground/60">No activity yet</p>
                 ) : (
                   <>
-                   <ul className="mt-3 space-y-3 overflow-y-auto flex-1 min-h-0">
-                     {[...activities.map((a) => ({ kind: "activity" as const, createdAt: a.createdAt, a })), ...data.comments.map((c) => ({ kind: "comment" as const, createdAt: c.createdAt, c }))]
-                       .sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime())
-                       .map((item) => (
-                         item.kind === "activity" ? (
-                           <li key={`a-${item.a.id}`} className="text-sm">
-                             <div className="flex items-center gap-2">
-                               <Avatar image={item.a.user?.image || ""} name={item.a.user?.name || item.a.user?.email || ""} email={item.a.user?.email || ""} size={20} />
-                               <span className="font-semibold">{item.a.user?.name || item.a.user?.email || "Someone"}</span>
-                               <span className="text-foreground/80">{String(item.a.details?.message || item.a.type)}</span>
-                             </div>
-                             <div className="text-xs text-foreground/60">{new Date(item.createdAt).toLocaleString()}</div>
-                           </li>
-                         ) : (
-                           <li key={`c-${item.c.id}`} className="text-sm">
-                             <div className="text-xs text-foreground/60">{item.c.author?.name || item.c.author?.email} • {new Date(item.c.createdAt).toLocaleString()}</div>
-                             <div>{item.c.content}</div>
-                           </li>
-                         )
-                       ))}
-                   </ul>
+                    <ul className="mt-3 space-y-3 overflow-y-auto flex-1 min-h-0">
+                      {(() => {
+                        const mergedActivity = activities.filter((a) => a.type !== "CARD_CREATED").map((a) => ({ kind: "activity" as const, createdAt: a.createdAt, a }));
+                        const merged = [...mergedActivity, ...data.comments.map((c) => ({ kind: "comment" as const, createdAt: c.createdAt, c }))]
+                          .sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime());
+                        const items = [...merged];
+                        if (creationActivity) items.push({ kind: "activity" as const, createdAt: creationActivity.createdAt, a: creationActivity });
+                        return items.map((item) => (
+                          item.kind === "activity" ? (
+                            <li key={`a-${item.a.id}`} className="text-sm">
+                              <div className="flex items-center gap-2">
+                                <Avatar image={item.a.user?.image || ""} name={item.a.user?.name || item.a.user?.email || ""} email={item.a.user?.email || ""} size={20} />
+                                <span className="font-semibold">{item.a.user?.name || item.a.user?.email || "Someone"}</span>
+                                <span className="text-foreground/80">{String(item.a.details?.message || (item.a.type === "CARD_CREATED" ? "Someone created this card" : item.a.type))}</span>
+                              </div>
+                              <div className="text-xs text-foreground/60">{new Date(item.createdAt).toLocaleString()}</div>
+                            </li>
+                          ) : (
+                            <li key={`c-${item.c.id}`} className="text-sm">
+                              <div className="text-xs text-foreground/60">{item.c.author?.name || item.c.author?.email} • {new Date(item.c.createdAt).toLocaleString()}</div>
+                              <div>{item.c.content}</div>
+                            </li>
+                          )
+                        ));
+                      })()}
+                    </ul>
                    {hasMoreComments && (
                      <div className="mt-3 flex justify-center">
                        <button

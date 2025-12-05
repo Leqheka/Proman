@@ -58,6 +58,7 @@ export async function GET(
       order: card.order,
       archived: card.archived,
       dueDate: card.dueDate,
+      createdAt: (card as any).createdAt,
       list: card.list,
       board: card.board,
       labels: card.labels.map((cl: any) => cl.label),

@@ -37,7 +37,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ checklis
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
     const res = NextResponse.json(items);
-    res.headers.set("cache-control", "public, max-age=15");
+    res.headers.set("cache-control", "public, max-age=120, stale-while-revalidate=60");
     return res;
   } catch (err) {
     console.error("GET /api/checklists/[checklistId]/items error", err);

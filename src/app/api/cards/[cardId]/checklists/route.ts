@@ -15,7 +15,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ cardId: 
         orderBy: { id: "asc" },
       });
       const res = NextResponse.json(checklists);
-      res.headers.set("cache-control", "public, max-age=15");
+      res.headers.set("cache-control", "public, max-age=120, stale-while-revalidate=60");
       return res;
     }
     const rows = await prisma.checklist.findMany({
@@ -25,7 +25,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ cardId: 
     });
     const meta = rows.map((r: any) => ({ id: r.id, title: r.title, itemsCount: r._count?.items ?? 0 }));
     const res = NextResponse.json(meta);
-    res.headers.set("cache-control", "public, max-age=15");
+    res.headers.set("cache-control", "public, max-age=120, stale-while-revalidate=60");
     return res;
   } catch (err) {
     console.error("GET /api/cards/[cardId]/checklists error", err);
