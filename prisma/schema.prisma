@@ -241,3 +241,12 @@ model Notification {
 
   @@index([userId])
 }
+
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  name      String
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([name, key, createdAt])
+}
