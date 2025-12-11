@@ -110,7 +110,7 @@ export default function GlobalSearch() {
   const visible = open && results.length > 0;
 
   return (
-    <div ref={wrapRef} className="relative w-full max-w-xl">
+    <div ref={wrapRef} className="relative w-full max-w-2xl">
       <form onSubmit={onSubmit} className="flex items-center gap-2 rounded bg-foreground/5 px-3 py-1">
         <input
           value={q}

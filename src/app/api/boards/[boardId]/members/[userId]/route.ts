@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { revalidateTag } from "next/cache";
+import { verifySession } from "@/lib/auth";
 
 // Remove a member from the board
-export async function DELETE(_req: Request, { params }: { params: Promise<{ boardId: string; userId: string }> }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ boardId: string; userId: string }> }) {
   try {
+    const cookie = (req.headers as any).get?.("cookie") || "";
+    const m = cookie.match(/session=([^;]+)/);
+    const token = m?.[1] || "";
+    const payload = token ? verifySession(token) : null;
+    if (!payload?.admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
     const { boardId, userId } = await params;
     if (!boardId || !userId) return NextResponse.json({ error: "boardId and userId required" }, { status: 400 });
 
@@ -26,6 +32,11 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ boar
 // Update a member's role
 export async function PATCH(req: Request, { params }: { params: Promise<{ boardId: string; userId: string }> }) {
   try {
+    const cookie = (req.headers as any).get?.("cookie") || "";
+    const m = cookie.match(/session=([^;]+)/);
+    const token = m?.[1] || "";
+    const payload = token ? verifySession(token) : null;
+    if (!payload?.admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
     const { boardId, userId } = await params;
     let role = "";
     const ct = req.headers.get("content-type") || "";

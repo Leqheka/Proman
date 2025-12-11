@@ -11,11 +11,13 @@ export default function MembersClient({
   boardTitle,
   initialMembers,
   ownerId,
+  isAdmin,
 }: {
   boardId: string;
   boardTitle: string;
   initialMembers: Member[];
   ownerId?: string;
+  isAdmin?: boolean;
 }) {
   const [members, setMembers] = React.useState<Member[]>(initialMembers || []);
   const [email, setEmail] = React.useState("");
@@ -107,6 +109,7 @@ export default function MembersClient({
           </Link>
         </div>
 
+        {isAdmin && (
         <section className="mt-6">
           <h2 className="text-sm font-semibold">Register new member</h2>
           <form onSubmit={handleAddMember} className="mt-2 flex items-center gap-2">
@@ -141,6 +144,7 @@ export default function MembersClient({
             </button>
           </form>
         </section>
+        )}
 
         <section className="mt-8">
           <h2 className="text-sm font-semibold">Existing members</h2>
@@ -176,7 +180,7 @@ export default function MembersClient({
                       <span className="text-xs px-2 py-1 rounded bg-foreground/10" title="Board owner">
                         Owner
                       </span>
-                    ) : (
+                    ) : isAdmin ? (
                       <form action={`/api/boards/${boardId}/members/${m.id}`} method="post">
                         <input type="hidden" name="_method" value="PATCH" />
                         <select name="role" className="text-xs px-2 py-1 border rounded bg-background" defaultValue={m.role}>
@@ -185,11 +189,13 @@ export default function MembersClient({
                         </select>
                         <button className="ml-2 text-xs rounded px-2 py-1 bg-foreground/5">Update</button>
                       </form>
-                    )}
+                    ) : null}
+                    {isAdmin && (
                     <form action={`/api/boards/${boardId}/members/${m.id}`} method="post" className="inline">
                       <input type="hidden" name="_method" value="DELETE" />
                       <button className="text-xs rounded px-2 py-1 bg-red-600 text-background" disabled={m.role === "OWNER" || (!!ownerId && m.id === ownerId)} title={(m.role === "OWNER" || (!!ownerId && m.id === ownerId)) ? "Owner cannot be removed" : ""}>Remove</button>
                     </form>
+                    )}
                   </div>
                 </li>
               ))}

@@ -1,8 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import MembersClient from "./members-client";
+import { cookies } from "next/headers";
+import { verifySession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export default async function BoardMembersPage({ params }: { params: { boardId: string } }) {
   const { boardId } = params;
+  const cookieStore = await cookies();
+  const token = cookieStore.get("session")?.value || "";
+  const payload = token ? verifySession(token) : null;
+  const isAdmin = !!payload?.admin;
+  if (!isAdmin) redirect(`/boards/${boardId}`);
   let boardTitle = "Board";
   let ownerId: string | undefined = undefined;
   let members: Array<{ id: string; name?: string | null; email: string; role: string }> = [];
@@ -18,5 +26,5 @@ export default async function BoardMembersPage({ params }: { params: { boardId: 
     members = memberships.map((m) => ({ id: m.user.id, name: m.user.name, email: m.user.email, role: m.role }));
   } catch {}
 
-  return <MembersClient boardId={boardId} boardTitle={boardTitle} initialMembers={members} ownerId={ownerId} />;
+  return <MembersClient boardId={boardId} boardTitle={boardTitle} initialMembers={members} ownerId={ownerId} isAdmin={isAdmin} />;
 }

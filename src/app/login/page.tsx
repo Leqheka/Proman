@@ -6,6 +6,7 @@ export default function LoginPage() {
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  const [bg, setBg] = React.useState<string | null>(null);
 
   async function submit() {
     setLoading(true);
@@ -25,8 +26,31 @@ export default function LoginPage() {
     }
   }
 
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const r = await fetch("/api/landing-bg");
+        const j = await r.json().catch(() => ({}));
+        if (!alive) return;
+        if (j?.url) setBg(String(j.url));
+      } catch {
+        if (!alive) return;
+        setBg("https://images.unsplash.com/photo-1528164344705-475426870aed?w=1600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3");
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{
+        backgroundImage: `url(${bg || "https://images.unsplash.com/photo-1528164344705-475426870aed?w=1600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3"})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
       <div className="w-full max-w-sm rounded border border-black/10 dark:border-white/15 p-4 bg-background">
         <p className="text-lg font-semibold">Sign in</p>
         <label className="text-xs mt-3 block">Username or email</label>
@@ -39,4 +63,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

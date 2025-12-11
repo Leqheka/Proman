@@ -6,6 +6,7 @@ export default function PasswordSettingsPage() {
   const [next, setNext] = React.useState("");
   const [msg, setMsg] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  const [backHref, setBackHref] = React.useState<string>("/");
 
   async function change() {
     setLoading(true);
@@ -16,9 +17,20 @@ export default function PasswordSettingsPage() {
     } catch { setMsg("Network error"); } finally { setLoading(false); }
   }
 
+  React.useEffect(() => {
+    try {
+      const id = localStorage.getItem("lastBoardId");
+      if (id) setBackHref(`/boards/${id}`);
+    } catch {}
+  }, []);
+
   return (
     <div className="min-h-screen p-4">
-      <div className="w-full max-w-sm rounded border border-black/10 dark:border-white/15 p-4 bg-background">
+      <div className="mx-auto max-w-5xl px-6 pt-6 flex items-center justify-between">
+        <span />
+        <a href={backHref} className="text-xs rounded px-2 py-1 bg-foreground text-background">Back to board</a>
+      </div>
+      <div className="w-full max-w-sm mx-auto mt-4 rounded border border-black/10 dark:border-white/15 p-4 bg-background">
         <p className="text-lg font-semibold">Change password</p>
         <label className="text-xs mt-3 block">Current password</label>
         <input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} className="mt-1 w-full text-sm px-2 py-1 border rounded bg-background" />
@@ -30,4 +42,3 @@ export default function PasswordSettingsPage() {
     </div>
   );
 }
-

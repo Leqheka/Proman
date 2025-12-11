@@ -706,36 +706,12 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
         <SortableContext items={lists.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
           <div className="pt-10 px-6 h-[calc(100vh-40px)] overflow-x-auto overflow-y-hidden pb-8 flex items-start gap-2">
             {lists.length === 0 ? (
-              <>
-                <AddListTile
-                  boardId={boardId}
-                  onOptimisticCreate={(list) => addOptimisticList(list)}
-                  onFinalize={(prevId, created) => reconcileListId(prevId, created)}
-                  onRollback={(prevId) => removeListById(prevId)}
-                />
-                {/* Archives list */}
-                <div className="w-72 shrink-0 self-start rounded-lg border border-black/10 dark:border-white/15 bg-gray-100 p-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-bold">Archives</p>
-                  </div>
-                  <div className="mt-4 flex flex-col gap-2 max-h-[calc(100vh-160px)] overflow-y-auto pr-1 pb-4">
-                    {archives.length === 0 ? (
-                      <p className="text-xs text-foreground/60">No archived cards</p>
-                    ) : (
-                      <>
-                        {archives.map((c) => (
-                          <div key={c.id} className="rounded border border-black/10 dark:border-white/15 bg-foreground/5 p-3">
-                            <div className="flex items-center gap-2">
-                              <input type="checkbox" checked onChange={(e) => toggleArchive(c, e.target.checked)} />
-                              <span className="text-sm">{c.title}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                </div>
-              </>
+              <AddListTile
+                boardId={boardId}
+                onOptimisticCreate={(list) => addOptimisticList(list)}
+                onFinalize={(prevId, created) => reconcileListId(prevId, created)}
+                onRollback={(prevId) => removeListById(prevId)}
+              />
             ) : (
               <>
                 {lists.map((l) => (
@@ -774,28 +750,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
                   onFinalize={(prevId, created) => reconcileListId(prevId, created)}
                   onRollback={(prevId) => removeListById(prevId)}
                 />
-                {/* Archives list */}
-                <div className="w-72 shrink-0 self-start rounded-lg border border-black/10 dark:border-white/15 bg-gray-100 p-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-bold">Archives</p>
-                  </div>
-                  <div className="mt-4 flex flex-col gap-2 max-h-[calc(100vh-160px)] overflow-y-auto pr-1 pb-4">
-                    {archives.length === 0 ? (
-                      <p className="text-xs text-foreground/60">No archived cards</p>
-                    ) : (
-                      <>
-                        {archives.map((c) => (
-                          <div key={c.id} className="rounded border border-black/10 dark:border-white/15 bg-foreground/5 p-3">
-                            <div className="flex items-center gap-2">
-                              <input type="checkbox" checked onChange={(e) => toggleArchive(c, e.target.checked)} />
-                              <span className="text-sm">{c.title}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                </div>
+                
               </>
             )}
           </div>

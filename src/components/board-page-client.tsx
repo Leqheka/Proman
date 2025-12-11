@@ -43,6 +43,12 @@ export default function BoardPageClient({
   const [bg, setBg] = React.useState<string>(initialBackground);
   const appliedBg = bg ? toProxy(normalizeUnsplash(bg)) : undefined;
 
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("lastBoardId", currentBoardId);
+    } catch {}
+  }, [currentBoardId]);
+
   return (
     <div className="fixed inset-0 overflow-hidden bg-background text-foreground" style={{ backgroundImage: appliedBg ? `url(${appliedBg})` : undefined }}>
       <BoardToolbar boards={boards} currentBoardId={currentBoardId} boardTitle={boardTitle} onBackgroundChanged={setBg} />
