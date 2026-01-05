@@ -19,7 +19,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@prisma/client": "6.17.1",
     "@supabase/supabase-js": "2.75.1",
-    "next": "15.5.7",
+    "next": "15.5.9",
     "prisma": "6.17.1",
     "react": "19.1.0",
     "react-dom": "19.1.0"
