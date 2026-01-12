@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { revalidateTag } from "next/cache";
+import { verifySession } from "@/lib/session";
+import { logActivity } from "@/lib/activity-log";
 
 export async function GET(
   req: Request,
@@ -106,6 +108,28 @@ export async function PATCH(
     try {
       const bId = (updated as any)?.list?.boardId;
       if (bId) revalidateTag(`board:${bId}`);
+
+      if (body.dueDate !== undefined) {
+        const cookie = (req.headers as any).get?.("cookie") || "";
+        const m = cookie.match(/session=([^;]+)/);
+        const token = m?.[1] || "";
+        const session = token ? await verifySession(token) : null;
+        if (session?.sub) {
+          const d = new Date(body.dueDate);
+          const validDate = !isNaN(d.getTime());
+          const message = validDate 
+            ? `set due date to ${d.toISOString().split("T")[0]}` 
+            : "removed due date";
+          
+          await logActivity(
+            cardId,
+            bId || null,
+            session.sub as string,
+            "DUE_DATE_UPDATED",
+            message
+          );
+        }
+      }
     } catch {}
 
     return NextResponse.json(updated);

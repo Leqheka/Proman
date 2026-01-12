@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifySession } from "@/lib/session";
+import { logActivity } from "@/lib/activity-log";
 
 export async function GET(req: Request, { params }: { params: Promise<{ listId: string }> }) {
   try {
@@ -44,22 +46,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ listId:
       order: count,
     },
   });
+  
   try {
-    const user = await prisma.user.upsert({
-      where: { email: "placeholder@local" },
-      update: {},
-      create: { email: "placeholder@local", name: "Placeholder" },
-    });
-    await prisma.activity.create({
-      data: {
-        type: "CARD_CREATED",
-        details: { message: `created card '${title}' in list`, listId },
-        cardId: card.id,
-        boardId: list.boardId,
-        userId: user.id,
-      } as any,
-    });
-  } catch {}
+    const cookie = (req.headers as any).get?.("cookie") || "";
+    const m = cookie.match(/session=([^;]+)/);
+    const token = m?.[1] || "";
+    const session = token ? await verifySession(token) : null;
+
+    if (session?.sub) {
+      await logActivity(
+        card.id,
+        list.boardId,
+        session.sub as string,
+        "CARD_CREATED",
+        `created card '${title}'`
+      );
+    }
+  } catch (e) {
+    console.error("Failed to log card creation", e);
+  }
   return NextResponse.json(card, { status: 201 });
   } catch (err) {
     console.error("POST /api/lists/:listId/cards error", err);

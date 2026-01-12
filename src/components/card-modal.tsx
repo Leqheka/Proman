@@ -526,10 +526,18 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
       if (resp.ok) {
         const created = await resp.json();
         setData((d) => (d ? { ...d, checklists: [...d.checklists, created] } : d));
-        setActivities((curr) => [
-          ...curr,
-          { id: `local-cl-${created.id}`, type: "CHECKLIST_CREATED", details: { message: `created checklist '${created.title}'` }, createdAt: new Date().toISOString(), user: null },
-        ]);
+        
+        // Fetch the new activity to show the correct user immediately
+        try {
+            const actResp = await fetch(`/api/cards/${cardId}/activity?take=1&order=desc`);
+            if (actResp.ok) {
+                const latest = await actResp.json();
+                if (Array.isArray(latest) && latest.length > 0) {
+                     setActivities((curr) => [latest[0], ...curr]);
+                }
+            }
+        } catch {}
+
         if (onCardUpdated) {
           const nextCount = (data?.checklists.length ?? 0) + 1;
           onCardUpdated({ id: cardId, checklistCount: nextCount });
@@ -596,10 +604,18 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
             checklists: d.checklists.map((c) => (c.id === checklistId ? { ...c, items: [...c.items, created] } : c)),
           };
         });
-        setActivities((curr) => [
-          ...curr,
-          { id: `local-item-${created.id}`, type: "CHECKLIST_ITEM_CREATED", details: { message: `added item '${created.title}'` }, createdAt: new Date().toISOString(), user: null },
-        ]);
+        
+        // Fetch activity for checklist item creation
+        try {
+            const actResp = await fetch(`/api/cards/${cardId}/activity?take=1&order=desc`);
+            if (actResp.ok) {
+                const latest = await actResp.json();
+                if (Array.isArray(latest) && latest.length > 0) {
+                     setActivities((curr) => [latest[0], ...curr]);
+                }
+            }
+        } catch {}
+
       }
     } catch (err) {
       console.error("Failed to add checklist item", err);
@@ -672,6 +688,24 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
             })),
           };
         });
+
+        // Fetch activity for checklist toggle
+        try {
+            const actResp = await fetch(`/api/cards/${cardId}/activity?take=1&order=desc`);
+            if (actResp.ok) {
+                const latest = await actResp.json();
+                if (Array.isArray(latest) && latest.length > 0) {
+                     // Check if this activity is indeed recent (within 5s) to avoid stale data
+                     const diff = Date.now() - new Date(latest[0].createdAt).getTime();
+                     if (diff < 5000) {
+                         setActivities((curr) => {
+                             if (curr.some(a => a.id === latest[0].id)) return curr;
+                             return [latest[0], ...curr];
+                         });
+                     }
+                }
+            }
+        } catch {}
       }
     } catch (err) {
       console.error("Failed to toggle item", err);

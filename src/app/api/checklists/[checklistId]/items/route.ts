@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifySession } from "@/lib/session";
+import { logActivity } from "@/lib/activity-log";
 
 export async function POST(req: Request, { params }: { params: Promise<{ checklistId: string }> }) {
   try {
@@ -10,13 +12,27 @@ export async function POST(req: Request, { params }: { params: Promise<{ checkli
     if (!title) return NextResponse.json({ error: "title required" }, { status: 400 });
 
     const created = await prisma.checklistItem.create({ data: { checklistId, title } });
+    
     try {
-      const user = await prisma.user.upsert({ where: { email: "placeholder@local" }, update: {}, create: { email: "placeholder@local", name: "Placeholder" } });
-      const checklist = await prisma.checklist.findUnique({ where: { id: checklistId }, select: { cardId: true, card: { select: { boardId: true } } } });
-      await prisma.activity.create({
-        data: { type: "CHECKLIST_ITEM_CREATED", details: { message: `added item '${title}'` }, cardId: checklist?.cardId ?? undefined, boardId: checklist?.card?.boardId, userId: user.id } as any,
-      });
-    } catch {}
+      const cookie = (req.headers as any).get?.("cookie") || "";
+      const m = cookie.match(/session=([^;]+)/);
+      const token = m?.[1] || "";
+      const session = token ? await verifySession(token) : null;
+      if (session?.sub) {
+        const checklist = await prisma.checklist.findUnique({ where: { id: checklistId }, select: { cardId: true, card: { select: { boardId: true } } } });
+        if (checklist?.cardId) {
+          await logActivity(
+            checklist.cardId,
+            checklist.card?.boardId || null,
+            session.sub as string,
+            "CHECKLIST_ITEM_CREATED",
+            `added item '${title}'`
+          );
+        }
+      }
+    } catch (e) {
+      console.error("Failed to log checklist item creation", e);
+    }
     return NextResponse.json(created, { status: 201 });
   } catch (err) {
     console.error("POST /api/checklists/[checklistId]/items error", err);

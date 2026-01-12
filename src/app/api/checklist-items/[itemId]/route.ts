@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifySession } from "@/lib/session";
+import { logActivity } from "@/lib/activity-log";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ itemId: string }> }) {
   try {
@@ -11,7 +13,29 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ itemId
     if (typeof body.completed === "boolean") data.completed = body.completed;
     if (typeof body.title === "string") data.title = body.title.trim();
 
-    const updated = await prisma.checklistItem.update({ where: { id: itemId }, data });
+    const updated = await prisma.checklistItem.update({ where: { id: itemId }, data, include: { checklist: true } });
+
+    if (typeof body.completed === "boolean") {
+      try {
+        const cookie = (req.headers as any).get?.("cookie") || "";
+        const m = cookie.match(/session=([^;]+)/);
+        const token = m?.[1] || "";
+        const session = token ? await verifySession(token) : null;
+        if (session?.sub) {
+          const action = body.completed ? "completed" : "uncompleted";
+          await logActivity(
+            updated.checklist.cardId,
+            null,
+            session.sub as string,
+            "CHECKLIST_UPDATE",
+            `${action} checklist item "${updated.title}"`
+          );
+        }
+      } catch (e) {
+        console.error("Failed to log checklist activity", e);
+      }
+    }
+
     return NextResponse.json(updated);
   } catch (err) {
     console.error("PATCH /api/checklist-items/[itemId] error", err);
