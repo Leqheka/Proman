@@ -1340,12 +1340,18 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                         return items.map((item) => (
                           item.kind === "activity" ? (
                             <li key={`a-${item.a.id}`} className="text-sm">
-                              <div className="flex items-center gap-2">
-                                <Avatar image={item.a.user?.image || ""} name={item.a.user?.name || item.a.user?.email || ""} email={item.a.user?.email || ""} size={20} />
-                                <span className="font-semibold">{item.a.user?.name || item.a.user?.email || "Someone"}</span>
-                                <span className="text-foreground/80">{String(item.a.details?.message || (item.a.type === "CARD_CREATED" ? "Someone created this card" : item.a.type))}</span>
+                              <div className="grid grid-cols-[auto_1fr] gap-x-2">
+                                <div className="mt-1">
+                                  <Avatar image={item.a.user?.image || ""} name={item.a.user?.name || item.a.user?.email || ""} email={item.a.user?.email || ""} size={20} />
+                                </div>
+                                <div>
+                                  <div>
+                                    <span className="font-semibold mr-1">{item.a.user?.name || item.a.user?.email || "Someone"}</span>
+                                    <span className="text-foreground/80">{String(item.a.details?.message || (item.a.type === "CARD_CREATED" ? "created this card" : item.a.type))}</span>
+                                  </div>
+                                  <div className="text-xs text-foreground/60">{new Date(item.createdAt).toLocaleString()}</div>
+                                </div>
                               </div>
-                              <div className="text-xs text-foreground/60">{new Date(item.createdAt).toLocaleString()}</div>
                             </li>
                           ) : (
                             <li key={`c-${item.c.id}`} className="text-sm">
