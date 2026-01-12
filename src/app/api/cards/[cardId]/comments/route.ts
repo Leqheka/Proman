@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifySession } from "@/lib/session";
 
 export async function GET(req: Request, { params }: { params: Promise<{ cardId: string }> }) {
   try {
@@ -34,15 +35,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ cardId:
     if (!cardId) return NextResponse.json({ error: "cardId required" }, { status: 400 });
     if (!content) return NextResponse.json({ error: "content required" }, { status: 400 });
 
-    // Temporary: use placeholder user
-    const user = await prisma.user.upsert({
-      where: { email: "placeholder@local" },
-      update: {},
-      create: { email: "placeholder@local", name: "Placeholder" },
-    });
+    const cookie = (req.headers as any).get?.("cookie") || "";
+    const m = cookie.match(/session=([^;]+)/);
+    const token = m?.[1] || "";
+    const session = token ? await verifySession(token) : null;
+    
+    if (!session?.sub) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const created = await prisma.comment.create({
-      data: { content, cardId, userId: user.id },
+      data: { content, cardId, userId: session.sub as string },
       include: { author: { select: { id: true, name: true, email: true, image: true } } },
     });
 

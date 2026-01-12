@@ -1354,9 +1354,29 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                               </div>
                             </li>
                           ) : (
-                            <li key={`c-${item.c.id}`} className="text-sm">
-                              <div className="text-xs text-foreground/60">{item.c.author?.name || item.c.author?.email} • {new Date(item.c.createdAt).toLocaleString()}</div>
-                              <div>{item.c.content}</div>
+                            <li key={`c-${item.c.id}`} className="text-sm group">
+                              <div className="flex items-center justify-between">
+                                <div className="text-xs text-foreground/60">{item.c.author?.name || item.c.author?.email} • {new Date(item.c.createdAt).toLocaleString()}</div>
+                                <div className="opacity-0 group-hover:opacity-100 flex gap-2">
+                                  <button onClick={() => { setEditingCommentId(item.c.id); setEditingCommentText(item.c.content); }} className="text-[10px] text-foreground/60 hover:text-foreground">Edit</button>
+                                  <button onClick={() => deleteComment(item.c.id)} className="text-[10px] text-foreground/60 hover:text-red-500">Delete</button>
+                                </div>
+                              </div>
+                              {editingCommentId === item.c.id ? (
+                                <div className="mt-1">
+                                  <textarea
+                                    value={editingCommentText}
+                                    onChange={(e) => setEditingCommentText(e.target.value)}
+                                    className="w-full text-sm border rounded p-1 bg-background h-16"
+                                  />
+                                  <div className="flex gap-2 mt-1">
+                                    <button onClick={() => updateComment(item.c.id)} className="text-xs rounded px-2 py-1 bg-foreground text-background">Save</button>
+                                    <button onClick={() => setEditingCommentId(null)} className="text-xs rounded px-2 py-1 bg-foreground/5">Cancel</button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div>{item.c.content}</div>
+                              )}
                             </li>
                           )
                         ));

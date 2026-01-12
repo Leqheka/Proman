@@ -59,12 +59,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ cardId:
 
     const withItems = await prisma.checklist.findUnique({ where: { id: created!.id }, include: { items: true } });
     try {
-      const user = await prisma.user.upsert({ where: { email: "placeholder@local" }, update: {}, create: { email: "placeholder@local", name: "Placeholder" } });
-      const card = await prisma.card.findUnique({ where: { id: cardId }, select: { boardId: true } });
-      await prisma.activity.create({
-        data: { type: "CHECKLIST_CREATED", details: { message: `created checklist '${title}'` }, cardId, boardId: card?.boardId, userId: user.id } as any,
-      });
-    } catch {}
+      const cookie = (req.headers as any).get?.("cookie") || "";
+      const m = cookie.match(/session=([^;]+)/);
+      const token = m?.[1] || "";
+      const session = token ? await verifySession(token) : null;
+      if (session?.sub) {
+        const card = await prisma.card.findUnique({ where: { id: cardId }, select: { boardId: true } });
+        await logActivity(
+          cardId,
+          card?.boardId || null,
+          session.sub as string,
+          "CHECKLIST_CREATED",
+          `created checklist '${title}'`
+        );
+      }
+    } catch (e) {
+      console.error("Failed to log checklist creation", e);
+    }
     return NextResponse.json(withItems!, { status: 201 });
   } catch (err) {
     console.error("POST /api/cards/[cardId]/checklists error", err);
