@@ -42,6 +42,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
   const [commentText, setCommentText] = React.useState("");
   const [loadingComments, setLoadingComments] = React.useState(false);
   const [loadingMoreComments, setLoadingMoreComments] = React.useState(false);
+  const [editingCommentId, setEditingCommentId] = React.useState<string | null>(null);
+  const [editingCommentText, setEditingCommentText] = React.useState("");
   const [loadingChecklists, setLoadingChecklists] = React.useState(false);
   const [newAttachmentUrl, setNewAttachmentUrl] = React.useState("");
   const [editingChecklistId, setEditingChecklistId] = React.useState<string | null>(null);
@@ -438,10 +440,41 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
         const created = await resp.json();
         setData((d) => (d ? { ...d, comments: [created, ...d.comments] } : d));
         setCommentText("");
-        // After adding a new comment, keep cursor pointing to the last loaded older comment
       }
     } catch (err) {
       console.error("Failed to add comment", err);
+    }
+  }
+
+  async function updateComment(commentId: string) {
+    const content = editingCommentText.trim();
+    if (!content) return;
+    try {
+      const resp = await fetch(`/api/comments/${commentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      if (resp.ok) {
+        const updated = await resp.json();
+        setData((d) => (d ? { ...d, comments: d.comments.map((c) => (c.id === commentId ? updated : c)) } : d));
+        setEditingCommentId(null);
+        setEditingCommentText("");
+      }
+    } catch (err) {
+      console.error("Failed to update comment", err);
+    }
+  }
+
+  async function deleteComment(commentId: string) {
+    if (!confirm("Delete this comment?")) return;
+    try {
+      const resp = await fetch(`/api/comments/${commentId}`, { method: "DELETE" });
+      if (resp.ok) {
+        setData((d) => (d ? { ...d, comments: d.comments.filter((c) => c.id !== commentId) } : d));
+      }
+    } catch (err) {
+      console.error("Failed to delete comment", err);
     }
   }
 
