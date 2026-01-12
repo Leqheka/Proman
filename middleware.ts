@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifySession } from "@/lib/auth";
+import { verifySession } from "@/lib/session";
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  if (pathname.startsWith("/api/")) return NextResponse.next();
+  if (pathname.startsWith("/api/auth/")) return NextResponse.next();
   if (pathname === "/login") return NextResponse.next();
+  
   const token = req.cookies.get("session")?.value || "";
-  const payload = token ? verifySession(token) : null;
+  const payload = token ? await verifySession(token) : null;
+  
   if (!payload) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
@@ -16,5 +21,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/boards/:path*", "/settings/:path*", "/api/(?!auth/:path*)"],
+  matcher: ["/", "/boards/:path*", "/settings/:path*", "/api/:path*"],
 };

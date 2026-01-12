@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { revalidateTag } from "next/cache";
-import { verifySession } from "@/lib/auth";
+import { verifySession } from "@/lib/session";
 
 // List board members
 export async function GET(req: Request, { params }: { params: Promise<{ boardId: string }> }) {
@@ -9,7 +9,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ boardId:
     const cookie = (req.headers as any).get?.("cookie") || "";
     const m = cookie.match(/session=([^;]+)/);
     const token = m?.[1] || "";
-    const payload = token ? verifySession(token) : null;
+    const payload = token ? await verifySession(token) : null;
     if (!payload?.admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
     const { boardId } = await params;
     if (!boardId) return NextResponse.json({ error: "boardId required" }, { status: 400 });
@@ -39,7 +39,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ boardId
     const cookie = (req.headers as any).get?.("cookie") || "";
     const m = cookie.match(/session=([^;]+)/);
     const token = m?.[1] || "";
-    const payload = token ? verifySession(token) : null;
+    const payload = token ? await verifySession(token) : null;
     if (!payload?.admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
     const { boardId } = await params;
     let email = "";

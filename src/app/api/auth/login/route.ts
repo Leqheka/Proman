@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyPassword, signSession } from "@/lib/auth";
+import { verifyPassword } from "@/lib/auth";
+import { signSession } from "@/lib/session";
 import { bumpAndCheck } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "invalid credentials" }, { status: 401 });
     }
 
-    const token = signSession({ sub: user.id, email: user.email, username: user.username, admin: user.isAdmin });
+    const token = await signSession({ sub: user.id, email: user.email, username: user.username, admin: user.isAdmin });
     await prisma.activity.create({ data: { type: "LOGIN_SUCCESS", details: { identifier }, userId: user.id } as any });
     const res = NextResponse.json({ ok: true });
     res.headers.set("Set-Cookie", `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${60 * 60 * 24 * 7}`);

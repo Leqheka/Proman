@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifySession, hashPassword } from "@/lib/auth";
+import { hashPassword } from "@/lib/auth";
+import { verifySession } from "@/lib/session";
 
 export async function POST(req: Request) {
   try {
     const token = (req.headers as any).get?.("cookie")?.match(/session=([^;]+)/)?.[1] || "";
-    const session = token ? verifySession(token) : null;
+    const session = token ? await verifySession(token) : null;
     if (!session?.admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
     const body = await req.json();
     const identifier = (body?.identifier ?? "").trim();

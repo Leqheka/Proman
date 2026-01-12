@@ -1,14 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import MembersClient from "./members-client";
 import { cookies } from "next/headers";
-import { verifySession } from "@/lib/auth";
+import { verifySession } from "@/lib/session";
 import { redirect } from "next/navigation";
 
 export default async function BoardMembersPage({ params }: { params: { boardId: string } }) {
   const { boardId } = params;
   const cookieStore = await cookies();
   const token = cookieStore.get("session")?.value || "";
-  const payload = token ? verifySession(token) : null;
+  const payload = token ? await verifySession(token) : null;
   const isAdmin = !!payload?.admin;
   if (!isAdmin) redirect(`/boards/${boardId}`);
   let boardTitle = "Board";
