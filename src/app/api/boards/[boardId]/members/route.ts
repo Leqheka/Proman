@@ -10,9 +10,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ boardId:
     const m = cookie.match(/session=([^;]+)/);
     const token = m?.[1] || "";
     const payload = token ? await verifySession(token) : null;
-    if (!payload?.admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
     const { boardId } = await params;
     if (!boardId) return NextResponse.json({ error: "boardId required" }, { status: 400 });
+    if (!payload?.sub) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    const isMember = await prisma.membership.findUnique({
+      where: { userId_boardId: { userId: payload.sub as string, boardId } },
+      select: { userId: true },
+    });
+    if (!isMember && !payload?.admin) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
     const memberships = await prisma.membership.findMany({
       where: { boardId },
       include: { user: { select: { id: true, name: true, email: true, image: true } } },
