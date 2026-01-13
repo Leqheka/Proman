@@ -8,7 +8,7 @@ export async function PUT(req: Request, props: { params: Promise<{ listId: strin
   const params = await props.params;
   const { listId } = params;
   const body = await req.json();
-  const { dueDays, memberIds, checklist } = body;
+  const { dueDays, memberIds, checklists } = body;
 
   const cookieStore = await cookies();
   const token = cookieStore.get("session_token")?.value;
@@ -34,8 +34,13 @@ export async function PUT(req: Request, props: { params: Promise<{ listId: strin
     defaultMemberIds: memberIds ?? [],
   };
 
-  if (checklist !== undefined) {
-    data.defaultChecklist = checklist === null ? Prisma.DbNull : checklist;
+  if (checklists !== undefined) {
+    // If checklists is null or empty array, clear it
+    if (checklists === null || (Array.isArray(checklists) && checklists.length === 0)) {
+      data.defaultChecklist = Prisma.DbNull;
+    } else {
+      data.defaultChecklist = checklists;
+    }
   }
 
   await prisma.list.update({

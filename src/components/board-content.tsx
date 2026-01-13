@@ -849,6 +849,21 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
       {editingDefaultsListId && (() => {
         const list = lists.find(l => l.id === editingDefaultsListId);
         if (!list) return null;
+        
+        // Normalize legacy checklist format to new multi-checklist format
+        let initialChecklists: any[] | undefined = undefined;
+        const rawChecklist = list.defaultChecklist as any;
+        
+        if (Array.isArray(rawChecklist) && rawChecklist.length > 0) {
+          const isNewFormat = rawChecklist.some(item => 'items' in item && Array.isArray(item.items));
+          if (isNewFormat) {
+            initialChecklists = rawChecklist;
+          } else {
+            // Convert old format (array of items) to single checklist
+            initialChecklists = [{ title: "Checklist", items: rawChecklist }];
+          }
+        }
+
         return (
           <ListSettingsModal
             listId={list.id}
@@ -856,7 +871,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
             initialDefaults={{
               dueDays: list.defaultDueDays,
               memberIds: list.defaultMemberIds,
-              checklist: (list.defaultChecklist as any) ?? undefined,
+              checklists: initialChecklists,
             }}
             onClose={() => setEditingDefaultsListId(null)}
             onSave={(defaults) => {
@@ -864,7 +879,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
                 ...l,
                 defaultDueDays: defaults.dueDays,
                 defaultMemberIds: defaults.memberIds,
-                defaultChecklist: defaults.checklist,
+                defaultChecklist: defaults.checklists,
               } : l));
             }}
           />

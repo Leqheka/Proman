@@ -68,14 +68,36 @@ export async function POST(req: Request, { params }: { params: Promise<{ listId:
   }
 
   if (list.defaultChecklist) {
-    const items = list.defaultChecklist as any[];
-    if (Array.isArray(items) && items.length > 0) {
-      const checklist = await prisma.checklist.create({
-        data: { title: "Checklist", cardId: card.id }
-      });
-      await prisma.checklistItem.createMany({
-        data: items.map(i => ({ checklistId: checklist.id, title: i.title, completed: !!i.completed }))
-      });
+    const rawDefaults = list.defaultChecklist as any[];
+    if (Array.isArray(rawDefaults) && rawDefaults.length > 0) {
+      // Check format: New (array of checklists) vs Old (array of items)
+      // New format: [{ title: "Checklist 1", items: [...] }, ...]
+      // Old format: [{ title: "Item 1", completed: false }, ...]
+      
+      const isNewFormat = rawDefaults.some(item => 'items' in item && Array.isArray(item.items));
+      
+      if (isNewFormat) {
+        for (const cl of rawDefaults) {
+          if (cl.items && Array.isArray(cl.items)) {
+            const checklist = await prisma.checklist.create({
+              data: { title: cl.title || "Checklist", cardId: card.id }
+            });
+            if (cl.items.length > 0) {
+              await prisma.checklistItem.createMany({
+                data: cl.items.map((i: any) => ({ checklistId: checklist.id, title: i.title, completed: !!i.completed }))
+              });
+            }
+          }
+        }
+      } else {
+        // Fallback for old format: treat as single checklist
+        const checklist = await prisma.checklist.create({
+          data: { title: "Checklist", cardId: card.id }
+        });
+        await prisma.checklistItem.createMany({
+          data: rawDefaults.map(i => ({ checklistId: checklist.id, title: i.title, completed: !!i.completed }))
+        });
+      }
     }
   }
   

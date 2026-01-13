@@ -6,29 +6,37 @@ import Avatar from "./avatar";
 type Member = { id: string; name: string | null; email: string; image: string | null };
 
 type ChecklistItem = { title: string; completed: boolean };
-
-interface ListSettingsModalProps {
-  listId: string;
-  boardId: string;
-  initialDefaults: {
-    dueDays?: number | null;
-    memberIds?: string[];
-    checklist?: ChecklistItem[];
-  };
-  onClose: () => void;
-  onSave: (defaults: { dueDays?: number | null; memberIds?: string[]; checklist?: ChecklistItem[] | null }) => void;
-}
-
-export default function ListSettingsModal({ listId, boardId, initialDefaults, onClose, onSave }: ListSettingsModalProps) {
-  const [dueDays, setDueDays] = useState<string>(initialDefaults.dueDays?.toString() ?? "");
-  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set(initialDefaults.memberIds ?? []));
-  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>(initialDefaults.checklist ?? []);
-  const [newItemTitle, setNewItemTitle] = useState("");
-  const [members, setMembers] = useState<Member[]>([]);
-  const [loadingMembers, setLoadingMembers] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
+  type Checklist = { title: string; items: ChecklistItem[] };
+  
+  interface ListSettingsModalProps {
+    listId: string;
+    boardId: string;
+    initialDefaults: {
+      dueDays?: number | null;
+      memberIds?: string[];
+      checklists?: Checklist[];
+    };
+    onClose: () => void;
+    onSave: (defaults: { dueDays?: number | null; memberIds?: string[]; checklists?: Checklist[] | null }) => void;
+  }
+  
+  export default function ListSettingsModal({ listId, boardId, initialDefaults, onClose, onSave }: ListSettingsModalProps) {
+    const [dueDays, setDueDays] = useState<string>(initialDefaults.dueDays?.toString() ?? "");
+    const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set(initialDefaults.memberIds ?? []));
+    
+    // Checklists state
+    const [checklists, setChecklists] = useState<Checklist[]>(initialDefaults.checklists ?? []);
+    const [newChecklistTitle, setNewChecklistTitle] = useState("");
+    const [isAddingChecklist, setIsAddingChecklist] = useState(false);
+  
+    // State for adding items to specific checklists
+    const [newItemTitles, setNewItemTitles] = useState<Record<number, string>>({});
+  
+    const [members, setMembers] = useState<Member[]>([]);
+    const [loadingMembers, setLoadingMembers] = useState(false);
+    const [saving, setSaving] = useState(false);
+  
+    useEffect(() => {
     let active = true;
     setLoadingMembers(true);
     fetch(`/api/boards/${boardId}/members`)
@@ -50,7 +58,7 @@ export default function ListSettingsModal({ listId, boardId, initialDefaults, on
     const defaults = {
       dueDays: dueDays ? parseInt(dueDays) : null,
       memberIds: Array.from(selectedMembers),
-      checklist: checklistItems.length > 0 ? checklistItems : null,
+      checklists: checklists.length > 0 ? checklists : null,
     };
 
     try {
@@ -80,14 +88,34 @@ export default function ListSettingsModal({ listId, boardId, initialDefaults, on
     setSelectedMembers(next);
   }
 
-  function addChecklistItem() {
-    if (!newItemTitle.trim()) return;
-    setChecklistItems([...checklistItems, { title: newItemTitle.trim(), completed: false }]);
-    setNewItemTitle("");
+  function addChecklist() {
+    if (!newChecklistTitle.trim()) return;
+    setChecklists([...checklists, { title: newChecklistTitle.trim(), items: [] }]);
+    setNewChecklistTitle("");
+    setIsAddingChecklist(false);
   }
 
-  function removeChecklistItem(index: number) {
-    setChecklistItems(checklistItems.filter((_, i) => i !== index));
+  function removeChecklist(index: number) {
+    setChecklists(checklists.filter((_, i) => i !== index));
+  }
+
+  function addChecklistItem(checklistIndex: number) {
+    const title = newItemTitles[checklistIndex]?.trim();
+    if (!title) return;
+    
+    setChecklists(checklists.map((cl, i) => {
+      if (i !== checklistIndex) return cl;
+      return { ...cl, items: [...cl.items, { title, completed: false }] };
+    }));
+    
+    setNewItemTitles(prev => ({ ...prev, [checklistIndex]: "" }));
+  }
+
+  function removeChecklistItem(checklistIndex: number, itemIndex: number) {
+    setChecklists(checklists.map((cl, i) => {
+      if (i !== checklistIndex) return cl;
+      return { ...cl, items: cl.items.filter((_, idx) => idx !== itemIndex) };
+    }));
   }
 
   return (
@@ -151,43 +179,103 @@ export default function ListSettingsModal({ listId, boardId, initialDefaults, on
             )}
           </section>
 
-          {/* Default Checklist */}
+          {/* Default Checklists */}
           <section>
-            <h3 className="text-sm font-medium mb-2">Default Checklist</h3>
-            <div className="space-y-2 mb-3">
-              {checklistItems.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-2 group">
-                  <div className="w-4 h-4 border rounded" />
-                  <span className="flex-1 text-sm">{item.title}</span>
-                  <button
-                    onClick={() => removeChecklistItem(idx)}
-                    className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M18 6L6 18M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-              {checklistItems.length === 0 && (
-                <div className="text-sm text-foreground/50 italic">No items yet</div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium">Default Checklists</h3>
+              {!isAddingChecklist && (
+                <button
+                  onClick={() => setIsAddingChecklist(true)}
+                  className="text-xs bg-primary/10 hover:bg-primary/20 text-primary px-2 py-1 rounded"
+                >
+                  + Add Checklist
+                </button>
               )}
             </div>
-            <div className="flex gap-2">
-              <input
-                value={newItemTitle}
-                onChange={(e) => setNewItemTitle(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addChecklistItem()}
-                placeholder="New item..."
-                className="flex-1 px-3 py-2 border rounded text-sm bg-background"
-              />
-              <button
-                onClick={addChecklistItem}
-                disabled={!newItemTitle.trim()}
-                className="px-3 py-2 bg-foreground/10 hover:bg-foreground/20 rounded text-sm disabled:opacity-50"
-              >
-                Add
-              </button>
+
+            {isAddingChecklist && (
+              <div className="mb-4 flex gap-2">
+                <input
+                  autoFocus
+                  value={newChecklistTitle}
+                  onChange={(e) => setNewChecklistTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addChecklist();
+                    if (e.key === "Escape") setIsAddingChecklist(false);
+                  }}
+                  placeholder="Checklist title..."
+                  className="flex-1 px-3 py-2 border rounded text-sm bg-background"
+                />
+                <button
+                  onClick={addChecklist}
+                  disabled={!newChecklistTitle.trim()}
+                  className="px-3 py-2 bg-primary text-primary-foreground rounded text-sm disabled:opacity-50"
+                >
+                  Add
+                </button>
+                <button
+                  onClick={() => setIsAddingChecklist(false)}
+                  className="px-3 py-2 bg-foreground/10 hover:bg-foreground/20 rounded text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {checklists.map((checklist, clIdx) => (
+                <div key={clIdx} className="border rounded p-3 bg-foreground/5">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-medium">{checklist.title}</h4>
+                    <button
+                      onClick={() => removeChecklist(clIdx)}
+                      className="text-red-500 hover:text-red-700 p-1"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M18 6L6 18M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-2 mb-2 pl-2">
+                    {checklist.items.map((item, itemIdx) => (
+                      <div key={itemIdx} className="flex items-center gap-2 group">
+                        <div className="w-3 h-3 border rounded" />
+                        <span className="flex-1 text-sm">{item.title}</span>
+                        <button
+                          onClick={() => removeChecklistItem(clIdx, itemIdx)}
+                          className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M18 6L6 18M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2 pl-2">
+                    <input
+                      value={newItemTitles[clIdx] || ""}
+                      onChange={(e) => setNewItemTitles(prev => ({ ...prev, [clIdx]: e.target.value }))}
+                      onKeyDown={(e) => e.key === "Enter" && addChecklistItem(clIdx)}
+                      placeholder="Add item..."
+                      className="flex-1 px-2 py-1 border rounded text-xs bg-background"
+                    />
+                    <button
+                      onClick={() => addChecklistItem(clIdx)}
+                      disabled={!newItemTitles[clIdx]?.trim()}
+                      className="px-2 py-1 bg-foreground/10 hover:bg-foreground/20 rounded text-xs disabled:opacity-50"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+              ))}
+              
+              {checklists.length === 0 && !isAddingChecklist && (
+                <div className="text-sm text-foreground/50 italic text-center py-2">No checklists configured</div>
+              )}
             </div>
           </section>
         </div>
