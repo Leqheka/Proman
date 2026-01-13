@@ -104,7 +104,7 @@ export default function MembersClient({
       <div className="mx-auto max-w-5xl px-6 py-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Members · {boardTitle || "Board"}</h1>
-          <Link href={`/boards/${boardId}`} prefetch={false} className="text-xs rounded px-2 py-1 bg-foreground/5">
+          <Link href={`/boards/${boardId}`} prefetch={false} className="text-xs rounded px-2 py-1 bg-black text-white">
             Back to board
           </Link>
         </div>

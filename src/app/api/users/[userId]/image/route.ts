@@ -31,22 +31,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ userId:
     const supaKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const supaBucket = process.env.SUPABASE_BUCKET || "uploads";
 
-    if (isProd) {
-      if (supaUrl && supaKey) {
-        const client = createClient(supaUrl, supaKey);
-        const pathInBucket = `users/${userId}/${filename}`;
-        const { error: upErr } = await client.storage.from(supaBucket).upload(pathInBucket, buffer, {
-          contentType: file.type || "application/octet-stream",
-          upsert: true,
-        });
-        if (upErr) {
-          return NextResponse.json({ error: "Upload failed" }, { status: 500 });
-        }
-        const { data: pub } = client.storage.from(supaBucket).getPublicUrl(pathInBucket);
-        const publicUrl = pub.publicUrl || `https://supabase.storage/${supaBucket}/${pathInBucket}`;
-        await prisma.user.update({ where: { id: userId }, data: { image: publicUrl } });
-        return NextResponse.json({ image: publicUrl }, { status: 201 });
+    if (supaUrl && supaKey) {
+      const client = createClient(supaUrl, supaKey);
+      const pathInBucket = `users/${userId}/${filename}`;
+      const { error: upErr } = await client.storage.from(supaBucket).upload(pathInBucket, buffer, {
+        contentType: file.type || "application/octet-stream",
+        upsert: true,
+      });
+      if (upErr) {
+        return NextResponse.json({ error: "Upload failed" }, { status: 500 });
       }
+      const { data: pub } = client.storage.from(supaBucket).getPublicUrl(pathInBucket);
+      const publicUrl = pub.publicUrl || `https://supabase.storage/${supaBucket}/${pathInBucket}`;
+      await prisma.user.update({ where: { id: userId }, data: { image: publicUrl } });
+      return NextResponse.json({ image: publicUrl }, { status: 201 });
+    }
+
+    if (process.env.VERCEL) {
       return NextResponse.json({ error: "External storage not configured" }, { status: 400 });
     }
 

@@ -30,7 +30,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ board
 }
 
 // Update a member's role
-export async function PATCH(req: Request, { params }: { params: Promise<{ boardId: string; userId: string }> }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ boardId: string; userId: string }> }, formData?: FormData) {
   try {
     const cookie = (req.headers as any).get?.("cookie") || "";
     const m = cookie.match(/session=([^;]+)/);
@@ -44,7 +44,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ boardI
       const body = await req.json();
       role = String(body?.role ?? "");
     } else {
-      const fd = await req.formData();
+      const fd = formData || await req.formData();
       role = String(fd.get("role") ?? "");
     }
     if (!boardId || !userId) return NextResponse.json({ error: "boardId and userId required" }, { status: 400 });
@@ -61,6 +61,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ boardI
       return NextResponse.json({ error: `membership update failed: ${msg}` }, { status: 500 });
     }
     try { revalidateTag(`board:${boardId}`); } catch {}
+    // If it was a form submission (formData present), redirect back
+    if (formData) {
+       return NextResponse.redirect(new URL(`/boards/${boardId}/members`, req.url));
+    }
     return NextResponse.json({ ok: true, role: updated.role });
   } catch (err) {
     console.error("PATCH /api/boards/[boardId]/members/[userId] error", err);
@@ -75,10 +79,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ boardId: strin
   const fd = await req.formData();
   const method = String(fd.get("_method") ?? "").toUpperCase();
   if (method === "DELETE") {
-    return DELETE(req, ctx as any);
+    // For DELETE, we also want to redirect back if it came from a form
+    const res = await DELETE(req, ctx as any);
+    if (res.ok) {
+        return NextResponse.redirect(new URL(`/boards/${boardId}/members`, req.url));
+    }
+    return res;
   }
   if (method === "PATCH") {
-    return PATCH(req, ctx as any);
+    return PATCH(req, ctx as any, fd);
   }
   return NextResponse.json({ error: "Unsupported _method" }, { status: 400 });
 }
