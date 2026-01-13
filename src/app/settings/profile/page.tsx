@@ -1,7 +1,9 @@
 "use client";
 import React from "react";
+import { useRouter } from "next/navigation";
 
 export default function ProfileSettingsPage() {
+  const router = useRouter();
   const [user, setUser] = React.useState<{ id: string; email: string; username?: string | null; name?: string | null; image?: string | null } | null>(null);
   const [name, setName] = React.useState("");
   const [username, setUsername] = React.useState("");
@@ -15,12 +17,18 @@ export default function ProfileSettingsPage() {
     (async () => {
       try {
         const r = await fetch("/api/users/me");
+        if (r.status === 401) {
+          router.push("/login");
+          return;
+        }
         const j = await r.json();
         if (!alive) return;
-        setUser(j);
-        setName(j?.name || "");
-        setUsername(j?.username || "");
-        setEmail(j?.email || "");
+        if (r.ok) {
+          setUser(j);
+          setName(j?.name || "");
+          setUsername(j?.username || "");
+          setEmail(j?.email || "");
+        }
       } catch {}
     })();
     return () => { alive = false; };
@@ -38,6 +46,10 @@ export default function ProfileSettingsPage() {
     setMsg(null);
     try {
       const r = await fetch("/api/users/me", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, username, email }) });
+      if (r.status === 401) {
+        router.push("/login");
+        return;
+      }
       const j = await r.json();
       if (!r.ok) setMsg(j?.error || "Failed"); else { setMsg("Saved"); setUser(j.user); }
     } catch { setMsg("Network error"); } finally { setBusy(false); }

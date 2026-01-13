@@ -10,6 +10,7 @@ export async function GET(req: Request) {
     const payload = token ? await verifySession(token) : null;
     if (!payload?.sub) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     const user = await prisma.user.findUnique({ where: { id: payload.sub as string }, select: { id: true, email: true, username: true, name: true, image: true } });
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 401 });
     return NextResponse.json(user);
   } catch {
     return NextResponse.json({ error: "failed" }, { status: 500 });
@@ -33,7 +34,10 @@ export async function PATCH(req: Request) {
     if (email !== undefined) data.email = email;
     const updated = await prisma.user.update({ where: { id: payload.sub as string }, data });
     return NextResponse.json({ ok: true, user: { id: updated.id, email: updated.email, username: updated.username, name: updated.name, image: updated.image } });
-  } catch (e) {
+  } catch (e: any) {
+    if (e.code === "P2025") {
+      return NextResponse.json({ error: "User not found" }, { status: 401 });
+    }
     const msg = e instanceof Error ? e.message : "failed";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
