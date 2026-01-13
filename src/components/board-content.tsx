@@ -770,7 +770,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
                       <div className="flex items-center">
                         <button 
                           onClick={(e) => { e.stopPropagation(); setEditingDefaultsListId(l.id); }}
-                          className="p-1 hover:bg-foreground/10 rounded opacity-0 group-hover/header:opacity-100 transition-opacity"
+                          className="p-1 hover:bg-foreground/10 rounded transition-opacity"
                         >
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <circle cx="12" cy="12" r="1" />

@@ -136,6 +136,7 @@ export default function MembersClient({
               value={role}
               onChange={(e) => setRole(e.target.value)}
             >
+              <option value="ADMIN">Admin</option>
               <option value="EDITOR">Editor</option>
               <option value="VIEWER">Viewer</option>
             </select>
@@ -184,6 +185,7 @@ export default function MembersClient({
                       <form action={`/api/boards/${boardId}/members/${m.id}`} method="post">
                         <input type="hidden" name="_method" value="PATCH" />
                         <select name="role" className="text-xs px-2 py-1 border rounded bg-background" defaultValue={m.role}>
+                          <option value="ADMIN">Admin</option>
                           <option value="EDITOR">Editor</option>
                           <option value="VIEWER">Viewer</option>
                         </select>

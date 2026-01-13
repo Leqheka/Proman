@@ -81,7 +81,7 @@ export default function CreateCard({
   if (!open) {
     return (
       <button
-        className="mt-2 w-full rounded border border-dashed border-black/10 dark:border-white/15 p-2 text-left bg-foreground/10 hover:bg-foreground/15 transition-colors"
+        className="mt-2 w-full rounded border border-dashed border-black/10 dark:border-white/15 p-2 text-left bg-foreground/15 hover:bg-foreground/20 transition-colors"
         onClick={() => setOpen(true)}
       >
         + Add a card
