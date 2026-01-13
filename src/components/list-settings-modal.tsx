@@ -36,6 +36,7 @@ type ChecklistItem = { title: string; completed: boolean };
     const [loadingMembers, setLoadingMembers] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   useEffect(() => {
     let active = true;
@@ -78,11 +79,14 @@ type ChecklistItem = { title: string; completed: boolean };
           onClose();
         }, 1000);
       } else {
-        console.error("Failed to save defaults");
+        const data = await res.json().catch(() => ({}));
+        console.error("Failed to save defaults", data);
+        setErrorMessage(data.error || "Failed to save changes.");
         setSaveStatus("error");
       }
     } catch (err) {
       console.error("Error saving defaults", err);
+      setErrorMessage((err as Error).message || "Error saving defaults.");
       setSaveStatus("error");
     } finally {
       setSaving(false);
@@ -291,7 +295,7 @@ type ChecklistItem = { title: string; completed: boolean };
         <div className="p-4 border-t bg-foreground/5 flex items-center justify-between">
           <div className="text-sm">
             {saveStatus === "success" && <span className="text-green-600 font-medium">Saved Successfully!</span>}
-            {saveStatus === "error" && <span className="text-red-600 font-medium">Failed to save changes.</span>}
+            {saveStatus === "error" && <span className="text-red-600 font-medium">{errorMessage}</span>}
           </div>
           <div className="flex gap-2">
             <button onClick={onClose} className="px-4 py-2 text-sm font-medium hover:bg-foreground/10 rounded">

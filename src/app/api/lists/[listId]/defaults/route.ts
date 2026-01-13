@@ -38,9 +38,10 @@ export async function PUT(req: Request, props: { params: Promise<{ listId: strin
     if (checklists !== undefined) {
       // If checklists is null or empty array, clear it
       if (checklists === null || (Array.isArray(checklists) && checklists.length === 0)) {
-        data.defaultChecklist = Prisma.DbNull;
+        data.defaultChecklist = Prisma.DbNull; // Use DbNull for explicit DB NULL if needed, or null
       } else {
-        data.defaultChecklist = checklists;
+        // Ensure it's a valid JSON value (array)
+        data.defaultChecklist = checklists as Prisma.InputJsonValue;
       }
     }
 
@@ -52,6 +53,6 @@ export async function PUT(req: Request, props: { params: Promise<{ listId: strin
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("PUT /api/lists/:listId/defaults error", err);
-    return NextResponse.json({ error: "Database error" }, { status: 500 });
+    return NextResponse.json({ error: (err as Error).message || "Database error" }, { status: 500 });
   }
 }
