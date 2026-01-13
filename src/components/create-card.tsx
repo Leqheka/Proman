@@ -11,9 +11,9 @@ export default function CreateCard({
   onRollback,
 }: {
   listId: string;
-  onCreated?: (card: { id: string; title: string; order: number }) => void;
+  onCreated?: (card: any) => void;
   onOptimisticCreate?: (card: { id: string; title: string; order: number }) => void;
-  onFinalize?: (prevId: string, created: { id: string; title: string; order: number }) => void;
+  onFinalize?: (prevId: string, created: any) => void;
   onRollback?: (prevId: string) => void;
 }) {
   const [open, setOpen] = useState(false);

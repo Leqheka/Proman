@@ -293,13 +293,14 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     return null;
   }
 
-  function addCardToList(listId: string, card: { id: string; title: string; order: number }) {
+  function addCardToList(listId: string, card: CardItem) {
     setLists((curr) => {
       const idx = curr.findIndex((l) => l.id === listId);
       if (idx === -1) return curr;
       const next = [...curr];
       const list = next[idx];
-      next[idx] = { ...list, cards: [...list.cards, { id: card.id, title: card.title, order: card.order }] };
+      const cardWithDesc = { ...card, hasDescription: !!(card as any).description || card.hasDescription };
+      next[idx] = { ...list, cards: [...list.cards, cardWithDesc] };
       return next;
     });
     setListPaging((curr) => ({
@@ -324,13 +325,13 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     }));
   }
 
-  function reconcileCardId(tempId: string, created: { id: string; title: string; order: number }) {
+  function reconcileCardId(tempId: string, created: CardItem) {
     setLists((curr) => {
       const next = curr.map((list) => {
         const ci = list.cards.findIndex((c) => c.id === tempId);
         if (ci === -1) return list;
         const cards = [...list.cards];
-        cards[ci] = { id: created.id, title: created.title, order: created.order };
+        cards[ci] = { ...created, hasDescription: !!(created as any).description || created.hasDescription };
         return { ...list, cards };
       });
       return next;
