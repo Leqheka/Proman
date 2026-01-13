@@ -252,6 +252,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
   const [archives, setArchives] = React.useState<CardItem[]>(archivedCards);
   const [openedCardId, setOpenedCardId] = React.useState<string | null>(null);
   const [editingDefaultsListId, setEditingDefaultsListId] = React.useState<string | null>(null);
+  const [editingListId, setEditingListId] = React.useState<string | null>(null);
   const [listPaging, setListPaging] = React.useState<Record<string, { hasMore: boolean; cursor: string | null; loading: boolean; total: number }>>(() => {
     const take = 100;
     const init: Record<string, { hasMore: boolean; cursor: string | null; loading: boolean; total: number }> = {};
@@ -433,6 +434,25 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
       });
     } catch (err) {
       console.error("Failed to persist card move", err);
+    }
+  }
+
+  async function handleUpdateListTitle(listId: string, newTitle: string) {
+    const title = newTitle.trim();
+    if (!title) {
+      setEditingListId(null);
+      return;
+    }
+    setEditingListId(null);
+    setLists((curr) => curr.map((l) => (l.id === listId ? { ...l, title } : l)));
+    try {
+      await fetch(`/api/lists/${listId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+    } catch (err) {
+      console.error("Failed to update list title", err);
     }
   }
 
@@ -726,8 +746,38 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
               <>
                 {lists.map((l) => (
                   <SortableListWrapper key={l.id} list={l}>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-bold">{l.title}</p>
+                    <div className="group/header flex items-center justify-between relative min-h-[24px] mb-2">
+                      {editingListId === l.id ? (
+                        <input
+                          autoFocus
+                          className="w-full text-sm font-bold bg-transparent border border-primary rounded px-1 -ml-1"
+                          defaultValue={l.title}
+                          onBlur={(e) => handleUpdateListTitle(l.id, e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleUpdateListTitle(l.id, e.currentTarget.value);
+                            if (e.key === "Escape") setEditingListId(null);
+                          }}
+                        />
+                      ) : (
+                        <p 
+                          onClick={() => setEditingListId(l.id)}
+                          className="text-sm font-bold cursor-pointer hover:bg-foreground/5 px-1 -ml-1 rounded flex-1 truncate"
+                        >
+                          {l.title}
+                        </p>
+                      )}
+                      <div className="flex items-center">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setEditingDefaultsListId(l.id); }}
+                          className="p-1 hover:bg-foreground/10 rounded opacity-0 group-hover/header:opacity-100 transition-opacity"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="1" />
+                            <circle cx="19" cy="12" r="1" />
+                            <circle cx="5" cy="12" r="1" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                 <SortableContext items={l.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
                   <ListCardsVirtualized cards={l.cards} onOpen={setOpenedCardId} onToggleArchive={toggleArchive} onUpdateTitle={updateCardTitle} onNearEnd={() => {
