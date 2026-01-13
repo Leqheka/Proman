@@ -16,7 +16,7 @@ interface ListSettingsModalProps {
     checklist?: ChecklistItem[];
   };
   onClose: () => void;
-  onSave: (defaults: { dueDays?: number | null; memberIds?: string[]; checklist?: ChecklistItem[] }) => void;
+  onSave: (defaults: { dueDays?: number | null; memberIds?: string[]; checklist?: ChecklistItem[] | null }) => void;
 }
 
 export default function ListSettingsModal({ listId, boardId, initialDefaults, onClose, onSave }: ListSettingsModalProps) {
@@ -50,7 +50,7 @@ export default function ListSettingsModal({ listId, boardId, initialDefaults, on
     const defaults = {
       dueDays: dueDays ? parseInt(dueDays) : null,
       memberIds: Array.from(selectedMembers),
-      checklist: checklistItems.length > 0 ? checklistItems : undefined,
+      checklist: checklistItems.length > 0 ? checklistItems : null,
     };
 
     try {

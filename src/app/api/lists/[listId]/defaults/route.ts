@@ -29,19 +29,19 @@ export async function PUT(req: Request, props: { params: Promise<{ listId: strin
   }
 
   // Update list
+  const data: Prisma.ListUpdateInput = {
+    defaultDueDays: dueDays,
+    defaultMemberIds: memberIds ?? [],
+  };
+
+  if (checklist !== undefined) {
+    data.defaultChecklist = checklist === null ? Prisma.DbNull : checklist;
+  }
+
   await prisma.list.update({
     where: { id: listId },
-    data: {
-      defaultDueDays: dueDays,
-      defaultMemberIds: memberIds ?? [],
-      defaultChecklist: checklist ?? undefined,
-    }
+    data,
   });
-
-  // Handle explicit null for checklist to clear it
-  if (checklist === null) {
-     await prisma.list.update({ where: { id: listId }, data: { defaultChecklist: Prisma.DbNull } });
-  }
 
   return NextResponse.json({ success: true });
 }
