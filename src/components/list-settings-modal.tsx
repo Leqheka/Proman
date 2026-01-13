@@ -34,9 +34,10 @@ type ChecklistItem = { title: string; completed: boolean };
   
     const [members, setMembers] = useState<Member[]>([]);
     const [loadingMembers, setLoadingMembers] = useState(false);
-    const [saving, setSaving] = useState(false);
-  
-    useEffect(() => {
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
+
+  useEffect(() => {
     let active = true;
     setLoadingMembers(true);
     fetch(`/api/boards/${boardId}/members`)
@@ -55,6 +56,7 @@ type ChecklistItem = { title: string; completed: boolean };
 
   async function handleSave() {
     setSaving(true);
+    setSaveStatus("idle");
     const defaults = {
       dueDays: dueDays ? parseInt(dueDays) : null,
       memberIds: Array.from(selectedMembers),
@@ -69,13 +71,19 @@ type ChecklistItem = { title: string; completed: boolean };
       });
 
       if (res.ok) {
+        setSaveStatus("success");
         onSave(defaults);
-        onClose();
+        // Delay closing slightly so user sees success message
+        setTimeout(() => {
+          onClose();
+        }, 1000);
       } else {
         console.error("Failed to save defaults");
+        setSaveStatus("error");
       }
     } catch (err) {
       console.error("Error saving defaults", err);
+      setSaveStatus("error");
     } finally {
       setSaving(false);
     }
@@ -280,17 +288,23 @@ type ChecklistItem = { title: string; completed: boolean };
           </section>
         </div>
 
-        <div className="p-4 border-t bg-foreground/5 flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-medium hover:bg-foreground/10 rounded">
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground bg-black text-white dark:bg-white dark:text-black rounded hover:opacity-90 disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Save Defaults"}
-          </button>
+        <div className="p-4 border-t bg-foreground/5 flex items-center justify-between">
+          <div className="text-sm">
+            {saveStatus === "success" && <span className="text-green-600 font-medium">Saved Successfully!</span>}
+            {saveStatus === "error" && <span className="text-red-600 font-medium">Failed to save changes.</span>}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-4 py-2 text-sm font-medium hover:bg-foreground/10 rounded">
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

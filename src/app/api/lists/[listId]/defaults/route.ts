@@ -28,25 +28,30 @@ export async function PUT(req: Request, props: { params: Promise<{ listId: strin
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Update list
-  const data: Prisma.ListUpdateInput = {
-    defaultDueDays: dueDays,
-    defaultMemberIds: memberIds ?? [],
-  };
+  try {
+    // Update list
+    const data: Prisma.ListUpdateInput = {
+      defaultDueDays: dueDays,
+      defaultMemberIds: memberIds ?? [],
+    };
 
-  if (checklists !== undefined) {
-    // If checklists is null or empty array, clear it
-    if (checklists === null || (Array.isArray(checklists) && checklists.length === 0)) {
-      data.defaultChecklist = Prisma.DbNull;
-    } else {
-      data.defaultChecklist = checklists;
+    if (checklists !== undefined) {
+      // If checklists is null or empty array, clear it
+      if (checklists === null || (Array.isArray(checklists) && checklists.length === 0)) {
+        data.defaultChecklist = Prisma.DbNull;
+      } else {
+        data.defaultChecklist = checklists;
+      }
     }
+
+    await prisma.list.update({
+      where: { id: listId },
+      data,
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("PUT /api/lists/:listId/defaults error", err);
+    return NextResponse.json({ error: "Database error" }, { status: 500 });
   }
-
-  await prisma.list.update({
-    where: { id: listId },
-    data,
-  });
-
-  return NextResponse.json({ success: true });
 }
