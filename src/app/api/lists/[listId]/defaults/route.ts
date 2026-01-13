@@ -11,7 +11,7 @@ export async function PUT(req: Request, props: { params: Promise<{ listId: strin
   const { dueDays, memberIds, checklists } = body;
 
   const cookieStore = await cookies();
-  const token = cookieStore.get("session_token")?.value;
+  const token = cookieStore.get("session")?.value;
   const payload = token ? await verifySession(token) : null;
   if (!payload?.sub) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
