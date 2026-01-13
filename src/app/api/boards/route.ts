@@ -10,8 +10,10 @@ export async function GET(req: Request) {
     const payload = token ? await verifySession(token) : null;
     if (!payload?.sub) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
+    const isAdmin = payload.admin === true;
+
     const boards = await prisma.board.findMany({
-      where: {
+      where: isAdmin ? {} : {
         OR: [
           { ownerId: payload.sub as string },
           { members: { some: { userId: payload.sub as string } } }
