@@ -9,10 +9,19 @@ import { CSS } from "@dnd-kit/utilities";
 import CreateCard from "./create-card";
 import AddListTile from "./add-list-tile";
 import Avatar from "./avatar";
+import ListSettingsModal from "./list-settings-modal";
 import CardModal from "./card-modal";
 
 export type CardItem = { id: string; title: string; order: number; listId?: string; dueDate?: string | null; hasDescription?: boolean; checklistCount?: number; commentCount?: number; attachmentCount?: number; assignmentCount?: number; members?: Array<{ id: string; name: string | null; email: string; image: string | null }> };
-export type ListItem = { id: string; title: string; order: number; cards: CardItem[] };
+export type ListItem = { 
+  id: string; 
+  title: string; 
+  order: number; 
+  cards: CardItem[];
+  defaultDueDays?: number | null;
+  defaultMemberIds?: string[];
+  defaultChecklist?: any;
+};
 
 function SortableListWrapperBase({ list, children }: { list: ListItem; children: React.ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: list.id });
@@ -242,6 +251,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
   const [lists, setLists] = React.useState<ListItem[]>(initialLists);
   const [archives, setArchives] = React.useState<CardItem[]>(archivedCards);
   const [openedCardId, setOpenedCardId] = React.useState<string | null>(null);
+  const [editingDefaultsListId, setEditingDefaultsListId] = React.useState<string | null>(null);
   const [listPaging, setListPaging] = React.useState<Record<string, { hasMore: boolean; cursor: string | null; loading: boolean; total: number }>>(() => {
     const take = 100;
     const init: Record<string, { hasMore: boolean; cursor: string | null; loading: boolean; total: number }> = {};
@@ -786,6 +796,30 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
           })()}
         />
       )}
+      {editingDefaultsListId && (() => {
+        const list = lists.find(l => l.id === editingDefaultsListId);
+        if (!list) return null;
+        return (
+          <ListSettingsModal
+            listId={list.id}
+            boardId={boardId}
+            initialDefaults={{
+              dueDays: list.defaultDueDays,
+              memberIds: list.defaultMemberIds,
+              checklist: (list.defaultChecklist as any) ?? undefined,
+            }}
+            onClose={() => setEditingDefaultsListId(null)}
+            onSave={(defaults) => {
+              setLists(curr => curr.map(l => l.id === list.id ? {
+                ...l,
+                defaultDueDays: defaults.dueDays,
+                defaultMemberIds: defaults.memberIds,
+                defaultChecklist: defaults.checklist,
+              } : l));
+            }}
+          />
+        );
+      })()}
     </>
   );
 }

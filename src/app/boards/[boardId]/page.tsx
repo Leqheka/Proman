@@ -60,6 +60,9 @@ async function loadBoardData(boardId: string) {
     id: l.id,
     title: l.title,
     order: l.order,
+    defaultDueDays: l.defaultDueDays,
+    defaultMemberIds: l.defaultMemberIds,
+    defaultChecklist: l.defaultChecklist,
     // Use accurate non-archived total to avoid showing "Load more" when unnecessary
     totalCardCount: nonArchivedCountMap.get(l.id) ?? (l.cards?.length ?? 0),
     cards: l.cards.map((c) => ({

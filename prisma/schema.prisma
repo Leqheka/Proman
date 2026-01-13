@@ -66,6 +66,10 @@ model List {
   boardId String
   board   Board  @relation(fields: [boardId], references: [id])
 
+  defaultDueDays   Int?
+  defaultMemberIds String[]
+  defaultChecklist Json?
+
   cards   Card[]
 
   @@index([boardId])

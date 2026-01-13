@@ -32,9 +32,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ listId:
 
     const list = await prisma.list.findUnique({
       where: { id: listId },
-      select: { boardId: true },
+      select: { 
+        boardId: true,
+        defaultDueDays: true,
+        defaultMemberIds: true,
+        defaultChecklist: true
+      },
     });
     if (!list) return NextResponse.json({ error: "List not found" }, { status: 404 });
+
+  let dueDate: Date | undefined;
+  if (typeof list.defaultDueDays === 'number') {
+    dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + list.defaultDueDays);
+  }
 
   const count = await prisma.card.count({ where: { listId, archived: false } });
   const card = await prisma.card.create({
@@ -44,8 +55,29 @@ export async function POST(req: Request, { params }: { params: Promise<{ listId:
       listId,
       boardId: list.boardId,
       order: count,
+      dueDate,
     },
   });
+
+  // Apply defaults
+  if (list.defaultMemberIds && list.defaultMemberIds.length > 0) {
+    await prisma.cardAssignment.createMany({
+      data: list.defaultMemberIds.map(uid => ({ cardId: card.id, userId: uid })),
+      skipDuplicates: true
+    });
+  }
+
+  if (list.defaultChecklist) {
+    const items = list.defaultChecklist as any[];
+    if (Array.isArray(items) && items.length > 0) {
+      const checklist = await prisma.checklist.create({
+        data: { title: "Checklist", cardId: card.id }
+      });
+      await prisma.checklistItem.createMany({
+        data: items.map(i => ({ checklistId: checklist.id, title: i.title, completed: !!i.completed }))
+      });
+    }
+  }
   
   try {
     const cookie = (req.headers as any).get?.("cookie") || "";
