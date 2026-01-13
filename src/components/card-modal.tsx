@@ -60,7 +60,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
   const [activities, setActivities] = React.useState<Array<{ id: string; type: string; details: any; createdAt: string; user?: Member | null }>>([]);
   const [creationActivity, setCreationActivity] = React.useState<{ id: string; type: string; details: any; createdAt: string; user?: Member | null } | null>(null);
   const [loadingActivity, setLoadingActivity] = React.useState(false);
-  const [showDetails, setShowDetails] = React.useState(false);
+  const [showDetails, setShowDetails] = React.useState(true);
   const [hasMoreActivity, setHasMoreActivity] = React.useState(false);
   const [activityCursor, setActivityCursor] = React.useState<string | null>(null);
 
@@ -345,6 +345,21 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
       document.removeEventListener("pointerdown", onPointerDown);
     };
   }, [showMembersMenu]);
+
+  React.useEffect(() => {
+    if (!showDatesMenu) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      const container = datesMenuWrapRef.current;
+      if (container && !container.contains(target)) {
+        setShowDatesMenu(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [showDatesMenu]);
 
   // Added: toggle assignment for a member
   async function toggleAssignment(m: Member) {
@@ -644,7 +659,10 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
             if (actResp.ok) {
                 const latest = await actResp.json();
                 if (Array.isArray(latest) && latest.length > 0) {
-                     setActivities((curr) => [latest[0], ...curr]);
+                     setActivities((curr) => {
+                         if (curr.some(a => a.id === latest[0].id)) return curr;
+                         return [latest[0], ...curr];
+                     });
                 }
             }
         } catch {}
@@ -981,7 +999,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="absolute inset-0 flex items-start justify-center p-8 overflow-auto">
+      <div className="absolute inset-0 flex items-start justify-center p-8 overflow-auto" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
         <div className="w-[980px] bg-background rounded shadow-lg border border-black/10 dark:border-white/15">
           <div className="p-4 border-b border-black/10 dark:border-white/15 flex items-center justify-between">
             <div className="flex items-center gap-2 w-full">
@@ -1196,7 +1214,13 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                     <span className="px-2 py-1 rounded bg-background border">Start {new Date(tempStartDate).toLocaleDateString()}</span>
                   )}
                   {data?.dueDate && (
-                    <span className="px-2 py-1 rounded bg-background border">Due {new Date(data.dueDate).toLocaleString()}</span>
+                    <button 
+                      onClick={openDatesMenu} 
+                      className="px-2 py-1 rounded bg-background border hover:bg-foreground/5 transition-colors text-left"
+                      title="Change due date"
+                    >
+                      Due {new Date(data.dueDate).toLocaleString()}
+                    </button>
                   )}
                   {!!(data?.members && data.members.length) && (
                     <div className="ml-auto flex items-center gap-1">
@@ -1388,28 +1412,38 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                             </li>
                           ) : (
                             <li key={`c-${item.c.id}`} className="text-sm group">
-                              <div className="flex items-center justify-between">
-                                <div className="text-xs text-foreground/60">{item.c.author?.name || item.c.author?.email} • {new Date(item.c.createdAt).toLocaleString()}</div>
-                                <div className="opacity-0 group-hover:opacity-100 flex gap-2">
-                                  <button onClick={() => { setEditingCommentId(item.c.id); setEditingCommentText(item.c.content); }} className="text-[10px] text-foreground/60 hover:text-foreground">Edit</button>
-                                  <button onClick={() => deleteComment(item.c.id)} className="text-[10px] text-foreground/60 hover:text-red-500">Delete</button>
+                              <div className="grid grid-cols-[auto_1fr] gap-x-2">
+                                <div className="mt-1">
+                                  <Avatar image={item.c.author?.image || ""} name={item.c.author?.name || item.c.author?.email || ""} email={item.c.author?.email || ""} size={24} />
+                                </div>
+                                <div className="w-full">
+                                  <div className="flex items-center justify-between">
+                                    <div className="text-xs font-semibold text-foreground/80">
+                                      {item.c.author?.name || item.c.author?.email}
+                                      <span className="font-normal text-foreground/60 ml-2">{new Date(item.c.createdAt).toLocaleString()}</span>
+                                    </div>
+                                    <div className="opacity-0 group-hover:opacity-100 flex gap-2">
+                                      <button onClick={() => { setEditingCommentId(item.c.id); setEditingCommentText(item.c.content); }} className="text-[10px] text-foreground/60 hover:text-foreground">Edit</button>
+                                      <button onClick={() => deleteComment(item.c.id)} className="text-[10px] text-foreground/60 hover:text-red-500">Delete</button>
+                                    </div>
+                                  </div>
+                                  {editingCommentId === item.c.id ? (
+                                    <div className="mt-1">
+                                      <textarea
+                                        value={editingCommentText}
+                                        onChange={(e) => setEditingCommentText(e.target.value)}
+                                        className="w-full text-sm border rounded p-1 bg-background h-16"
+                                      />
+                                      <div className="flex gap-2 mt-1">
+                                        <button onClick={() => updateComment(item.c.id)} className="text-xs rounded px-2 py-1 bg-foreground text-background">Save</button>
+                                        <button onClick={() => setEditingCommentId(null)} className="text-xs rounded px-2 py-1 bg-foreground/5">Cancel</button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="mt-0.5 text-foreground/90">{item.c.content}</div>
+                                  )}
                                 </div>
                               </div>
-                              {editingCommentId === item.c.id ? (
-                                <div className="mt-1">
-                                  <textarea
-                                    value={editingCommentText}
-                                    onChange={(e) => setEditingCommentText(e.target.value)}
-                                    className="w-full text-sm border rounded p-1 bg-background h-16"
-                                  />
-                                  <div className="flex gap-2 mt-1">
-                                    <button onClick={() => updateComment(item.c.id)} className="text-xs rounded px-2 py-1 bg-foreground text-background">Save</button>
-                                    <button onClick={() => setEditingCommentId(null)} className="text-xs rounded px-2 py-1 bg-foreground/5">Cancel</button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div>{item.c.content}</div>
-                              )}
                             </li>
                           )
                         ));
