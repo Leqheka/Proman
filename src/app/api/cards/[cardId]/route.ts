@@ -23,6 +23,11 @@ export async function GET(
           list: { select: { id: true, title: true, boardId: true } },
           board: { select: { id: true, title: true } },
           labels: { include: { label: true } },
+          assignments: {
+            include: {
+              user: { select: { id: true, name: true, email: true, image: true } },
+            },
+          },
           _count: { select: { comments: true, attachments: true, checklists: true, assignments: true } },
         }
       : {
@@ -67,7 +72,7 @@ export async function GET(
       attachments: isSummary ? [] : (card as any).attachments,
       comments: isSummary ? [] : (card as any).comments,
       checklists: isSummary ? [] : (card as any).checklists,
-      members: isSummary ? [] : ((card as any).assignments?.map((a: any) => a.user) ?? []),
+      members: ((card as any).assignments?.map((a: any) => a.user) ?? []),
       commentCount: isSummary ? ((card as any)._count?.comments ?? 0) : ((card as any).comments?.length ?? 0),
       attachmentCount: isSummary ? ((card as any)._count?.attachments ?? 0) : ((card as any).attachments?.length ?? 0),
       checklistCount: isSummary ? ((card as any)._count?.checklists ?? 0) : ((card as any).checklists?.length ?? 0),
