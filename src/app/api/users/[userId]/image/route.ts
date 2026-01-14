@@ -48,7 +48,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ userId:
     }
 
     if (process.env.VERCEL) {
-      return NextResponse.json({ error: "External storage not configured" }, { status: 400 });
+      // Fallback to Base64 Data URI if no external storage is configured on Vercel
+      if (buffer.length > 2 * 1024 * 1024) { // 2MB limit
+        return NextResponse.json({ error: "Image too large for inline storage (max 2MB)" }, { status: 400 });
+      }
+      const mime = file.type || "application/octet-stream";
+      const base64 = buffer.toString("base64");
+      const dataUri = `data:${mime};base64,${base64}`;
+      await prisma.user.update({ where: { id: userId }, data: { image: dataUri } });
+      return NextResponse.json({ image: dataUri }, { status: 201 });
     }
 
     const uploadsDir = path.join(process.cwd(), "public", "uploads", "users", userId);
