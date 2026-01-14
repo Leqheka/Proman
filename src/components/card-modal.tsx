@@ -988,8 +988,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
 
   if (loading || !data) {
     return (
-      <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center">
-        <div className="rounded bg-background p-6 shadow w-[800px]">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+        <div className="w-full max-w-[800px] rounded bg-background p-4 shadow">
           <p className="text-sm">{loadError ? loadError : "Loading card..."}</p>
         </div>
       </div>
@@ -999,8 +999,13 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="absolute inset-0 flex items-start justify-center p-8 overflow-auto" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-        <div className="w-[980px] bg-background rounded shadow-lg border border-black/10 dark:border-white/15">
+      <div
+        className="absolute inset-0 flex items-start justify-center overflow-auto p-2 sm:p-4 md:p-8"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <div className="flex w-full max-w-[980px] flex-col rounded border border-black/10 bg-background shadow-lg dark:border-white/15 max-h-[calc(100vh-1rem)] sm:max-h-[calc(100vh-2rem)]">
           <div className="p-4 border-b border-black/10 dark:border-white/15 flex items-center justify-between">
             <div className="flex items-center gap-2 w-full">
               <input type="checkbox" checked={!!data.archived} onChange={(e) => toggleCardArchived(e.target.checked)} />
@@ -1014,10 +1019,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
             <button onClick={onClose} className="ml-3 text-xs rounded px-2 py-1 bg-foreground/5">Close</button>
           </div>
 
-          <div className="grid grid-cols-[1fr_320px] gap-6 p-4 min-h-[600px] items-stretch">
-             {/* Left column */}
+          <div className="grid min-h-[400px] flex-1 grid-cols-1 items-start gap-4 p-3 md:min-h-[600px] md:gap-6 md:p-4 lg:grid-cols-[1fr_320px]">
             <div className="space-y-6">
-              {/* Top Add toolbar with Dates popover */}
               <div className="flex items-center gap-2">
                 <span className="text-xs">Add:</span>
                 <button className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Labels</button>
@@ -1207,7 +1210,6 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                 </div>
               </div>
 
-              {/* Dates and members bar (always visible) */}
               <div className="rounded border border-black/10 dark:border-white/15 p-2">
                 <div className="flex items-center gap-3 text-xs">
                   {tempStartDate && (
@@ -1235,7 +1237,6 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                 </div>
               </div>
 
-              {/* Description */}
               <div>
                 <p className="text-sm font-semibold">Description</p>
                 <textarea
@@ -1247,7 +1248,6 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                 />
               </div>
 
-              {/* Attachments */}
               {data.attachments.length > 0 && (
                 <div>
                   <p className="text-sm font-semibold">Attachments</p>
@@ -1273,7 +1273,6 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                 </div>
               )}
 
-              {/* Checklists */}
               <div>
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold">Checklists</p>
@@ -1338,9 +1337,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
               </div>
             </div>
 
-            {/* Right column */}
-            <div className="h-full min-h-0">
-            <div className="rounded border border-black/10 dark:border-white/15 p-3 bg-foreground/5 h-full min-h-0 flex flex-col">
+            <div className="mt-4 h-full min-h-0 lg:mt-0">
+              <div className="flex h-full min-h-0 flex-col rounded border border-black/10 bg-foreground/5 p-3 dark:border-white/15">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold">Comments and activity</p>
                   <button onClick={() => setShowDetails((s) => !s)} className="text-xs rounded px-3 py-1 border bg-background">

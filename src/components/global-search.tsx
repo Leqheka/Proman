@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface SearchResult {
@@ -27,6 +27,7 @@ export default function GlobalSearch() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [expanded, setExpanded] = useState(false);
   const debounced = useDebounced(q, 300);
   const router = useRouter();
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -56,9 +57,10 @@ export default function GlobalSearch() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (!open) return;
+      if (!open && !expanded) return;
       if (e.key === "Escape") {
         setOpen(false);
+        setExpanded(false);
         return;
       }
       if (e.key === "ArrowDown") {
@@ -81,7 +83,7 @@ export default function GlobalSearch() {
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, results, activeIndex, router]);
+  }, [open, expanded, results, activeIndex, router]);
 
   useEffect(() => {
     function onPointerDown(e: PointerEvent) {
@@ -89,6 +91,7 @@ export default function GlobalSearch() {
       const container = wrapRef.current;
       if (container && !container.contains(target)) {
         setOpen(false);
+        setExpanded(false);
       }
     }
     document.addEventListener("pointerdown", onPointerDown);
@@ -105,45 +108,84 @@ export default function GlobalSearch() {
     } else if (first?.type === "board" && first.id) {
       router.push(`/boards/${first.id}`);
     }
+    setOpen(false);
+    setExpanded(false);
   }
 
   const visible = open && results.length > 0;
 
   return (
-    <div ref={wrapRef} className="relative w-full max-w-2xl">
-      <form onSubmit={onSubmit} className="flex items-center gap-2 rounded bg-foreground/5 px-3 py-1">
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search tasks/jobs across boards"
-          className="flex-1 bg-transparent outline-none text-sm"
-        />
-        <button className="text-xs rounded px-2 py-1 bg-foreground text-background">Search</button>
-      </form>
-      {visible && (
-        <div className="absolute z-50 mt-2 w-full rounded border border-black/10 dark:border-white/15 bg-background shadow">
-          <ul className="max-h-72 overflow-auto">
-            {results.map((r, i) => (
-              <li
-                key={`${r.type}:${r.id}`}
-                className={`px-3 py-2 text-sm cursor-pointer ${i === activeIndex ? "bg-foreground/10" : "hover:bg-foreground/5"}`}
-                onMouseEnter={() => setActiveIndex(i)}
-                onClick={() => {
-                  if (r.type === "card" && r.boardId) router.push(`/boards/${r.boardId}?openCard=${r.id}`);
-                  else if (r.type === "board") router.push(`/boards/${r.id}`);
-                  setOpen(false);
-                }}
-              >
-                {r.type === "card" ? (
-                  <span>
-                    {r.title} <span className="text-foreground/60">— {r.boardTitle} / {r.listTitle}</span>
-                  </span>
-                ) : (
-                  <span>Board: {r.title}</span>
-                )}
-              </li>
-            ))}
-          </ul>
+    <div ref={wrapRef} className="relative flex justify-end">
+      {!expanded && (
+        <button
+          type="button"
+          onClick={() => {
+            setExpanded(true);
+          }}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-foreground/5 hover:bg-foreground/10"
+          aria-label="Search"
+        >
+          <span
+            className="h-4 w-4 inline-block"
+            style={{
+              WebkitMaskImage: "url(/icons/search.svg)",
+              maskImage: "url(/icons/search.svg)",
+              backgroundColor: "currentColor",
+              WebkitMaskRepeat: "no-repeat",
+              maskRepeat: "no-repeat",
+              WebkitMaskPosition: "center",
+              maskPosition: "center",
+              WebkitMaskSize: "contain",
+              maskSize: "contain",
+            }}
+            aria-hidden
+          />
+        </button>
+      )}
+      {expanded && (
+        <div className="absolute right-0 top-9 w-[min(100vw-2rem,32rem)] max-w-[32rem]">
+          <form onSubmit={onSubmit} className="flex items-center gap-2 rounded bg-foreground/5 px-3 py-1">
+            <input
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                if (e.target.value.trim()) {
+                  setOpen(true);
+                }
+              }}
+              placeholder="Search tasks/jobs across boards"
+              className="flex-1 bg-transparent outline-none text-sm"
+              autoFocus
+            />
+            <button className="text-xs rounded px-2 py-1 bg-foreground text-background">Search</button>
+          </form>
+          {visible && (
+            <div className="mt-2 max-h-72 w-full overflow-auto rounded border border-black/10 bg-background shadow dark:border-white/15">
+              <ul>
+                {results.map((r, i) => (
+                  <li
+                    key={`${r.type}:${r.id}`}
+                    className={`cursor-pointer px-3 py-2 text-sm ${i === activeIndex ? "bg-foreground/10" : "hover:bg-foreground/5"}`}
+                    onMouseEnter={() => setActiveIndex(i)}
+                    onClick={() => {
+                      if (r.type === "card" && r.boardId) router.push(`/boards/${r.boardId}?openCard=${r.id}`);
+                      else if (r.type === "board") router.push(`/boards/${r.id}`);
+                      setOpen(false);
+                      setExpanded(false);
+                    }}
+                  >
+                    {r.type === "card" ? (
+                      <span>
+                        {r.title} <span className="text-foreground/60">— {r.boardTitle} / {r.listTitle}</span>
+                      </span>
+                    ) : (
+                      <span>Board: {r.title}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>
