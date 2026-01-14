@@ -46,6 +46,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
   const [editingCommentText, setEditingCommentText] = React.useState("");
   const [loadingChecklists, setLoadingChecklists] = React.useState(false);
   const [newAttachmentUrl, setNewAttachmentUrl] = React.useState("");
+  const [showAttachmentInput, setShowAttachmentInput] = React.useState(false);
   const [editingChecklistId, setEditingChecklistId] = React.useState<string | null>(null);
   const [editingChecklistTitle, setEditingChecklistTitle] = React.useState<string>("");
   const [showChecklistMenu, setShowChecklistMenu] = React.useState(false);
@@ -957,6 +958,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
         const created = await resp.json();
         setData((d) => (d ? { ...d, attachments: [...d.attachments, created] } : d));
         setNewAttachmentUrl("");
+        setShowAttachmentInput(false);
       }
     } catch (err) {
       console.error("Failed to add attachment", err);
@@ -986,6 +988,14 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
     }
   }
 
+  const scrollWrapRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    if (!loading && scrollWrapRef.current) {
+      scrollWrapRef.current.scrollTop = 0;
+    }
+  }, [loading, cardId]);
+
   if (loading || !data) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
@@ -1000,6 +1010,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div
+        ref={scrollWrapRef}
         className="absolute inset-0 flex items-start justify-center overflow-auto p-2 sm:p-4 md:p-8"
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose();
@@ -1204,11 +1215,46 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                     </div>
                    )}
                  </div>
-                 <div className="flex items-center gap-2">
-                  <input value={newAttachmentUrl} onChange={(e) => setNewAttachmentUrl(e.target.value)} placeholder="Attachment URL" className="text-xs px-2 py-1 border rounded bg-background" />
-                  <button onClick={addAttachment} className="text-xs rounded px-2 py-1 bg-foreground text-background hover:opacity-90 transition-opacity">Add</button>
-                </div>
+                 <button
+                  type="button"
+                  onClick={() => setShowAttachmentInput((v) => !v)}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded bg-foreground/5 hover:bg-foreground/10 transition-colors"
+                  title="Add attachment"
+                >
+                  <span
+                    className="h-4 w-4 inline-block"
+                    style={{
+                      WebkitMaskImage: "url(/icons/attachment.svg)",
+                      maskImage: "url(/icons/attachment.svg)",
+                      backgroundColor: "currentColor",
+                      WebkitMaskRepeat: "no-repeat",
+                      maskRepeat: "no-repeat",
+                      WebkitMaskPosition: "center",
+                      maskPosition: "center",
+                      WebkitMaskSize: "contain",
+                      maskSize: "contain",
+                    }}
+                    aria-hidden
+                  />
+                </button>
               </div>
+
+              {showAttachmentInput && (
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <input
+                    value={newAttachmentUrl}
+                    onChange={(e) => setNewAttachmentUrl(e.target.value)}
+                    placeholder="Attachment URL"
+                    className="w-full flex-1 text-xs px-2 py-1 border rounded bg-background"
+                  />
+                  <button
+                    onClick={addAttachment}
+                    className="self-end text-xs rounded px-2 py-1 bg-foreground text-background hover:opacity-90 transition-opacity sm:self-auto"
+                  >
+                    Add
+                  </button>
+                </div>
+              )}
 
               <div className="rounded border border-black/10 dark:border-white/15 p-2">
                 <div className="flex items-center gap-3 text-xs">

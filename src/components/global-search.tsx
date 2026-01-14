@@ -143,7 +143,7 @@ export default function GlobalSearch() {
         </button>
       )}
       {expanded && (
-        <div className="absolute right-0 top-9 w-[min(100vw-2rem,32rem)] max-w-[32rem]">
+        <div className="absolute right-0 top-9 w-full max-w-xs sm:max-w-md md:max-w-lg">
           <form onSubmit={onSubmit} className="flex items-center gap-2 rounded bg-foreground/5 px-3 py-1">
             <input
               value={q}
