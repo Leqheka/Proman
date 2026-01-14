@@ -428,11 +428,33 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
 
   async function moveCard(cardId: string, fromListId: string, toListId: string, toIndex: number) {
     try {
-      await fetch(`/api/cards/move`, {
+      const res = await fetch(`/api/cards/move`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cardId, fromListId, toListId, toIndex }),
       });
+      if (res.ok) {
+        const data: any = await res.json().catch(() => null);
+        if (data && data.id) {
+          handleCardUpdated({
+            id: data.id,
+            dueDate: data.dueDate ?? null,
+            hasDescription: !!(data.description && typeof data.description === "string" && data.description.trim().length > 0),
+            checklistCount: typeof data.checklistCount === "number" ? data.checklistCount : undefined,
+            assignmentCount: typeof data.assignmentCount === "number" ? data.assignmentCount : undefined,
+            commentCount: typeof data.commentCount === "number" ? data.commentCount : undefined,
+            attachmentCount: typeof data.attachmentCount === "number" ? data.attachmentCount : undefined,
+            members: Array.isArray(data.members)
+              ? data.members.map((m: any) => ({
+                  id: String(m.id),
+                  name: m.name ?? null,
+                  email: m.email,
+                  image: m.image ?? null,
+                }))
+              : undefined,
+          });
+        }
+      }
     } catch (err) {
       console.error("Failed to persist card move", err);
     }
@@ -570,8 +592,18 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
   }
 
   // Reflect modal changes (due date, members, checklist count) in list view immediately
-  function handleCardUpdated(patch: { id: string; title?: string; dueDate?: string | null; checklistCount?: number; assignmentCount?: number; members?: Array<{ id: string; name?: string | null; email: string; image?: string | null }> }) {
-    const { id, title, dueDate, checklistCount, assignmentCount, members } = patch;
+  function handleCardUpdated(patch: {
+    id: string;
+    title?: string;
+    dueDate?: string | null;
+    hasDescription?: boolean;
+    checklistCount?: number;
+    assignmentCount?: number;
+    commentCount?: number;
+    attachmentCount?: number;
+    members?: Array<{ id: string; name?: string | null; email: string; image?: string | null }>;
+  }) {
+    const { id, title, dueDate, hasDescription, checklistCount, assignmentCount, commentCount, attachmentCount, members } = patch;
     setLists((curr) => {
       const loc = findListByCardId(id);
       if (!loc) return curr;
@@ -583,21 +615,35 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
         ...prev,
         ...(title !== undefined ? { title } : {}),
         ...(dueDate !== undefined ? { dueDate } : {}),
+        ...(hasDescription !== undefined ? { hasDescription } : {}),
         ...(checklistCount !== undefined ? { checklistCount } : {}),
         ...(assignmentCount !== undefined ? { assignmentCount } : {}),
+        ...(commentCount !== undefined ? { commentCount } : {}),
+        ...(attachmentCount !== undefined ? { attachmentCount } : {}),
         ...(members !== undefined ? { members: members.map((m) => ({ ...m, name: m.name ?? null, image: m.image ?? null })) } : {}),
       };
       next[loc.listIndex] = { ...list, cards };
       return next;
     });
-    setArchives((curr) => curr.map((c) => (c.id === id ? {
-      ...c,
-      ...(title !== undefined ? { title } : {}),
-      ...(dueDate !== undefined ? { dueDate } : {}),
-      ...(checklistCount !== undefined ? { checklistCount } : {}),
-      ...(assignmentCount !== undefined ? { assignmentCount } : {}),
-      ...(members !== undefined ? { members: members.map((m) => ({ ...m, name: m.name ?? null, image: m.image ?? null })) } : {}),
-    } : c)));
+    setArchives((curr) =>
+      curr.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              ...(title !== undefined ? { title } : {}),
+              ...(dueDate !== undefined ? { dueDate } : {}),
+              ...(hasDescription !== undefined ? { hasDescription } : {}),
+              ...(checklistCount !== undefined ? { checklistCount } : {}),
+              ...(assignmentCount !== undefined ? { assignmentCount } : {}),
+              ...(commentCount !== undefined ? { commentCount } : {}),
+              ...(attachmentCount !== undefined ? { attachmentCount } : {}),
+              ...(members !== undefined
+                ? { members: members.map((m) => ({ ...m, name: m.name ?? null, image: m.image ?? null })) }
+                : {}),
+            }
+          : c
+      )
+    );
   }
 
   function toggleArchive(card: CardItem, checked: boolean) {

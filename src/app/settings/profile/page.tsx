@@ -76,15 +76,28 @@ export default function ProfileSettingsPage() {
       </div>
       <div className="w-full max-w-sm mx-auto mt-4 rounded border border-black/10 dark:border-white/15 p-4 bg-background">
         <p className="text-lg font-semibold">Profile settings</p>
-        <div className="mt-3 flex items-center gap-3">
-          {user?.image ? (
-            <img src={user.image} alt={user.name || user.email} className="w-16 h-16 rounded-full object-cover" />
-          ) : (
-            <div className="w-16 h-16 rounded-full bg-foreground/20 flex items-center justify-center text-sm">{(user?.name || user?.email || "").slice(0,2).toUpperCase()}</div>
-          )}
-          <label className="text-xs inline-flex items-center gap-2">
-            <span>Change picture</span>
-            <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); }} />
+        <div className="mt-3 flex justify-center">
+          <label className="group relative cursor-pointer">
+            <input 
+              type="file" 
+              accept="image/*" 
+              className="hidden" 
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); }} 
+            />
+            {user?.image ? (
+              <img 
+                src={user.image} 
+                alt={user.name || user.email} 
+                className="w-48 h-48 rounded-full object-cover border-4 border-background shadow-lg" 
+              />
+            ) : (
+              <div className="w-48 h-48 rounded-full bg-foreground/20 flex items-center justify-center text-4xl border-4 border-background shadow-lg">
+                {(user?.name || user?.email || "").slice(0,2).toUpperCase()}
+              </div>
+            )}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="text-white text-sm font-medium">Upload new</span>
+            </div>
           </label>
         </div>
         <label className="text-xs mt-3 block">Full name</label>

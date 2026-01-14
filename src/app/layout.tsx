@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Proman",
   description: "Trello-like Kanban Project Management",
+  icons: {
+    icon: "/GF_Fav.png",
+  },
 };
 
 export default function RootLayout({

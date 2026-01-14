@@ -56,15 +56,15 @@ export async function POST(req: Request) {
           where: { listId: toListId, archived: false, order: { gte: toIndex } },
           data: { order: { increment: 1 } },
         });
-        
+
         // Fetch destination list defaults
         const toList = await tx.list.findUnique({
           where: { id: toListId },
-          select: { defaultDueDays: true, defaultMemberIds: true, defaultChecklist: true }
+          select: { defaultDueDays: true, defaultMemberIds: true, defaultChecklist: true },
         });
 
         const updateData: any = { listId: toListId, order: toIndex };
-        if (toList && typeof toList.defaultDueDays === 'number') {
+        if (toList && typeof toList.defaultDueDays === "number") {
           const d = new Date();
           d.setDate(d.getDate() + toList.defaultDueDays);
           updateData.dueDate = d;
@@ -77,18 +77,18 @@ export async function POST(req: Request) {
         if (toList) {
           if (toList.defaultMemberIds?.length) {
             await tx.cardAssignment.createMany({
-              data: toList.defaultMemberIds.map(uid => ({ cardId, userId: uid })),
-              skipDuplicates: true
+              data: toList.defaultMemberIds.map((uid) => ({ cardId, userId: uid })),
+              skipDuplicates: true,
             });
           }
           if (toList.defaultChecklist) {
             const items = toList.defaultChecklist as any[];
             if (Array.isArray(items) && items.length > 0) {
               const checklist = await tx.checklist.create({
-                data: { title: "Checklist", cardId }
+                data: { title: "Checklist", cardId },
               });
               await tx.checklistItem.createMany({
-                data: items.map(i => ({ checklistId: checklist.id, title: i.title, completed: !!i.completed }))
+                data: items.map((i) => ({ checklistId: checklist.id, title: i.title, completed: !!i.completed })),
               });
             }
           }
@@ -96,10 +96,42 @@ export async function POST(req: Request) {
       }
     });
 
+    const fullCard = await prisma.card.findUnique({
+      where: { id: cardId },
+      include: {
+        assignments: { include: { user: true } },
+        checklists: { include: { items: true } },
+        _count: {
+          select: {
+            comments: true,
+            attachments: true,
+          },
+        },
+      },
+    });
+
     // Invalidate cached board page for this card's board
     try {
       if (card.boardId) revalidateTag(`board:${card.boardId}`);
     } catch {}
+
+    if (fullCard) {
+      const responseCard = {
+        ...fullCard,
+        checklistCount: fullCard.checklists.reduce((acc, c) => acc + c.items.length, 0),
+        commentCount: fullCard._count.comments,
+        attachmentCount: fullCard._count.attachments,
+        assignmentCount: fullCard.assignments.length,
+        members: fullCard.assignments.map(a => ({
+          id: a.user.id,
+          name: a.user.name,
+          email: a.user.email,
+          image: a.user.image,
+        })),
+      };
+      return NextResponse.json(responseCard);
+    }
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("POST /api/cards/move error", err);
