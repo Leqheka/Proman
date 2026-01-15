@@ -88,14 +88,14 @@ export default function AppHeader() {
           {loggedIn ? (
             <button
               title="Toggle theme"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-foreground/5 hover:bg-foreground/10"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-foreground/5 hover:bg-foreground/10 text-foreground"
               onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
             >
-              <span className="text-xs">{theme === "light" ? "🌙" : "☀️"}</span>
+              <span className="text-xs">{theme === "light" ? "☾" : "☼"}</span>
             </button>
           ) : null}
           {loggedIn ? (
-            <button title="Notifications" className="text-sm rounded px-2 py-1 bg-foreground/5">🔔</button>
+            <button title="Notifications" className="text-sm rounded px-2 py-1 bg-foreground/5 text-foreground">🔔</button>
           ) : null}
           {loggedIn ? (
           <div className="relative" ref={profileWrapRef}>

@@ -143,7 +143,7 @@ export default function BoardToolbar({
         </div>
         <div className="ml-auto flex items-center gap-2">
           <div className="relative" ref={bgMenuWrapRef}>
-            <button onClick={() => setOpenBg((v) => !v)} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-black hover:text-background">Change background</button>
+            <button onClick={() => setOpenBg((v) => !v)} className="text-xs rounded px-2 py-1 bg-background text-foreground border border-black/10 dark:border-white/15 hover:bg-foreground hover:text-background">Change background</button>
             {openBg && (
               <div className="absolute right-0 mt-2 w-64 rounded border border-black/10 dark:border-white/15 bg-background p-2 shadow">
                 <div className="grid grid-cols-2 gap-2">
@@ -164,7 +164,7 @@ export default function BoardToolbar({
             )}
           </div>
           <div className="relative" ref={settingsWrapRef}>
-            <button onClick={() => setOpenSettings((v) => !v)} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-black hover:text-background" title="Board settings">Board settings</button>
+            <button onClick={() => setOpenSettings((v) => !v)} className="text-xs rounded px-2 py-1 bg-background text-foreground border border-black/10 dark:border-white/15 hover:bg-foreground hover:text-background" title="Board settings">Board settings</button>
             {openSettings && (
               <div className="absolute right-0 mt-2 w-48 rounded border border-black/10 dark:border-white/15 bg-background p-2 shadow">
                 <button onClick={() => { setOpenSettings(false); setOpenArchives(true); }} className="block w-full text-left text-xs rounded px-2 py-1 hover:bg-foreground/5">Archives</button>
@@ -172,7 +172,7 @@ export default function BoardToolbar({
             )}
           </div>
           {isAdmin ? (
-            <a href={`/boards/${currentBoardId}/members`} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-black hover:text-background" title="Members">Members</a>
+            <a href={`/boards/${currentBoardId}/members`} className="text-xs rounded px-2 py-1 bg-background text-foreground border border-black/10 dark:border-white/15 hover:bg-foreground hover:text-background" title="Members">Members</a>
           ) : null}
         </div>
       </div>

@@ -92,7 +92,7 @@ function SortableCardBase({ card, onOpen, onToggleArchive, onUpdateTitle }: { ca
         if (isTempCardId(card.id)) return; // guard against opening temp card modal
         onOpen(card.id);
       }}
-      className="group relative rounded border border-black/10 dark:border-white/15 bg-foreground/5 p-3 hover:bg-foreground/10 hover:shadow-sm transition-colors cursor-pointer"
+      className="group relative rounded border border-black/10 dark:border-white/15 bg-white/80 dark:bg-black/60 p-3 hover:bg-foreground/10 hover:shadow-sm transition-colors cursor-pointer"
     >
       {/* Header: checkbox always visible next to title */}
       <div className="flex items-center gap-2">
