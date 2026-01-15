@@ -116,21 +116,7 @@ export default function GlobalSearch() {
       <div className="hidden sm:block w-full">
         <form onSubmit={onSubmit} className="flex items-center gap-2 rounded bg-foreground/5 px-3 py-1">
           <div className="flex items-center gap-2 flex-1">
-            <span
-              className="h-4 w-4 inline-block text-foreground"
-              style={{
-                WebkitMaskImage: "url(/icons/search.svg)",
-                maskImage: "url(/icons/search.svg)",
-                backgroundColor: "currentColor",
-                WebkitMaskRepeat: "no-repeat",
-                maskRepeat: "no-repeat",
-                WebkitMaskPosition: "center",
-                maskPosition: "center",
-                WebkitMaskSize: "contain",
-                maskSize: "contain",
-              }}
-              aria-hidden
-            />
+            <span className="text-xs text-foreground">⌕</span>
             <input
               value={q}
               onChange={(e) => {
@@ -183,21 +169,7 @@ export default function GlobalSearch() {
           className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-foreground/5 hover:bg-foreground/10 text-foreground"
           aria-label="Search"
         >
-          <span
-            className="h-4 w-4 inline-block"
-            style={{
-              WebkitMaskImage: "url(/icons/search.svg)",
-              maskImage: "url(/icons/search.svg)",
-              backgroundColor: "currentColor",
-              WebkitMaskRepeat: "no-repeat",
-              maskRepeat: "no-repeat",
-              WebkitMaskPosition: "center",
-              maskPosition: "center",
-              WebkitMaskSize: "contain",
-              maskSize: "contain",
-            }}
-            aria-hidden
-          />
+          <span className="text-xs">⌕</span>
         </button>
 
         {open && (

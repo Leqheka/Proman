@@ -27,7 +27,7 @@ function SortableListWrapperBase({ list, children }: { list: ListItem; children:
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: list.id });
   const style = { transform: CSS.Transform.toString(transform), transition } as React.CSSProperties;
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="w-72 shrink-0 self-start mt-2 mb-4 rounded-lg border border-black/10 dark:border-white/15 bg-gray-100 p-3 max-h-full flex flex-col">
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="w-72 shrink-0 self-start mt-2 mb-4 rounded-lg border border-black/10 dark:border-white/15 bg-gray-100 dark:bg-black/80 p-3 max-h-full flex flex-col">
       {children}
     </div>
   );

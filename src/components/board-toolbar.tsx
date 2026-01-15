@@ -129,7 +129,6 @@ export default function BoardToolbar({
     <div className="sticky top-10 -mt-px z-30 w-full bg-white/60 dark:bg-black/40 backdrop-blur supports-[backdrop-filter]:bg-background/40 border-b border-black/10 dark:border-white/15">
       <div className="mx-auto max-w-7xl px-4 h-10 flex items-center gap-3">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-sm truncate max-w-[22ch]">{boardTitle}</span>
           <select
             value={currentBoardId}
             onChange={(e) => router.push(`/boards/${e.target.value}`)}
@@ -143,7 +142,14 @@ export default function BoardToolbar({
         </div>
         <div className="ml-auto flex items-center gap-2">
           <div className="relative" ref={bgMenuWrapRef}>
-            <button onClick={() => setOpenBg((v) => !v)} className="text-xs rounded px-2 py-1 bg-background text-foreground border border-black/10 dark:border-white/15 hover:bg-foreground hover:text-background">Change background</button>
+            <button
+              onClick={() => setOpenBg((v) => !v)}
+              className="flex items-center justify-center text-xs rounded px-2 py-1 bg-background text-foreground border border-black/10 dark:border-white/15 hover:bg-foreground hover:text-background"
+              title="Change background"
+            >
+              <span className="block sm:hidden">BG</span>
+              <span className="hidden sm:inline">Change background</span>
+            </button>
             {openBg && (
               <div className="absolute right-0 mt-2 w-64 rounded border border-black/10 dark:border-white/15 bg-background p-2 shadow">
                 <div className="grid grid-cols-2 gap-2">
@@ -164,7 +170,14 @@ export default function BoardToolbar({
             )}
           </div>
           <div className="relative" ref={settingsWrapRef}>
-            <button onClick={() => setOpenSettings((v) => !v)} className="text-xs rounded px-2 py-1 bg-background text-foreground border border-black/10 dark:border-white/15 hover:bg-foreground hover:text-background" title="Board settings">Board settings</button>
+            <button
+              onClick={() => setOpenSettings((v) => !v)}
+              className="flex items-center justify-center text-xs rounded px-2 py-1 bg-background text-foreground border border-black/10 dark:border-white/15 hover:bg-foreground hover:text-background"
+              title="Board settings"
+            >
+              <span className="block sm:hidden">⚙</span>
+              <span className="hidden sm:inline">Board settings</span>
+            </button>
             {openSettings && (
               <div className="absolute right-0 mt-2 w-48 rounded border border-black/10 dark:border-white/15 bg-background p-2 shadow">
                 <button onClick={() => { setOpenSettings(false); setOpenArchives(true); }} className="block w-full text-left text-xs rounded px-2 py-1 hover:bg-foreground/5">Archives</button>
@@ -172,7 +185,14 @@ export default function BoardToolbar({
             )}
           </div>
           {isAdmin ? (
-            <a href={`/boards/${currentBoardId}/members`} className="text-xs rounded px-2 py-1 bg-background text-foreground border border-black/10 dark:border-white/15 hover:bg-foreground hover:text-background" title="Members">Members</a>
+            <a
+              href={`/boards/${currentBoardId}/members`}
+              className="flex items-center justify-center text-xs rounded px-2 py-1 bg-background text-foreground border border-black/10 dark:border-white/15 hover:bg-foreground hover:text-background"
+              title="Members"
+            >
+              <span className="block sm:hidden">👥</span>
+              <span className="hidden sm:inline">Members</span>
+            </a>
           ) : null}
         </div>
       </div>

@@ -1215,27 +1215,13 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                     </div>
                    )}
                  </div>
-                 <button
+                <button
                   type="button"
                   onClick={() => setShowAttachmentInput((v) => !v)}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded bg-foreground/5 hover:bg-foreground/10 transition-colors"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground text-xs"
                   title="Add attachment"
                 >
-                  <span
-                    className="h-4 w-4 inline-block"
-                    style={{
-                      WebkitMaskImage: "url(/icons/attachment.svg)",
-                      maskImage: "url(/icons/attachment.svg)",
-                      backgroundColor: "currentColor",
-                      WebkitMaskRepeat: "no-repeat",
-                      maskRepeat: "no-repeat",
-                      WebkitMaskPosition: "center",
-                      maskPosition: "center",
-                      WebkitMaskSize: "contain",
-                      maskSize: "contain",
-                    }}
-                    aria-hidden
-                  />
+                  📎
                 </button>
               </div>
 
