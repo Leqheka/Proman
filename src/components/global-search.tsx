@@ -122,7 +122,7 @@ export default function GlobalSearch() {
           onClick={() => {
             setExpanded(true);
           }}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-foreground/5 hover:bg-foreground/10"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-foreground/5 hover:bg-foreground/10 text-foreground"
           aria-label="Search"
         >
           <span
@@ -143,49 +143,51 @@ export default function GlobalSearch() {
         </button>
       )}
       {expanded && (
-        <div className="absolute right-0 top-9 w-full max-w-xs sm:max-w-md md:max-w-lg">
-          <form onSubmit={onSubmit} className="flex items-center gap-2 rounded bg-foreground/5 px-3 py-1">
-            <input
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                if (e.target.value.trim()) {
-                  setOpen(true);
-                }
-              }}
-              placeholder="Search tasks/jobs across boards"
-              className="flex-1 bg-transparent outline-none text-sm"
-              autoFocus
-            />
-            <button className="text-xs rounded px-2 py-1 bg-foreground text-background">Search</button>
-          </form>
-          {visible && (
-            <div className="mt-2 max-h-72 w-full overflow-auto rounded border border-black/10 bg-background shadow dark:border-white/15">
-              <ul>
-                {results.map((r, i) => (
-                  <li
-                    key={`${r.type}:${r.id}`}
-                    className={`cursor-pointer px-3 py-2 text-sm ${i === activeIndex ? "bg-foreground/10" : "hover:bg-foreground/5"}`}
-                    onMouseEnter={() => setActiveIndex(i)}
-                    onClick={() => {
-                      if (r.type === "card" && r.boardId) router.push(`/boards/${r.boardId}?openCard=${r.id}`);
-                      else if (r.type === "board") router.push(`/boards/${r.id}`);
-                      setOpen(false);
-                      setExpanded(false);
-                    }}
-                  >
-                    {r.type === "card" ? (
-                      <span>
-                        {r.title} <span className="text-foreground/60">— {r.boardTitle} / {r.listTitle}</span>
-                      </span>
-                    ) : (
-                      <span>Board: {r.title}</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+        <div className="fixed inset-x-0 top-10 z-50 px-2 sm:px-4">
+          <div className="mx-auto max-w-7xl">
+            <form onSubmit={onSubmit} className="flex items-center gap-2 rounded border border-black/10 bg-background/95 px-3 py-2 shadow dark:border-white/15">
+              <input
+                value={q}
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  if (e.target.value.trim()) {
+                    setOpen(true);
+                  }
+                }}
+                placeholder="Search tasks/jobs across boards"
+                className="flex-1 bg-transparent text-sm outline-none"
+                autoFocus
+              />
+              <button className="text-xs rounded px-2 py-1 bg-foreground text-background">Search</button>
+            </form>
+            {visible && (
+              <div className="mt-2 max-h-72 w-full overflow-auto rounded border border-black/10 bg-background shadow dark:border-white/15">
+                <ul>
+                  {results.map((r, i) => (
+                    <li
+                      key={`${r.type}:${r.id}`}
+                      className={`cursor-pointer px-3 py-2 text-sm ${i === activeIndex ? "bg-foreground/10" : "hover:bg-foreground/5"}`}
+                      onMouseEnter={() => setActiveIndex(i)}
+                      onClick={() => {
+                        if (r.type === "card" && r.boardId) router.push(`/boards/${r.boardId}?openCard=${r.id}`);
+                        else if (r.type === "board") router.push(`/boards/${r.id}`);
+                        setOpen(false);
+                        setExpanded(false);
+                      }}
+                    >
+                      {r.type === "card" ? (
+                        <span>
+                          {r.title} <span className="text-foreground/60">— {r.boardTitle} / {r.listTitle}</span>
+                        </span>
+                      ) : (
+                        <span>Board: {r.title}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

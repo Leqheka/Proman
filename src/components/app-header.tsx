@@ -10,6 +10,7 @@ export default function AppHeader() {
   const [loggedIn, setLoggedIn] = React.useState<boolean | null>(null);
   const [user, setUser] = React.useState<{ id: string; email: string; username?: string | null; name?: string | null; image?: string | null } | null>(null);
   const profileWrapRef = React.useRef<HTMLDivElement | null>(null);
+  const [theme, setTheme] = React.useState<"light" | "dark">("light");
 
   React.useEffect(() => {
     if (!openProfile) return;
@@ -56,6 +57,24 @@ export default function AppHeader() {
     return () => { alive = false; };
   }, []);
 
+  React.useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("theme");
+      const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const initial = stored === "light" || stored === "dark" ? stored : prefersDark ? "dark" : "light";
+      setTheme(initial);
+    } catch {}
+  }, []);
+
+  React.useEffect(() => {
+    try {
+      const root = document.documentElement;
+      root.classList.remove("light", "dark");
+      root.classList.add(theme);
+      window.localStorage.setItem("theme", theme);
+    } catch {}
+  }, [theme]);
+
   return (
     <header className="fixed top-0 z-40 w-full backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b border-black/10 dark:border-white/15">
       <div className="mx-auto max-w-7xl px-4 h-10 grid grid-cols-[1fr_minmax(0,2fr)_1fr] items-center gap-4">
@@ -66,6 +85,15 @@ export default function AppHeader() {
         )}
         {loggedIn ? <GlobalSearch /> : <span />}
         <div className="flex items-center gap-3 justify-self-end">
+          {loggedIn ? (
+            <button
+              title="Toggle theme"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-foreground/5 hover:bg-foreground/10"
+              onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+            >
+              <span className="text-xs">{theme === "light" ? "🌙" : "☀️"}</span>
+            </button>
+          ) : null}
           {loggedIn ? (
             <button title="Notifications" className="text-sm rounded px-2 py-1 bg-foreground/5">🔔</button>
           ) : null}

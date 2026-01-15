@@ -1007,7 +1007,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-x-0 top-10 bottom-0 z-50">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div
         ref={scrollWrapRef}
