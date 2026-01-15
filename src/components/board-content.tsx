@@ -32,7 +32,7 @@ function SortableListWrapperBase({ list, children }: { list: ListItem; children:
       style={style}
       {...attributes}
       {...listeners}
-      className="w-72 shrink-0 self-start mt-2 mb-4 rounded-lg border border-black/10 dark:border-white/20 bg-gray-100 dark:bg-black/80 text-foreground shadow-sm max-h-full flex flex-col"
+      className="w-72 shrink-0 self-start mt-2 mb-4 rounded-lg border border-black/10 dark:border-white/20 bg-background/90 text-foreground shadow-sm max-h-full flex flex-col"
     >
       {children}
     </div>
@@ -784,21 +784,22 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
   }
 
   return (
-    <> 
+    <>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={lists.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
-          <div className="pt-10 px-6 h-[calc(100vh-40px)] overflow-x-auto overflow-y-hidden pb-8 flex items-start gap-2">
-            {lists.length === 0 ? (
-              <AddListTile
-                boardId={boardId}
-                onOptimisticCreate={(list) => addOptimisticList(list)}
-                onFinalize={(prevId, created) => reconcileListId(prevId, created)}
-                onRollback={(prevId) => removeListById(prevId)}
-              />
-            ) : (
-              <>
-                {lists.map((l) => (
-                  <SortableListWrapper key={l.id} list={l}>
+          <div className="pt-10 h-[calc(100vh-40px)] overflow-x-auto overflow-y-hidden pb-8">
+            <div className="mx-auto max-w-7xl px-4 flex items-start gap-3">
+              {lists.length === 0 ? (
+                <AddListTile
+                  boardId={boardId}
+                  onOptimisticCreate={(list) => addOptimisticList(list)}
+                  onFinalize={(prevId, created) => reconcileListId(prevId, created)}
+                  onRollback={(prevId) => removeListById(prevId)}
+                />
+              ) : (
+                <>
+                  {lists.map((l) => (
+                    <SortableListWrapper key={l.id} list={l}>
                     <div className="group/header flex items-center justify-between relative min-h-[24px] mb-2">
                       {editingListId === l.id ? (
                         <input
@@ -849,23 +850,23 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
                     </button>
                   </div>
                 )}
-                <CreateCard
-                  listId={l.id}
-                  onOptimisticCreate={(card) => addOptimisticCard(l.id, card)}
-                  onFinalize={(prevId, created) => reconcileCardId(prevId, created)}
-                  onRollback={(prevId) => removeCardById(prevId)}
-                />
-                  </SortableListWrapper>
-                ))}
-                <AddListTile
-                  boardId={boardId}
-                  onOptimisticCreate={(list) => addOptimisticList(list)}
-                  onFinalize={(prevId, created) => reconcileListId(prevId, created)}
-                  onRollback={(prevId) => removeListById(prevId)}
-                />
-                
-              </>
-            )}
+                    <CreateCard
+                      listId={l.id}
+                      onOptimisticCreate={(card) => addOptimisticCard(l.id, card)}
+                      onFinalize={(prevId, created) => reconcileCardId(prevId, created)}
+                      onRollback={(prevId) => removeCardById(prevId)}
+                    />
+                    </SortableListWrapper>
+                  ))}
+                  <AddListTile
+                    boardId={boardId}
+                    onOptimisticCreate={(list) => addOptimisticList(list)}
+                    onFinalize={(prevId, created) => reconcileListId(prevId, created)}
+                    onRollback={(prevId) => removeListById(prevId)}
+                  />
+                </>
+              )}
+            </div>
           </div>
         </SortableContext>
       </DndContext>

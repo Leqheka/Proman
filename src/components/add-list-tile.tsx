@@ -18,7 +18,7 @@ export default function AddListTile({
   if (!open) {
     return (
       <button
-        className="w-72 shrink-0 mt-2 rounded-lg border border-dashed border-black/10 dark:border-white/20 p-3 text-left bg-gray-100 dark:bg-black/70 text-foreground hover:bg-gray-200 dark:hover:bg-black/80"
+        className="w-72 shrink-0 mt-2 rounded-lg border border-dashed border-black/10 dark:border-white/20 p-3 text-left bg-background/60 text-foreground hover:bg-background/80 transition-colors"
         onClick={() => setOpen(true)}
       >
         + Add another list
@@ -26,7 +26,7 @@ export default function AddListTile({
     );
   }
   return (
-    <div className="w-72 shrink-0 mt-2 rounded-lg border border-black/10 dark:border-white/20 p-3 bg-gray-100 dark:bg-black/80 text-foreground">
+    <div className="w-72 shrink-0 mt-2 rounded-lg border border-black/10 dark:border-white/20 p-3 bg-background/90 text-foreground">
       <div className="mb-2 text-sm">Add list</div>
       <CreateList
         boardId={boardId}
