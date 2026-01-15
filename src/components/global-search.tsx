@@ -106,7 +106,6 @@ export default function GlobalSearch() {
       router.push(`/boards/${first.id}`);
     }
     setOpen(false);
-    setExpanded(false);
   }
 
   const visible = open && results.length > 0;
