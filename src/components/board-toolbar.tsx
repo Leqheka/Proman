@@ -132,7 +132,7 @@ export default function BoardToolbar({
           <select
             value={currentBoardId}
             onChange={(e) => router.push(`/boards/${e.target.value}`)}
-            className="text-xs rounded bg-foreground/5 px-2 py-1"
+            className="text-xs rounded px-2 py-1 bg-foreground/5 dark:bg-black dark:text-white border border-black/10 dark:border-white/20"
             title="Switch board"
           >
             {boards.map((b) => (

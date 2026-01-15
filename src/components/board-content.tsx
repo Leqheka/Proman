@@ -32,7 +32,7 @@ function SortableListWrapperBase({ list, children }: { list: ListItem; children:
       style={style}
       {...attributes}
       {...listeners}
-      className="w-72 shrink-0 self-start mt-2 mb-4 rounded-lg border border-black/10 dark:border-white/20 bg-background/90 text-foreground shadow-sm max-h-full flex flex-col"
+      className="w-72 shrink-0 self-start mt-2 mb-4 rounded-lg border border-black/10 dark:border-white/20 bg-gray-100 dark:bg-black text-foreground shadow-sm max-h-full flex flex-col"
     >
       {children}
     </div>
@@ -98,7 +98,7 @@ function SortableCardBase({ card, onOpen, onToggleArchive, onUpdateTitle }: { ca
         if (isTempCardId(card.id)) return;
         onOpen(card.id);
       }}
-      className="group relative rounded border border-black/10 dark:border-white/20 bg-white/90 dark:bg-black/70 text-foreground p-3 hover:bg-white dark:hover:bg-black/75 hover:shadow-sm transition-colors cursor-pointer"
+      className="group relative rounded border border-black/10 dark:border-white/20 bg-white dark:bg-white/5 text-foreground p-3 hover:bg-gray-50 dark:hover:bg-white/10 hover:shadow-sm transition-colors cursor-pointer"
     >
       {/* Header: checkbox always visible next to title */}
       <div className="flex items-center gap-2">
@@ -787,8 +787,8 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     <>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={lists.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
-          <div className="pt-10 h-[calc(100vh-40px)] overflow-x-auto overflow-y-hidden pb-8">
-            <div className="mx-auto max-w-7xl px-4 flex items-start gap-3">
+          <div className="pt-16 h-[calc(100vh-40px)] overflow-x-auto overflow-y-hidden pb-8">
+            <div className="mx-auto max-w-7xl px-6 flex items-start gap-3">
               {lists.length === 0 ? (
                 <AddListTile
                   boardId={boardId}
