@@ -136,7 +136,7 @@ export default function BoardToolbar({
             title="Switch board"
           >
             {boards.map((b) => (
-              <option key={b.id} value={b.id}>{b.title}</option>
+              <option key={b.id} value={b.id} className="dark:bg-black dark:text-white">{b.title}</option>
             ))}
           </select>
         </div>
