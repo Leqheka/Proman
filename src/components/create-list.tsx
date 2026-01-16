@@ -74,7 +74,7 @@ export default function CreateList({
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex gap-2">
+    <form onSubmit={onSubmit} className="flex flex-col gap-2">
       <input
         type="text"
         value={title}
