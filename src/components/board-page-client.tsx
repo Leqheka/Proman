@@ -50,7 +50,7 @@ export default function BoardPageClient({
   }, [currentBoardId]);
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-background text-foreground" style={{ backgroundImage: appliedBg ? `url(${appliedBg})` : undefined }}>
+    <div className="fixed inset-0 overflow-hidden bg-background text-foreground" style={{ backgroundImage: appliedBg ? `url(${appliedBg})` : undefined, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}>
       <BoardToolbar boards={boards} currentBoardId={currentBoardId} boardTitle={boardTitle} onBackgroundChanged={setBg} />
       <BoardContentClient boardId={currentBoardId} initialLists={initialLists} archivedCards={archivedCards} />
     </div>
