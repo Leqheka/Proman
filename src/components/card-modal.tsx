@@ -1007,16 +1007,16 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
   }
 
   return (
-    <div className="fixed inset-x-0 top-10 bottom-0 z-50">
+    <div className="fixed inset-x-0 top-10 bottom-10 z-50">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div
         ref={scrollWrapRef}
-        className="absolute inset-0 flex items-start justify-center overflow-auto p-2 sm:p-4 md:p-8"
+        className="absolute inset-0 flex items-stretch justify-center overflow-hidden p-2 sm:p-4 md:p-8"
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}
       >
-        <div className="flex w-full max-w-[980px] flex-col rounded border border-black/10 bg-background shadow-lg dark:border-white/15 max-h-[calc(100vh-1rem)] sm:max-h-[calc(100vh-2rem)]">
+        <div className="flex h-full w-full max-w-[980px] flex-col rounded border border-black/10 bg-background text-foreground shadow-lg dark:border-white/15">
           <div className="p-4 border-b border-black/10 dark:border-white/15 flex items-center justify-between">
             <div className="flex items-center gap-2 w-full">
               <input type="checkbox" checked={!!data.archived} onChange={(e) => toggleCardArchived(e.target.checked)} />
@@ -1030,8 +1030,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
             <button onClick={onClose} className="ml-3 text-xs rounded px-2 py-1 bg-foreground/5">Close</button>
           </div>
 
-          <div className="grid min-h-[400px] flex-1 grid-cols-1 items-start gap-4 p-3 md:min-h-[600px] md:gap-6 md:p-4 lg:grid-cols-[1fr_320px]">
-            <div className="space-y-6">
+          <div className="grid flex-1 min-h-0 grid-cols-1 items-start gap-4 p-3 md:gap-6 md:p-4 lg:grid-cols-[1fr_320px]">
+            <div className="flex h-full min-h-0 flex-col space-y-6 overflow-y-auto pr-1">
               <div className="flex items-center gap-2">
                 <span className="text-xs">Add:</span>
                 <button className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Labels</button>
@@ -1369,8 +1369,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
               </div>
             </div>
 
-            <div className="mt-4 h-full min-h-0 lg:mt-0">
-              <div className="flex h-full min-h-0 flex-col rounded border border-black/10 bg-foreground/5 p-3 dark:border-white/15">
+            <div className="mt-4 flex h-full min-h-0 flex-col overflow-y-auto lg:mt-0">
+              <div className="flex min-h-0 flex-col rounded border border-black/10 bg-foreground/5 p-3 dark:border-white/15">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold">Comments and activity</p>
                   <button onClick={() => setShowDetails((s) => !s)} className="text-xs rounded px-3 py-1 border bg-background">
