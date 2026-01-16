@@ -32,7 +32,7 @@ function SortableListWrapperBase({ list, children }: { list: ListItem; children:
       style={style}
       {...attributes}
       {...listeners}
-      className="w-72 shrink-0 self-start mt-2 mb-4 rounded-lg border border-black/10 dark:border-white/20 bg-gray-100 dark:bg-black text-foreground shadow-sm max-h-full flex flex-col p-4"
+      className="w-72 shrink-0 self-start mt-2 mb-4 rounded-lg border border-black/10 dark:border-white/20 bg-background/60 text-foreground shadow-sm max-h-full flex flex-col p-2"
     >
       {children}
     </div>
