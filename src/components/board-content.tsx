@@ -32,7 +32,7 @@ function SortableListWrapperBase({ list, children }: { list: ListItem; children:
       style={style}
       {...attributes}
       {...listeners}
-      className="w-72 shrink-0 self-start mt-2 mb-4 rounded-lg border border-black/10 dark:border-white/20 bg-gray-100 dark:bg-black text-foreground shadow-sm max-h-full flex flex-col"
+      className="w-72 shrink-0 self-start mt-2 mb-4 rounded-lg border border-black/10 dark:border-white/20 bg-gray-100 dark:bg-black text-foreground shadow-sm max-h-full flex flex-col p-4"
     >
       {children}
     </div>
@@ -98,7 +98,7 @@ function SortableCardBase({ card, onOpen, onToggleArchive, onUpdateTitle }: { ca
         if (isTempCardId(card.id)) return;
         onOpen(card.id);
       }}
-      className="group relative rounded border border-black/10 dark:border-white/20 bg-white dark:bg-white/5 text-foreground p-3 hover:bg-gray-50 dark:hover:bg-white/10 hover:shadow-sm transition-colors cursor-pointer"
+      className="group relative rounded border border-black/10 dark:border-white/20 bg-white dark:bg-white/10 text-foreground p-3 hover:bg-gray-50 dark:hover:bg-white/15 hover:shadow-sm transition-colors cursor-pointer"
     >
       {/* Header: checkbox always visible next to title */}
       <div className="flex items-center gap-2">
@@ -804,7 +804,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
                       {editingListId === l.id ? (
                         <input
                           autoFocus
-                          className="w-full text-sm font-bold bg-transparent border border-primary rounded px-1 -ml-1"
+                          className="w-full text-sm font-bold bg-transparent border border-primary rounded px-1"
                           defaultValue={l.title}
                           onBlur={(e) => handleUpdateListTitle(l.id, e.target.value)}
                           onKeyDown={(e) => {
@@ -815,7 +815,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
                       ) : (
                         <p 
                           onClick={() => setEditingListId(l.id)}
-                          className="text-sm font-bold cursor-pointer hover:bg-foreground/5 px-1 -ml-1 rounded flex-1 truncate"
+                          className="text-sm font-bold cursor-pointer hover:bg-foreground/5 px-1 rounded flex-1 truncate"
                         >
                           {l.title}
                         </p>
