@@ -98,7 +98,7 @@ function SortableCardBase({ card, onOpen, onToggleArchive, onUpdateTitle }: { ca
         if (isTempCardId(card.id)) return;
         onOpen(card.id);
       }}
-      className="group relative rounded border border-black/10 dark:border-white/20 bg-emerald-500 text-white p-3 hover:bg-emerald-600 hover:shadow-sm transition-colors cursor-pointer"
+      className="group relative rounded border border-black/20 dark:border-white/25 bg-black/30 text-white p-3 hover:bg-black/40 hover:shadow-sm transition-colors cursor-pointer"
     >
       {/* Header: checkbox always visible next to title */}
       <div className="flex items-center gap-2">
