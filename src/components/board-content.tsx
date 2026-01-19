@@ -71,12 +71,12 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
   const dueStatus = getDueStatus(card.dueDate);
   const dueClasses =
     dueStatus === "overdue"
-      ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800"
+      ? "bg-red-900/30 text-red-300 border-red-800"
       : dueStatus === "today"
-      ? "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800"
+      ? "bg-orange-900/30 text-orange-300 border-orange-800"
       : dueStatus === "soon"
-      ? "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800"
-      : "bg-background border border-black/10 dark:border-neutral-800";
+      ? "bg-yellow-900/30 text-yellow-300 border-yellow-800"
+      : "bg-transparent border border-neutral-800";
   return (
     <div
       style={style}
