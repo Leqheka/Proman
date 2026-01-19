@@ -1,6 +1,62 @@
 "use client";
 import React from "react";
 import { useRouter } from "next/navigation";
+import Cropper from "react-easy-crop";
+import type { Point, Area } from "react-easy-crop";
+
+// --- Helper for cropping ---
+const createImage = (url: string) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener("load", () => resolve(image));
+    image.addEventListener("error", (error) => reject(error));
+    image.setAttribute("crossOrigin", "anonymous");
+    image.src = url;
+  });
+
+async function getCroppedImg(
+  imageSrc: string,
+  pixelCrop: Area,
+  flip = { horizontal: false, vertical: false }
+) {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) {
+    return null;
+  }
+
+  const { width: bBoxWidth, height: bBoxHeight } = { width: image.width, height: image.height };
+
+  canvas.width = bBoxWidth;
+  canvas.height = bBoxHeight;
+
+  ctx.translate(bBoxWidth / 2, bBoxHeight / 2);
+  ctx.scale(flip.horizontal ? -1 : 1, flip.vertical ? -1 : 1);
+  ctx.translate(-image.width / 2, -image.height / 2);
+
+  ctx.drawImage(image, 0, 0);
+
+  const data = ctx.getImageData(
+    pixelCrop.x,
+    pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height
+  );
+
+  canvas.width = pixelCrop.width;
+  canvas.height = pixelCrop.height;
+
+  ctx.putImageData(data, 0, 0);
+
+  return new Promise<Blob | null>((resolve) => {
+    canvas.toBlob((file) => {
+      resolve(file);
+    }, "image/jpeg");
+  });
+}
+// ---------------------------
 
 export default function ProfileSettingsPage() {
   const router = useRouter();
@@ -11,6 +67,12 @@ export default function ProfileSettingsPage() {
   const [msg, setMsg] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [backHref, setBackHref] = React.useState<string>("/");
+
+  // Crop state
+  const [crop, setCrop] = React.useState<Point>({ x: 0, y: 0 });
+  const [zoom, setZoom] = React.useState(1);
+  const [imageSrc, setImageSrc] = React.useState<string | null>(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = React.useState<Area | null>(null);
 
   React.useEffect(() => {
     let alive = true;
@@ -55,18 +117,51 @@ export default function ProfileSettingsPage() {
     } catch { setMsg("Network error"); } finally { setBusy(false); }
   }
 
-  async function uploadAvatar(file: File) {
+  async function uploadAvatar(blob: Blob) {
     if (!user?.id) return;
     setBusy(true);
     setMsg(null);
     try {
+      const file = new File([blob], "avatar.jpg", { type: "image/jpeg" });
       const fd = new FormData();
       fd.append("file", file);
       const r = await fetch(`/api/users/${user.id}/image`, { method: "POST", body: fd });
       const j = await r.json();
       if (!r.ok) setMsg(j?.error || "Upload failed"); else { setMsg("Profile picture updated"); setUser((u) => (u ? { ...u, image: j.image } : u)); }
-    } catch { setMsg("Network error"); } finally { setBusy(false); }
+    } catch { setMsg("Network error"); } finally { setBusy(false); setImageSrc(null); }
   }
+
+  const onCropComplete = React.useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.addEventListener("load", () => {
+        setImageSrc(reader.result as string);
+        setZoom(1);
+        setCrop({ x: 0, y: 0 });
+      });
+      reader.readAsDataURL(file);
+      // Reset input value so same file can be selected again
+      e.target.value = "";
+    }
+  };
+
+  const handleCropSave = async () => {
+    if (!imageSrc || !croppedAreaPixels) return;
+    try {
+      const croppedImage = await getCroppedImg(imageSrc, croppedAreaPixels);
+      if (croppedImage) {
+        await uploadAvatar(croppedImage);
+      }
+    } catch (e) {
+      console.error(e);
+      setMsg("Failed to crop image");
+    }
+  };
 
   return (
     <div className="min-h-screen p-4">
@@ -82,7 +177,7 @@ export default function ProfileSettingsPage() {
               type="file" 
               accept="image/*" 
               className="hidden" 
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); }} 
+              onChange={onFileChange} 
             />
             {user?.image ? (
               <img 
@@ -109,6 +204,56 @@ export default function ProfileSettingsPage() {
         {msg ? <p className="mt-2 text-xs">{msg}</p> : null}
         <button onClick={save} disabled={busy} className="mt-3 w-full text-xs rounded px-3 py-2 bg-foreground text-background">{busy ? "Saving..." : "Save"}</button>
       </div>
+
+      {/* Cropper Modal */}
+      {imageSrc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="w-full max-w-md rounded-lg bg-background p-4 shadow-xl">
+            <h3 className="mb-4 text-lg font-semibold">Crop Profile Picture</h3>
+            <div className="relative h-64 w-full overflow-hidden rounded bg-neutral-900">
+              <Cropper
+                image={imageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                onCropChange={setCrop}
+                onCropComplete={onCropComplete}
+                onZoomChange={setZoom}
+                cropShape="round"
+                showGrid={false}
+              />
+            </div>
+            <div className="mt-4 flex flex-col gap-2">
+              <label className="text-xs">Zoom</label>
+              <input
+                type="range"
+                value={zoom}
+                min={1}
+                max={3}
+                step={0.1}
+                aria-labelledby="Zoom"
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setImageSrc(null)}
+                className="rounded px-3 py-1 text-sm hover:bg-foreground/5"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCropSave}
+                disabled={busy}
+                className="rounded bg-foreground px-3 py-1 text-sm text-background hover:bg-foreground/90"
+              >
+                {busy ? "Saving..." : "Save Picture"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
