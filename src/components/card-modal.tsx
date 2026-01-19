@@ -80,7 +80,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
   // Added: members menu state and ref
   const membersMenuWrapRef = React.useRef<HTMLDivElement | null>(null);
   const [showMembersMenu, setShowMembersMenu] = React.useState(false);
-  const [boardMembers, setBoardMembers] = React.useState<Member[]>([]);
+  const [assignableMembers, setAssignableMembers] = React.useState<Member[]>([]);
 
   React.useEffect(() => {
     const controller = new AbortController();
