@@ -114,12 +114,13 @@ export async function PATCH(
       const bId = (updated as any)?.list?.boardId;
       if (bId) revalidateTag(`board:${bId}`);
 
-      if (body.dueDate !== undefined) {
-        const cookie = (req.headers as any).get?.("cookie") || "";
-        const m = cookie.match(/session=([^;]+)/);
-        const token = m?.[1] || "";
-        const session = token ? await verifySession(token) : null;
-        if (session?.sub) {
+      const cookie = (req.headers as any).get?.("cookie") || "";
+      const m = cookie.match(/session=([^;]+)/);
+      const token = m?.[1] || "";
+      const session = token ? await verifySession(token) : null;
+
+      if (session?.sub) {
+        if (body.dueDate !== undefined) {
           const d = new Date(body.dueDate);
           const validDate = !isNaN(d.getTime());
           const message = validDate 
@@ -132,6 +133,16 @@ export async function PATCH(
             session.sub as string,
             "DUE_DATE_UPDATED",
             message
+          );
+        }
+
+        if (body.description !== undefined) {
+          await logActivity(
+            cardId,
+            bId || null,
+            session.sub as string,
+            "DESCRIPTION_UPDATED",
+            "updated description"
           );
         }
       }

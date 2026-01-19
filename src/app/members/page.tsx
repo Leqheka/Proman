@@ -15,10 +15,10 @@ export default async function MembersPage() {
 
   const currentUserAdmin = !!payload?.admin;
 
-  let members: Array<{ id: string; name?: string | null; email: string; image?: string | null; isAdmin: boolean }> = [];
+  let members: Array<{ id: string; name?: string | null; email: string; image?: string | null; isAdmin: boolean; role: string }> = [];
   try {
     const users = await prisma.user.findMany({
-      select: { id: true, name: true, email: true, image: true, isAdmin: true },
+      select: { id: true, name: true, email: true, image: true, isAdmin: true, role: true },
       orderBy: { name: "asc" },
     });
     members = users.map((u) => ({
@@ -27,6 +27,7 @@ export default async function MembersPage() {
       email: u.email,
       image: u.image,
       isAdmin: u.isAdmin,
+      role: u.role,
     }));
   } catch (err) {
     console.error("Failed to load members", err);

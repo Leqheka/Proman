@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifySession } from "@/lib/session";
+import { logActivity } from "@/lib/activity-log";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ checklistId: string }> }) {
   try {
@@ -19,10 +21,35 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ checkl
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ checklistId: string }> }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ checklistId: string }> }) {
   try {
     const { checklistId } = await params;
     if (!checklistId) return NextResponse.json({ error: "checklistId required" }, { status: 400 });
+
+    const checklist = await prisma.checklist.findUnique({
+      where: { id: checklistId },
+      include: { card: { select: { boardId: true } } }
+    });
+
+    if (checklist) {
+      try {
+        const cookie = (req.headers as any).get?.("cookie") || "";
+        const m = cookie.match(/session=([^;]+)/);
+        const token = m?.[1] || "";
+        const session = token ? await verifySession(token) : null;
+        if (session?.sub) {
+          await logActivity(
+            checklist.cardId,
+            checklist.card?.boardId || null,
+            session.sub as string,
+            "CHECKLIST_DELETED",
+            `deleted checklist '${checklist.title}'`
+          );
+        }
+      } catch (e) {
+        console.error("Failed to log checklist deletion", e);
+      }
+    }
 
     await prisma.checklistItem.deleteMany({ where: { checklistId } });
     await prisma.checklist.delete({ where: { id: checklistId } });

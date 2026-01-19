@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 
 const HOME_BACKGROUNDS = [
   "/Backgrounds/Default.jpg",
@@ -52,7 +53,10 @@ export default function HomeScene({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen text-foreground" style={style}>
       <div className="mx-auto max-w-7xl px-4">
-        <div className="mt-2 mb-2 flex items-center justify-end">
+        <div className="mt-2 mb-2 flex items-center justify-end gap-2">
+          <Link href="/members" className="text-xs font-medium hover:underline text-foreground/80 hover:text-foreground">
+            Manage Members
+          </Link>
           <div className="relative">
             <button onClick={() => setOpen((v) => !v)} className="text-xs rounded px-2 py-1 bg-foreground/5">Change background</button>
             {open && (

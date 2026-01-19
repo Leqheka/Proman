@@ -193,16 +193,6 @@ export default function BoardToolbar({
               </div>
             )}
           </div>
-          {isAdmin ? (
-            <a
-              href={`/boards/${currentBoardId}/members`}
-              className="flex items-center justify-center text-xs rounded px-2 py-1 bg-background text-foreground border border-black/10 dark:border-white/15 hover:bg-foreground hover:text-background"
-              title="Members"
-            >
-              <span className="block sm:hidden">👥</span>
-              <span className="hidden sm:inline">Members</span>
-            </a>
-          ) : null}
         </div>
       </div>
       {openArchives && typeof document !== "undefined" && createPortal(

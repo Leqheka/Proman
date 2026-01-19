@@ -22,6 +22,7 @@ export async function GET(req: Request) {
         email: true,
         image: true,
         isAdmin: true,
+        role: true,
       },
       orderBy: { name: "asc" },
     });
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { email, name, isAdmin } = body;
+    const { email, name, isAdmin, role } = body;
 
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
@@ -59,11 +60,13 @@ export async function POST(req: Request) {
       update: {
         name: name || undefined,
         isAdmin: isAdmin ?? undefined,
+        role: role || undefined,
       },
       create: {
         email,
         name,
         isAdmin: isAdmin ?? false,
+        role: role || "VIEWER",
       },
       select: {
         id: true,
@@ -71,6 +74,7 @@ export async function POST(req: Request) {
         email: true,
         image: true,
         isAdmin: true,
+        role: true,
       }
     });
 
