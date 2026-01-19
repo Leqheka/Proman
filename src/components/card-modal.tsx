@@ -47,6 +47,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
   const [loadingChecklists, setLoadingChecklists] = React.useState(false);
   const [newAttachmentUrl, setNewAttachmentUrl] = React.useState("");
   const [showAttachmentInput, setShowAttachmentInput] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [editingChecklistId, setEditingChecklistId] = React.useState<string | null>(null);
   const [editingChecklistTitle, setEditingChecklistTitle] = React.useState<string>("");
   const [showChecklistMenu, setShowChecklistMenu] = React.useState(false);
@@ -999,7 +1000,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
   if (loading || !data) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-        <div className="w-full max-w-[800px] rounded bg-background p-4 shadow">
+        <div className="w-full max-w-[800px] rounded bg-background p-4 shadow dark:bg-neutral-900">
           <p className="text-sm">{loadError ? loadError : "Loading card..."}</p>
         </div>
       </div>
@@ -1016,8 +1017,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
           if (e.target === e.currentTarget) onClose();
         }}
       >
-        <div className="flex h-full w-full max-w-[980px] flex-col rounded-2xl border border-black/10 bg-background text-foreground shadow-lg dark:border-white/15">
-          <div className="p-4 border-b border-black/10 dark:border-white/15 flex items-center justify-between">
+        <div className="flex h-full w-full max-w-[980px] flex-col rounded-2xl border border-black/10 bg-background text-foreground shadow-lg dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="p-4 border-b border-black/10 dark:border-neutral-800 flex items-center justify-between">
             <div className="flex items-center gap-2 w-full">
               <input type="checkbox" checked={!!data.archived} onChange={(e) => toggleCardArchived(e.target.checked)} />
               <input
@@ -1038,7 +1039,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                 <div className="relative" ref={datesMenuWrapRef}>
                   <button onClick={openDatesMenu} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Dates</button>
                   {showDatesMenu && (
-                    <div className="absolute z-20 mt-2 w-[280px] rounded border border-black/10 dark:border-white/15 bg-background p-3 shadow">
+                    <div className="absolute z-20 mt-2 w-[280px] rounded border border-black/10 dark:border-neutral-800 bg-background dark:bg-neutral-900 p-3 shadow">
                       <div className="flex items-center justify-between mb-2">
                         <button className="text-xs" onClick={() => setCalendarCursor(new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() - 1, 1))}>‹</button>
                         <p className="text-sm font-semibold">{calendarCursor.toLocaleString(undefined, { month: "long", year: "numeric" })}</p>
@@ -1152,7 +1153,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                 <div className="relative" ref={checklistMenuWrapRef}>
                   <button onClick={openChecklistMenu} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Checklist</button>
                   {showChecklistMenu && (
-                    <div className="absolute z-20 mt-2 w-64 rounded border border-black/10 dark:border-white/15 bg-background p-3 shadow">
+                    <div className="absolute z-20 mt-2 w-64 rounded border border-black/10 dark:border-neutral-800 bg-background dark:bg-neutral-900 p-3 shadow">
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-sm font-semibold">Add checklist</p>
                         <button className="text-xs" onClick={() => setShowChecklistMenu(false)}>×</button>
@@ -1184,7 +1185,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                 <div className="relative" ref={membersMenuWrapRef}>
                   <button onClick={openMembersMenu} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Members</button>
                   {showMembersMenu && (
-                    <div className="absolute z-20 mt-2 w-64 rounded border border-black/10 dark:border-white/15 bg-background p-3 shadow">
+                    <div className="absolute z-20 mt-2 w-64 rounded border border-black/10 dark:border-neutral-800 bg-background dark:bg-neutral-900 p-3 shadow">
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-sm font-semibold">Assign members</p>
                         <button className="text-xs" onClick={() => setShowMembersMenu(false)}>×</button>
@@ -1242,7 +1243,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                 </div>
               )}
 
-              <div className="rounded border border-black/10 dark:border-white/15 p-2">
+              <div className="rounded border border-black/10 dark:border-neutral-800 p-2">
                 <div className="flex items-center gap-3 text-xs">
                   {tempStartDate && (
                     <span className="px-2 py-1 rounded bg-background border">Start {new Date(tempStartDate).toLocaleDateString()}</span>
@@ -1320,7 +1321,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                 ) : (
                   <div className="mt-3 space-y-4">
                     {data.checklists.map((cl) => (
-                      <div key={cl.id} className="rounded border border-black/10 dark:border-white/15 p-3">
+                      <div key={cl.id} className="rounded border border-black/10 dark:border-neutral-800 p-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span
@@ -1370,7 +1371,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
             </div>
 
             <div className="mt-4 flex h-full min-h-0 flex-col overflow-y-auto lg:mt-0">
-              <div className="flex min-h-0 flex-col rounded border border-black/10 bg-foreground/5 p-3 dark:border-white/15">
+              <div className="flex min-h-0 flex-col rounded border border-black/10 bg-foreground/5 p-3 dark:border-neutral-800">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold">Comments and activity</p>
                   <button onClick={() => setShowDetails((s) => !s)} className="text-xs rounded px-3 py-1 border bg-background">

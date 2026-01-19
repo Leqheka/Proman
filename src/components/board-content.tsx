@@ -32,16 +32,14 @@ function SortableListWrapperBase({ list, children }: { list: ListItem; children:
       style={style}
       {...attributes}
       {...listeners}
-      className="w-72 shrink-0 self-start mt-2 mb-4 rounded-lg border border-black/10 dark:border-white/20 bg-background/60 text-foreground shadow-sm max-h-full flex flex-col p-2"
+      className="w-72 shrink-0 self-start mt-2 mb-4 rounded-lg border border-black/10 dark:border-neutral-800 bg-background/60 text-foreground shadow-sm max-h-full flex flex-col p-2"
     >
       {children}
     </div>
   );
 }
 
-const SortableListWrapper = React.memo(SortableListWrapperBase, (prev, next) => {
-  return prev.list.id === next.list.id && prev.list.title === next.list.title && prev.list.cards === next.list.cards;
-});
+const SortableListWrapper = React.memo(SortableListWrapperBase);
 
 function isTempCardId(id: string) {
   return id.startsWith("temp-card-");
@@ -80,7 +78,7 @@ function SortableCardBase({ card, onOpen, onToggleArchive, onUpdateTitle }: { ca
       ? "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800"
       : dueStatus === "soon"
       ? "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800"
-      : "bg-background border border-black/10 dark:border-white/15";
+      : "bg-background border border-black/10 dark:border-neutral-800";
   return (
     <div
       ref={setNodeRef}
@@ -98,7 +96,7 @@ function SortableCardBase({ card, onOpen, onToggleArchive, onUpdateTitle }: { ca
         if (isTempCardId(card.id)) return;
         onOpen(card.id);
       }}
-      className="group relative rounded-lg border border-black/10 dark:border-white/15 bg-white hover:bg-neutral-200 text-black dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:text-white p-3 hover:shadow-sm transition-colors cursor-pointer"
+      className="group relative rounded-lg border border-black/10 dark:border-neutral-800 bg-white hover:bg-neutral-200 text-black dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:text-white p-3 hover:shadow-sm transition-colors cursor-pointer"
     >
       {/* Header: checkbox always visible next to title */}
       <div className="flex items-center gap-2">
@@ -806,6 +804,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
                           autoFocus
                           className="w-full text-sm font-bold bg-transparent border border-primary rounded px-1"
                           defaultValue={l.title}
+                          onPointerDown={(e) => e.stopPropagation()}
                           onBlur={(e) => handleUpdateListTitle(l.id, e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") handleUpdateListTitle(l.id, e.currentTarget.value);
