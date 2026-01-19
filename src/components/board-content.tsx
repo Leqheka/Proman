@@ -289,6 +289,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
   const searchParams = useSearchParams();
 
   const [activeCard, setActiveCard] = React.useState<CardItem | null>(null);
+  const [dragOriginListId, setDragOriginListId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const id = searchParams.get("openCard");
