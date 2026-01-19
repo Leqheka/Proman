@@ -60,6 +60,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
   const [activities, setActivities] = React.useState<Array<{ id: string; type: string; details: any; createdAt: string; user?: Member | null }>>([]);
   const [creationActivity, setCreationActivity] = React.useState<{ id: string; type: string; details: any; createdAt: string; user?: Member | null } | null>(null);
   const [loadingActivity, setLoadingActivity] = React.useState(false);
+  const [isUploading, setIsUploading] = React.useState(false);
   const [showDetails, setShowDetails] = React.useState(true);
   const [hasMoreActivity, setHasMoreActivity] = React.useState(false);
   const [activityCursor, setActivityCursor] = React.useState<string | null>(null);
