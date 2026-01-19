@@ -664,6 +664,48 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
 
     if (!toListId || !originListId) return;
 
+    // Update local state immediately for same-list reordering (which handleDragOver skips)
+    // and ensure cross-list moves are finalized.
+    setLists((curr) => {
+      const activeListIndex = curr.findIndex(l => l.cards.some(c => c.id === activeId));
+      const destListIndex = curr.findIndex(l => l.id === toListId);
+      
+      if (activeListIndex === -1 || destListIndex === -1) return curr;
+      
+      const next = [...curr];
+      const sourceList = next[activeListIndex];
+      const destList = next[destListIndex];
+      
+      const sourceCardIndex = sourceList.cards.findIndex(c => c.id === activeId);
+      if (sourceCardIndex === -1) return curr;
+
+      // Same list reorder
+      if (activeListIndex === destListIndex) {
+         const overCardIndex = sourceList.cards.findIndex(c => c.id === overId);
+         if (overCardIndex >= 0) {
+            const newCards = arrayMove(sourceList.cards, sourceCardIndex, overCardIndex);
+            next[activeListIndex] = { ...sourceList, cards: newCards };
+            return next;
+         }
+         return curr;
+      }
+      
+      // Cross-list move
+      // If handleDragOver ran, the card might already be in the destination list in `curr`.
+      // But if we are here, we found it in `activeListIndex`.
+      // If `activeListIndex` != `destListIndex`, it means it's still in the old list (or `curr` is stale? No, curr is fresh).
+      // So we move it.
+      const newSourceCards = [...sourceList.cards];
+      const [moved] = newSourceCards.splice(sourceCardIndex, 1);
+      next[activeListIndex] = { ...sourceList, cards: newSourceCards };
+      
+      const newDestCards = [...destList.cards];
+      newDestCards.splice(toIndex, 0, { ...moved, listId: toListId });
+      next[destListIndex] = { ...destList, cards: newDestCards };
+      
+      return next;
+    });
+
     moveCard(activeId, originListId, toListId, toIndex);
   }
 
