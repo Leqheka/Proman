@@ -92,7 +92,7 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
         if (isTempCardId(card.id)) return;
         onOpen(card.id);
       }}
-      className="group relative rounded-lg border border-black/10 dark:border-neutral-800 bg-background hover:bg-neutral-200 text-foreground dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:text-white p-3 hover:shadow-sm transition-colors cursor-pointer"
+      className="group relative rounded-lg border border-black/10 dark:border-neutral-800 bg-background hover:bg-neutral-200 text-foreground dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-white p-3 hover:shadow-sm transition-colors cursor-pointer"
     >
       {/* Header: checkbox always visible next to title */}
       <div className="flex items-center gap-2">
@@ -615,64 +615,16 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
       return;
     }
 
-    let persistMove: any = null;
+    // Find the card's new position in the lists (updated by handleDragOver)
+    const loc = findListByCardId(activeId);
+    if (!loc) return;
 
-    setLists((curr) => {
-      const findIn = (cardId: string): { listIndex: number; cardIndex: number } | null => {
-        for (let i = 0; i < curr.length; i++) {
-          const idx = curr[i].cards.findIndex((c) => c.id === cardId);
-          if (idx >= 0) return { listIndex: i, cardIndex: idx };
-        }
-        return null;
-      };
-
-      const origin = findIn(activeId);
-      // Since DragOver updates the lists, origin is now the current location (destination list)
-      
-      if (!origin) return curr;
-
-      const fromListIndex = origin.listIndex;
-      const fromCardIndex = origin.cardIndex;
-      
-      const overAsCard = findIn(overId);
-      // If dropped on a list container, overAsCard is null, but we are already in that list (origin)
-      // So we just need to reorder within the list if needed
-      
-      const currentListId = curr[fromListIndex].id;
-      
-      // If we are in the correct list, we might need to arrayMove if the index isn't exact
-      // But DragOver handles insertion. DragEnd just needs to finalize order if the user moved *within* the list after entering
-      
-      let toIndex = fromCardIndex;
-
-      if (overAsCard && overAsCard.listIndex === fromListIndex) {
-        // Reordering within the same list (which is now the destination list)
-        if (fromCardIndex !== overAsCard.cardIndex) {
-           const list = curr[fromListIndex];
-           const reordered = arrayMove(list.cards, fromCardIndex, overAsCard.cardIndex);
-           const next = [...curr];
-           next[fromListIndex] = { ...list, cards: reordered };
-           toIndex = overAsCard.cardIndex;
-           persistMove = { cardId: activeId, fromListId: originListId || currentListId, toListId: currentListId, toIndex };
-           return next;
-        }
-      } 
-      
-      // If we didn't move index within the list (or dropped on container/self), 
-      // check if we moved lists (originListId !== currentListId)
-      if (originListId && originListId !== currentListId) {
-         persistMove = { cardId: activeId, fromListId: originListId, toListId: currentListId, toIndex: fromCardIndex };
-      } else if (originListId === currentListId && overAsCard && fromCardIndex !== overAsCard.cardIndex) {
-         // Reorder in same list (handled above usually, but just in case)
-         // Wait, the block above handles it.
-      }
-      
-      return curr;
-    });
-
-    const pm = persistMove;
-    if (pm) {
-      moveCard(pm.cardId, pm.fromListId, pm.toListId, pm.toIndex);
+    const { listIndex, cardIndex } = loc;
+    const currentList = lists[listIndex];
+    
+    // Persist the move
+    if (originListId) {
+      moveCard(activeId, originListId, currentList.id, cardIndex);
     }
   }
 

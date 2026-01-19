@@ -1306,8 +1306,11 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                   <ul className="mt-2 space-y-2">
                     {data.attachments.map((a) => (
                       <li key={a.id} className="flex items-center justify-between border border-black/10 dark:border-neutral-800 rounded p-2 bg-foreground/5">
-                        <a href={a.url} target="_blank" rel="noreferrer" className="text-sm truncate max-w-[60%]">{a.filename || a.url}</a>
-                        <span className="text-xs text-foreground/60">{a.type || "link"}</span>
+                        <a href={a.url} target="_blank" rel="noreferrer" className="text-sm truncate max-w-[60%] hover:underline text-primary">{a.filename || a.url}</a>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-foreground/60">{a.type || "link"}</span>
+                          <a href={a.url} download target="_blank" rel="noreferrer" className="text-xs bg-foreground/10 hover:bg-foreground/20 rounded px-2 py-1">Download</a>
+                        </div>
                       </li>
                     ))}
                   </ul>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifySession } from "@/lib/session";
 
 export async function GET(req: Request, { params }: { params: Promise<{ cardId: string }> }) {
   try {
@@ -32,6 +33,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ cardId:
     if (!cardId) return NextResponse.json({ error: "cardId required" }, { status: 400 });
     if (!rawUrl) return NextResponse.json({ error: "url required" }, { status: 400 });
 
+    const cookie = (req.headers as any).get?.("cookie") || "";
+    const m = cookie.match(/session=([^;]+)/);
+    const token = m?.[1] || "";
+    const session = token ? await verifySession(token) : null;
+    const userId = session?.sub as string | undefined;
+
     const filename = (body?.filename ?? decodeURIComponent(rawUrl.split("/").pop() || "attachment")).trim();
     const type = (body?.type ?? "link").trim();
     const size = Number(body?.size ?? 0);
@@ -39,6 +46,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ cardId:
     const created = await prisma.attachment.create({
       data: { cardId, url: rawUrl, filename, type, size },
     });
+
+    if (userId) {
+      await prisma.activity.create({
+        data: {
+          cardId,
+          userId,
+          type: "attachment",
+          details: { message: `Attached ${filename}` },
+        },
+      });
+    }
 
     return NextResponse.json(created, { status: 201 });
   } catch (err) {
