@@ -306,6 +306,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
     // Reset input so same file can be selected again if needed
     e.target.value = "";
 
+    setIsUploading(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -362,6 +363,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
     } catch (err) {
       console.error("Failed to upload/attach file", err);
       alert("Failed to attach file");
+    } finally {
+      setIsUploading(false);
     }
   }
 
@@ -1265,10 +1268,15 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground text-xs"
+                  disabled={isUploading}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground text-xs disabled:opacity-50"
                   title="Add attachment"
                 >
-                  📎
+                  {isUploading ? (
+                    <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    "📎"
+                  )}
                 </button>
                 <input
                   type="file"

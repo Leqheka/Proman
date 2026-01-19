@@ -92,7 +92,7 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
         if (isTempCardId(card.id)) return;
         onOpen(card.id);
       }}
-      className="group relative rounded-lg border border-black/10 dark:border-neutral-800 bg-background hover:bg-neutral-200 text-foreground dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-white p-3 hover:shadow-sm transition-colors cursor-pointer"
+      className="group relative rounded-lg border border-black/10 dark:border-neutral-800 bg-background hover:bg-neutral-200 text-foreground dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:text-white p-3 hover:shadow-sm transition-colors cursor-pointer"
     >
       {/* Header: checkbox always visible next to title */}
       <div className="flex items-center gap-2">
@@ -539,12 +539,14 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
 
     // Find the containers
     const findContainer = (id: string) => {
+      const currentLists = listsRef.current;
       // Is it a list?
-      const listIdx = lists.findIndex((l) => l.id === id);
-      if (listIdx !== -1) return lists[listIdx].id;
+      const listIdx = currentLists.findIndex((l) => l.id === id);
+      if (listIdx !== -1) return currentLists[listIdx].id;
       // Is it a card?
-      const loc = findListByCardId(id);
-      if (loc) return lists[loc.listIndex].id;
+      for (const list of currentLists) {
+        if (list.cards.some(c => c.id === id)) return list.id;
+      }
       return null;
     };
 
@@ -624,10 +626,11 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     const overId = String(over.id);
 
     // Dragging lists
-    const activeListIndex = lists.findIndex((l) => l.id === activeId);
-    const overListIndexForLists = lists.findIndex((l) => l.id === overId);
+    const currentLists = listsRef.current;
+    const activeListIndex = currentLists.findIndex((l) => l.id === activeId);
+    const overListIndexForLists = currentLists.findIndex((l) => l.id === overId);
     if (activeListIndex !== -1 && overListIndexForLists !== -1 && activeListIndex !== overListIndexForLists) {
-      const newOrder = arrayMove(lists, activeListIndex, overListIndexForLists);
+      const newOrder = arrayMove(currentLists, activeListIndex, overListIndexForLists);
       reorderLists(newOrder);
       return;
     }
