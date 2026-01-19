@@ -109,7 +109,7 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
 
       {/* Metadata icon row: wraps to new lines when crowded */}
       {(card.dueDate || card.hasDescription || (card.checklistCount ?? 0) > 0 || (card.commentCount ?? 0) > 0 || (card.attachmentCount ?? 0) > 0 || (card.assignmentCount ?? 0) > 0 || (card.members?.length ?? 0) > 0) && (
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] text-foreground/70 dark:text-neutral-400">
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] text-neutral-500">
           {card.dueDate && (
             <span className={`inline-flex items-center gap-1 px-2 py-[2px] rounded ${dueClasses}`}>
               <span
