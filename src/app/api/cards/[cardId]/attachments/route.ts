@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifySession } from "@/lib/session";
+import { logActivity } from "@/lib/activity-log";
 
 export async function GET(req: Request, { params }: { params: Promise<{ cardId: string }> }) {
   try {
@@ -48,14 +49,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ cardId:
     });
 
     if (userId) {
-      await prisma.activity.create({
-        data: {
-          cardId,
-          userId,
-          type: "attachment",
-          details: { message: `Attached ${filename}` },
-        },
-      });
+      await logActivity(cardId, null, userId, "attachment", `attached ${filename}`);
     }
 
     return NextResponse.json(created, { status: 201 });

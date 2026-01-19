@@ -336,6 +336,22 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
       if (attRes.ok) {
         const newAtt = await attRes.json();
         setData((d) => (d ? { ...d, attachments: [...d.attachments, newAtt], attachmentCount: (d.attachmentCount || 0) + 1 } : d));
+        
+        // Fetch activity for attachment
+        try {
+            const actResp = await fetch(`/api/cards/${cardId}/activity?take=5&order=desc&t=${Date.now()}`);
+            if (actResp.ok) {
+                const latest = await actResp.json();
+                if (Array.isArray(latest) && latest.length > 0) {
+                     setActivities((curr) => {
+                         // Merge new activities
+                         const newActs = latest.filter(a => !curr.some(existing => existing.id === a.id));
+                         return [...newActs, ...curr];
+                     });
+                }
+            }
+        } catch {}
+
         if (onCardUpdated) {
           onCardUpdated({ 
             id: cardId, 

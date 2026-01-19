@@ -291,6 +291,12 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
   const [activeCard, setActiveCard] = React.useState<CardItem | null>(null);
   const [dragOriginListId, setDragOriginListId] = React.useState<string | null>(null);
 
+  // Fix for stale closure in drag handlers
+  const listsRef = React.useRef(lists);
+  React.useEffect(() => {
+    listsRef.current = lists;
+  }, [lists]);
+
   React.useEffect(() => {
     const id = searchParams.get("openCard");
     if (!id) return;
@@ -506,10 +512,21 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
   function handleDragStart(event: DragStartEvent) {
     const { active } = event;
     const activeId = String(active.id);
-    const loc = findListByCardId(activeId);
+    const currentLists = listsRef.current;
+    
+    // Use ref to find location to avoid stale state
+    const findInRef = (id: string) => {
+        for (let i = 0; i < currentLists.length; i++) {
+            const idx = currentLists[i].cards.findIndex((c) => c.id === id);
+            if (idx >= 0) return { listIndex: i, cardIndex: idx };
+        }
+        return null;
+    };
+
+    const loc = findInRef(activeId);
     if (loc) {
-      setActiveCard(lists[loc.listIndex].cards[loc.cardIndex]);
-      setDragOriginListId(lists[loc.listIndex].id);
+      setActiveCard(currentLists[loc.listIndex].cards[loc.cardIndex]);
+      setDragOriginListId(currentLists[loc.listIndex].id);
     }
   }
 
@@ -615,17 +632,37 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
       return;
     }
 
-    // Find the card's new position in the lists (updated by handleDragOver)
-    const loc = findListByCardId(activeId);
-    if (!loc) return;
+    // Calculate destination based on 'over' to avoid stale state issues
+    const currentLists = listsRef.current;
+    let toListId: string | null = null;
+    let toIndex = 0;
 
-    const { listIndex, cardIndex } = loc;
-    const currentList = lists[listIndex];
-    
-    // Persist the move
-    if (originListId) {
-      moveCard(activeId, originListId, currentList.id, cardIndex);
+    const overList = currentLists.find(l => l.id === overId);
+    if (overList) {
+        toListId = overList.id;
+        toIndex = overList.cards.length; 
+    } else {
+        let overCardList: ListItem | undefined;
+        let overCardIndex = -1;
+        for (const l of currentLists) {
+            const idx = l.cards.findIndex(c => c.id === overId);
+            if (idx !== -1) {
+                overCardList = l;
+                overCardIndex = idx;
+                break;
+            }
+        }
+        if (overCardList) {
+            toListId = overCardList.id;
+            const isBelowOverItem = over && active.rect.current.translated && active.rect.current.translated.top > over.rect.top + over.rect.height;
+            const modifier = isBelowOverItem ? 1 : 0;
+            toIndex = overCardIndex + modifier;
+        }
     }
+
+    if (!toListId || !originListId) return;
+
+    moveCard(activeId, originListId, toListId, toIndex);
   }
 
   async function patchCard(cardId: string, payload: Record<string, any>) {
