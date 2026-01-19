@@ -92,7 +92,7 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
         if (isTempCardId(card.id)) return;
         onOpen(card.id);
       }}
-      className="group relative rounded-lg border border-black/10 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:bg-neutral-200 dark:hover:bg-black text-foreground dark:text-white p-3 hover:shadow-sm transition-colors cursor-pointer"
+      className="group relative rounded-lg border border-black/10 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:bg-neutral-200 dark:hover:bg-black text-neutral-900 dark:text-neutral-100 p-3 hover:shadow-sm transition-colors cursor-pointer"
     >
       {/* Header: checkbox always visible next to title */}
       <div className="flex items-center gap-2">
