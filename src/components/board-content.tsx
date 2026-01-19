@@ -315,9 +315,9 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
-  function findListByCardId(cardId: string): { listIndex: number; cardIndex: number } | null {
-    for (let i = 0; i < lists.length; i++) {
-      const idx = lists[i].cards.findIndex((c) => c.id === cardId);
+  function findListByCardId(cardId: string, searchLists: ListItem[] = lists): { listIndex: number; cardIndex: number } | null {
+    for (let i = 0; i < searchLists.length; i++) {
+      const idx = searchLists[i].cards.findIndex((c) => c.id === cardId);
       if (idx >= 0) return { listIndex: i, cardIndex: idx };
     }
     return null;
