@@ -92,7 +92,7 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
         if (isTempCardId(card.id)) return;
         onOpen(card.id);
       }}
-      className="group relative rounded-lg border border-black/10 dark:border-neutral-800 bg-background hover:bg-neutral-200 text-foreground dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:text-white p-3 hover:shadow-sm transition-colors cursor-pointer"
+      className="group relative rounded-lg border border-black/10 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-foreground dark:text-white p-3 hover:shadow-sm transition-colors cursor-pointer"
     >
       {/* Header: checkbox always visible next to title */}
       <div className="flex items-center gap-2">
@@ -681,7 +681,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
 
   function updateCardTitle(cardId: string, newTitle: string) {
     setLists((curr) => {
-      const loc = findListByCardId(cardId);
+      const loc = findListByCardId(cardId, curr);
       if (!loc) return curr;
       const next = [...curr];
       const list = next[loc.listIndex];
@@ -708,7 +708,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
   }) {
     const { id, title, dueDate, hasDescription, checklistCount, assignmentCount, commentCount, attachmentCount, members } = patch;
     setLists((curr) => {
-      const loc = findListByCardId(id);
+      const loc = findListByCardId(id, curr);
       if (!loc) return curr;
       const next = [...curr];
       const list = next[loc.listIndex];
@@ -753,7 +753,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     if (checked) {
       // move from lists to archives
       setLists((curr) => {
-        const loc = findListByCardId(card.id);
+        const loc = findListByCardId(card.id, curr);
         if (!loc) return curr;
         const next = [...curr];
         const fromList = next[loc.listIndex];
@@ -797,7 +797,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
         if (detail.archived) {
           // remove from lists and add to archives (dedupe)
           setLists((curr) => {
-            const loc = findListByCardId(id);
+            const loc = findListByCardId(id, curr);
             if (!loc) return curr;
             const next = [...curr];
             const from = next[loc.listIndex];
