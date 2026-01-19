@@ -636,7 +636,6 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     }
 
     // Calculate destination based on 'over' to avoid stale state issues
-    const currentLists = listsRef.current;
     let toListId: string | null = null;
     let toIndex = 0;
 
