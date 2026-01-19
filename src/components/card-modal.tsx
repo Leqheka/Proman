@@ -1016,7 +1016,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
           if (e.target === e.currentTarget) onClose();
         }}
       >
-        <div className="flex h-full w-full max-w-[980px] flex-col rounded border border-black/10 bg-background text-foreground shadow-lg dark:border-white/15">
+        <div className="flex h-full w-full max-w-[980px] flex-col rounded-2xl border border-black/10 bg-background text-foreground shadow-lg dark:border-white/15">
           <div className="p-4 border-b border-black/10 dark:border-white/15 flex items-center justify-between">
             <div className="flex items-center gap-2 w-full">
               <input type="checkbox" checked={!!data.archived} onChange={(e) => toggleCardArchived(e.target.checked)} />
