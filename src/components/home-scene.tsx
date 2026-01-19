@@ -3,9 +3,18 @@
 import React from "react";
 
 const HOME_BACKGROUNDS = [
-  "https://picsum.photos/id/1018/1600/900",
-  "https://picsum.photos/id/1024/1600/900",
-  "https://picsum.photos/id/1035/1600/900",
+  "/Backgrounds/Default.jpg",
+  "/Backgrounds/aj-FjDaN9WlRLg-unsplash.jpg",
+  "/Backgrounds/aritra-roy-mEjphVjP3hA-unsplash.jpg",
+  "/Backgrounds/barb-canale-YDG0lDHz9PI-unsplash.jpg",
+  "/Backgrounds/clement-fusil-Fpqx6GGXfXs-unsplash.jpg",
+  "/Backgrounds/elizeu-dias-RN6ts8IZ4_0-unsplash.jpg",
+  "/Backgrounds/gayatri-malhotra-P9gkfbaxMTU-unsplash.jpg",
+  "/Backgrounds/lukas-blazek-GnvurwJsKaY-unsplash.jpg",
+  "/Backgrounds/maxxup-B2I9jm2bDlE-unsplash.jpg",
+  "/Backgrounds/sean-oulashin-KMn4VEePR8-unsplash.jpg",
+  "/Backgrounds/social-mode-WmVtCFR1C1g-unsplash.jpg",
+  "/Backgrounds/tianyi-ma-j1Fv6s4jwXI-unsplash.jpg",
 ];
 
 const DEFAULT_HOME_BG = HOME_BACKGROUNDS[0];

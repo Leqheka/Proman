@@ -34,3 +34,23 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@media (prefers-color-scheme: dark) {
+  .card-modal-root *::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .card-modal-root *::-webkit-scrollbar-track {
+    background-color: #020617;
+  }
+
+  .card-modal-root *::-webkit-scrollbar-thumb {
+    background-color: #4b5563;
+    border-radius: 9999px;
+  }
+
+  .card-modal-root * {
+    scrollbar-width: thin;
+    scrollbar-color: #4b5563 #020617;
+  }
+}
