@@ -378,26 +378,24 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
     setShowDatesMenu((s) => !s);
   }
 
-  // Added: open members menu, fetch board members, and outside-click handling
+  // Added: open members menu, fetch global members, and outside-click handling
   function openMembersMenu() {
     setShowMembersMenu((s) => {
       const next = !s;
-      if (!s) fetchBoardMembers();
+      if (!s) fetchAssignableMembers();
       return next;
     });
   }
 
-  async function fetchBoardMembers() {
-    const boardId = data?.board?.id || data?.list?.boardId;
-    if (!boardId) return;
+  async function fetchAssignableMembers() {
     try {
-      const resp = await fetch(`/api/boards/${boardId}/members`);
+      const resp = await fetch(`/api/members`);
       if (resp.ok) {
         const members = await resp.json();
-        setBoardMembers(members);
+        setAssignableMembers(members);
       }
     } catch (err) {
-      console.error("Failed to fetch board members", err);
+      console.error("Failed to fetch members", err);
     }
   }
 
@@ -1240,11 +1238,11 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                         <p className="text-sm font-semibold">Assign members</p>
                         <button className="text-xs" onClick={() => setShowMembersMenu(false)}>×</button>
                       </div>
-                      {boardMembers.length === 0 ? (
-                        <p className="text-xs text-foreground/60">No board members</p>
+                      {assignableMembers.length === 0 ? (
+                        <p className="text-xs text-foreground/60">No members found</p>
                       ) : (
-                        <ul className="space-y-2">
-                          {boardMembers.map((m) => {
+                        <ul className="space-y-2 max-h-48 overflow-y-auto">
+                          {assignableMembers.map((m) => {
                             const assigned = !!data?.members?.some((mm) => mm.id === m.id);
                             return (
                               <li key={m.id} className="flex items-center justify-between">

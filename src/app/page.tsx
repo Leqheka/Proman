@@ -55,6 +55,9 @@ export default async function Home() {
         <section className="mt-10">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Boards</h2>
+            <Link href="/members" className="text-sm font-medium hover:underline text-foreground/80 hover:text-foreground">
+              Manage Members
+            </Link>
           </div>
           <CreateBoard />
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
