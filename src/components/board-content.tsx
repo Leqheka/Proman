@@ -92,7 +92,7 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
         if (isTempCardId(card.id)) return;
         onOpen(card.id);
       }}
-      className="group relative rounded-lg border border-black/10 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:bg-neutral-200 dark:hover:bg-black text-foreground dark:text-white p-3 hover:shadow-sm transition-colors cursor-pointer"
+      className="group relative rounded-lg border border-neutral-800 bg-neutral-900 hover:bg-black text-white p-3 hover:shadow-sm transition-colors cursor-pointer"
     >
       {/* Header: checkbox always visible next to title */}
       <div className="flex items-center gap-2">
@@ -109,7 +109,7 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
 
       {/* Metadata icon row: wraps to new lines when crowded */}
       {(card.dueDate || card.hasDescription || (card.checklistCount ?? 0) > 0 || (card.commentCount ?? 0) > 0 || (card.attachmentCount ?? 0) > 0 || (card.assignmentCount ?? 0) > 0 || (card.members?.length ?? 0) > 0) && (
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] text-foreground/70">
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] text-neutral-400">
           {card.dueDate && (
             <span className={`inline-flex items-center gap-1 px-2 py-[2px] rounded ${dueClasses}`}>
               <span
