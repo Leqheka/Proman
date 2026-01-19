@@ -132,8 +132,8 @@ type ChecklistItem = { title: string; completed: boolean };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md bg-background rounded-lg shadow-xl border overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between p-4 border-b">
+      <div className="w-full max-w-md bg-background rounded-lg shadow-xl border border-black/10 dark:border-neutral-800 overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between p-4 border-b border-black/10 dark:border-neutral-800">
           <h2 className="text-lg font-semibold">List Defaults</h2>
           <button onClick={onClose} className="text-foreground/50 hover:text-foreground">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -153,7 +153,7 @@ type ChecklistItem = { title: string; completed: boolean };
                 value={dueDays}
                 onChange={(e) => setDueDays(e.target.value)}
                 placeholder="0"
-                className="w-20 px-3 py-2 border rounded bg-background"
+                className="w-20 px-3 py-2 border border-black/10 dark:border-neutral-800 rounded bg-background"
               />
               <span className="text-sm text-foreground/70">days after creation</span>
             </div>
@@ -173,7 +173,7 @@ type ChecklistItem = { title: string; completed: boolean };
                     <button
                       key={m.id}
                       onClick={() => toggleMember(m.id)}
-                      className={`flex items-center gap-2 p-2 rounded border text-left text-sm transition-colors ${
+                      className={`flex items-center gap-2 p-2 rounded border border-black/10 dark:border-neutral-800 text-left text-sm transition-colors ${
                         selected ? "bg-primary/10 border-primary" : "hover:bg-foreground/5 border-transparent"
                       }`}
                     >
@@ -216,7 +216,7 @@ type ChecklistItem = { title: string; completed: boolean };
                     if (e.key === "Escape") setIsAddingChecklist(false);
                   }}
                   placeholder="Checklist title..."
-                  className="flex-1 px-3 py-2 border rounded text-sm bg-background"
+                  className="flex-1 px-3 py-2 border border-black/10 dark:border-neutral-800 rounded text-sm bg-background"
                 />
                 <button
                   onClick={addChecklist}
@@ -236,7 +236,7 @@ type ChecklistItem = { title: string; completed: boolean };
 
             <div className="space-y-4">
               {checklists.map((checklist, clIdx) => (
-                <div key={clIdx} className="border rounded p-3 bg-foreground/5">
+                <div key={clIdx} className="border border-black/10 dark:border-neutral-800 rounded p-3 bg-foreground/5">
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="text-sm font-medium">{checklist.title}</h4>
                     <button
@@ -252,7 +252,7 @@ type ChecklistItem = { title: string; completed: boolean };
                   <div className="space-y-2 mb-2 pl-2">
                     {checklist.items.map((item, itemIdx) => (
                       <div key={itemIdx} className="flex items-center gap-2 group">
-                        <div className="w-3 h-3 border rounded" />
+                        <div className="w-3 h-3 border border-black/10 dark:border-neutral-800 rounded" />
                         <span className="flex-1 text-sm">{item.title}</span>
                         <button
                           onClick={() => removeChecklistItem(clIdx, itemIdx)}
@@ -292,7 +292,7 @@ type ChecklistItem = { title: string; completed: boolean };
           </section>
         </div>
 
-        <div className="p-4 border-t bg-foreground/5 flex items-center justify-between">
+        <div className="p-4 border-t border-black/10 dark:border-neutral-800 bg-foreground/5 flex items-center justify-between">
           <div className="text-sm">
             {saveStatus === "success" && <span className="text-green-600 font-medium">Saved Successfully!</span>}
             {saveStatus === "error" && <span className="text-red-600 font-medium">{errorMessage}</span>}

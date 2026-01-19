@@ -45,8 +45,6 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
   const [editingCommentId, setEditingCommentId] = React.useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = React.useState("");
   const [loadingChecklists, setLoadingChecklists] = React.useState(false);
-  const [newAttachmentUrl, setNewAttachmentUrl] = React.useState("");
-  const [showAttachmentInput, setShowAttachmentInput] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [editingChecklistId, setEditingChecklistId] = React.useState<string | null>(null);
   const [editingChecklistTitle, setEditingChecklistTitle] = React.useState<string>("");
@@ -300,6 +298,56 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
     loadDetails();
     return () => controller.abort();
   }, [showDetails]);
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Reset input so same file can be selected again if needed
+    e.target.value = "";
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const upRes = await fetch("/api/files", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!upRes.ok) {
+        console.error("Upload failed", await upRes.text());
+        alert("Failed to upload file");
+        return;
+      }
+      const upData = await upRes.json();
+
+      const attRes = await fetch(`/api/cards/${cardId}/attachments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: upData.url,
+          filename: upData.filename,
+          type: upData.type,
+          size: upData.size
+        }),
+      });
+
+      if (attRes.ok) {
+        const newAtt = await attRes.json();
+        setData((d) => (d ? { ...d, attachments: [...d.attachments, newAtt], attachmentCount: (d.attachmentCount || 0) + 1 } : d));
+        if (onCardUpdated) {
+          onCardUpdated({ 
+            id: cardId, 
+            attachmentCount: (data?.attachmentCount || 0) + 1 
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to upload/attach file", err);
+      alert("Failed to attach file");
+    }
+  }
 
   // Keep tempDueDate synced with controlled dueDate input
   React.useEffect(() => {
@@ -946,25 +994,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
     );
   }
 
-  async function addAttachment() {
-    const u = newAttachmentUrl.trim();
-    if (!u) return;
-    try {
-      const resp = await fetch(`/api/cards/${cardId}/attachments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: u }),
-      });
-      if (resp.ok) {
-        const created = await resp.json();
-        setData((d) => (d ? { ...d, attachments: [...d.attachments, created] } : d));
-        setNewAttachmentUrl("");
-        setShowAttachmentInput(false);
-      }
-    } catch (err) {
-      console.error("Failed to add attachment", err);
-    }
-  }
+
 
   const [hasMoreAttachments, setHasMoreAttachments] = React.useState(false);
   const [attachmentsCursor, setAttachmentsCursor] = React.useState<string | null>(null);
@@ -1218,30 +1248,19 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                  </div>
                 <button
                   type="button"
-                  onClick={() => setShowAttachmentInput((v) => !v)}
+                  onClick={() => fileInputRef.current?.click()}
                   className="inline-flex h-7 w-7 items-center justify-center rounded bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground text-xs"
                   title="Add attachment"
                 >
                   📎
                 </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
               </div>
-
-              {showAttachmentInput && (
-                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <input
-                    value={newAttachmentUrl}
-                    onChange={(e) => setNewAttachmentUrl(e.target.value)}
-                    placeholder="Attachment URL"
-                    className="w-full flex-1 text-xs px-2 py-1 border rounded bg-background"
-                  />
-                  <button
-                    onClick={addAttachment}
-                    className="self-end text-xs rounded px-2 py-1 bg-foreground text-background hover:opacity-90 transition-opacity sm:self-auto"
-                  >
-                    Add
-                  </button>
-                </div>
-              )}
 
               <div className="rounded border border-black/10 dark:border-neutral-800 p-2">
                 <div className="flex items-center gap-3 text-xs">
@@ -1286,7 +1305,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                   <p className="text-sm font-semibold">Attachments</p>
                   <ul className="mt-2 space-y-2">
                     {data.attachments.map((a) => (
-                      <li key={a.id} className="flex items-center justify-between border rounded p-2 bg-foreground/5">
+                      <li key={a.id} className="flex items-center justify-between border border-black/10 dark:border-neutral-800 rounded p-2 bg-foreground/5">
                         <a href={a.url} target="_blank" rel="noreferrer" className="text-sm truncate max-w-[60%]">{a.filename || a.url}</a>
                         <span className="text-xs text-foreground/60">{a.type || "link"}</span>
                       </li>

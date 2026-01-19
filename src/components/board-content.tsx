@@ -3,7 +3,7 @@
 import React from "react";
 // import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, closestCenter, DragEndEvent, DragStartEvent, DragOverEvent, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, useSortable, arrayMove, verticalListSortingStrategy, horizontalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import CreateCard from "./create-card";
@@ -32,7 +32,7 @@ function SortableListWrapperBase({ list, children }: { list: ListItem; children:
       style={style}
       {...attributes}
       {...listeners}
-      className="w-72 shrink-0 self-start mt-2 mb-4 rounded-lg border border-black/10 dark:border-neutral-800 bg-background/60 text-foreground shadow-sm max-h-full flex flex-col p-2"
+      className="w-72 shrink-0 self-start mt-2 mb-4 rounded-lg border border-black/10 dark:border-neutral-800 bg-background/60 dark:bg-neutral-900/60 text-foreground shadow-sm max-h-full flex flex-col p-2"
     >
       {children}
     </div>
@@ -66,9 +66,7 @@ function getDueStatus(iso?: string | null): "overdue" | "today" | "soon" | "none
   return "none";
 }
 
-function SortableCardBase({ card, onOpen, onToggleArchive, onUpdateTitle }: { card: CardItem; onOpen: (id: string) => void; onToggleArchive: (card: CardItem, checked: boolean) => void; onUpdateTitle: (cardId: string, newTitle: string) => void }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: card.id });
-  const style = { transform: CSS.Transform.toString(transform), transition } as React.CSSProperties;
+function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleProps }: { card: CardItem; onOpen: (id: string) => void; onToggleArchive: (card: CardItem, checked: boolean) => void; onUpdateTitle: (cardId: string, newTitle: string) => void; style?: React.CSSProperties; dragHandleProps?: any }) {
   const prefetched = React.useRef(false);
   const dueStatus = getDueStatus(card.dueDate);
   const dueClasses =
@@ -81,10 +79,8 @@ function SortableCardBase({ card, onOpen, onToggleArchive, onUpdateTitle }: { ca
       : "bg-background border border-black/10 dark:border-neutral-800";
   return (
     <div
-      ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
+      {...dragHandleProps}
       onMouseEnter={() => {
         if (prefetched.current) return;
         if (isTempCardId(card.id)) return;
@@ -96,7 +92,7 @@ function SortableCardBase({ card, onOpen, onToggleArchive, onUpdateTitle }: { ca
         if (isTempCardId(card.id)) return;
         onOpen(card.id);
       }}
-      className="group relative rounded-lg border border-black/10 dark:border-neutral-800 bg-white hover:bg-neutral-200 text-black dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:text-white p-3 hover:shadow-sm transition-colors cursor-pointer"
+      className="group relative rounded-lg border border-black/10 dark:border-neutral-800 bg-background hover:bg-neutral-200 text-foreground dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:text-white p-3 hover:shadow-sm transition-colors cursor-pointer"
     >
       {/* Header: checkbox always visible next to title */}
       <div className="flex items-center gap-2">
@@ -230,6 +226,27 @@ function SortableCardBase({ card, onOpen, onToggleArchive, onUpdateTitle }: { ca
   );
 }
 
+function SortableCardBase({ card, onOpen, onToggleArchive, onUpdateTitle }: { card: CardItem; onOpen: (id: string) => void; onToggleArchive: (card: CardItem, checked: boolean) => void; onUpdateTitle: (cardId: string, newTitle: string) => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id });
+  const style = { 
+    transform: CSS.Transform.toString(transform), 
+    transition,
+    opacity: isDragging ? 0 : 1, 
+  } as React.CSSProperties;
+  
+  return (
+    <div ref={setNodeRef} style={style}>
+       <Card 
+         card={card} 
+         onOpen={onOpen} 
+         onToggleArchive={onToggleArchive} 
+         onUpdateTitle={onUpdateTitle}
+         dragHandleProps={{...attributes, ...listeners}}
+       />
+    </div>
+  );
+}
+
 const SortableCard = React.memo(SortableCardBase, (prev, next) => {
   const a = prev.card;
   const b = next.card;
@@ -270,6 +287,8 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
   });
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const [activeCard, setActiveCard] = React.useState<CardItem | null>(null);
 
   React.useEffect(() => {
     const id = searchParams.get("openCard");
@@ -483,8 +502,104 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     }
   }
 
+  function handleDragStart(event: DragStartEvent) {
+    const { active } = event;
+    const activeId = String(active.id);
+    const loc = findListByCardId(activeId);
+    if (loc) {
+      setActiveCard(lists[loc.listIndex].cards[loc.cardIndex]);
+      setDragOriginListId(lists[loc.listIndex].id);
+    }
+  }
+
+  function handleDragOver(event: DragOverEvent) {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    // Find the containers
+    const findContainer = (id: string) => {
+      // Is it a list?
+      const listIdx = lists.findIndex((l) => l.id === id);
+      if (listIdx !== -1) return lists[listIdx].id;
+      // Is it a card?
+      const loc = findListByCardId(id);
+      if (loc) return lists[loc.listIndex].id;
+      return null;
+    };
+
+    const activeContainer = findContainer(activeId);
+    const overContainer = findContainer(overId);
+
+    if (!activeContainer || !overContainer || activeContainer === overContainer) {
+      return;
+    }
+
+    setLists((curr) => {
+      const activeContainerIdx = curr.findIndex((l) => l.id === activeContainer);
+      const overContainerIdx = curr.findIndex((l) => l.id === overContainer);
+      
+      if (activeContainerIdx === -1 || overContainerIdx === -1) return curr;
+
+      const next = [...curr];
+      const activeList = next[activeContainerIdx];
+      const overList = next[overContainerIdx];
+      
+      // Remove from source
+      const activeCardIdx = activeList.cards.findIndex((c) => c.id === activeId);
+      if (activeCardIdx === -1) return curr;
+      
+      const movingCard = activeList.cards[activeCardIdx];
+      const newActiveList = {
+        ...activeList,
+        cards: [...activeList.cards.slice(0, activeCardIdx), ...activeList.cards.slice(activeCardIdx + 1)],
+      };
+      
+      // Add to target
+      const overCardIdx = overList.cards.findIndex((c) => c.id === overId);
+      let newIndex;
+      
+      if (overCardIdx >= 0) {
+        // Dropped over a card
+        const isBelowOverItem =
+          over &&
+          active.rect.current.translated &&
+          active.rect.current.translated.top > over.rect.top + over.rect.height;
+        const modifier = isBelowOverItem ? 1 : 0;
+        newIndex = overCardIdx + modifier;
+      } else {
+        // Dropped over a list container
+        newIndex = overList.cards.length + 1;
+      }
+      
+      // Clamp index
+      newIndex = Math.max(0, Math.min(newIndex, overList.cards.length + 1));
+
+      const newOverList = {
+        ...overList,
+        cards: [
+          ...overList.cards.slice(0, newIndex),
+          movingCard,
+          ...overList.cards.slice(newIndex, overList.cards.length),
+        ],
+      };
+
+      next[activeContainerIdx] = newActiveList;
+      next[overContainerIdx] = newOverList;
+
+      return next;
+    });
+  }
+
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
+    const originListId = dragOriginListId;
+    
+    setActiveCard(null);
+    setDragOriginListId(null);
+
     if (!over) return;
 
     const activeId = String(active.id);
@@ -511,54 +626,46 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
       };
 
       const origin = findIn(activeId);
-      const overAsCard = findIn(overId);
-      const overListIndex = overAsCard ? overAsCard.listIndex : curr.findIndex((l) => l.id === overId);
-
+      // Since DragOver updates the lists, origin is now the current location (destination list)
+      
       if (!origin) return curr;
 
       const fromListIndex = origin.listIndex;
       const fromCardIndex = origin.cardIndex;
+      
+      const overAsCard = findIn(overId);
+      // If dropped on a list container, overAsCard is null, but we are already in that list (origin)
+      // So we just need to reorder within the list if needed
+      
+      const currentListId = curr[fromListIndex].id;
+      
+      // If we are in the correct list, we might need to arrayMove if the index isn't exact
+      // But DragOver handles insertion. DragEnd just needs to finalize order if the user moved *within* the list after entering
+      
+      let toIndex = fromCardIndex;
 
-      // same list reorder
       if (overAsCard && overAsCard.listIndex === fromListIndex) {
-        const list = curr[fromListIndex];
-        const reordered = arrayMove(list.cards, fromCardIndex, overAsCard.cardIndex);
-        const next = [...curr];
-        next[fromListIndex] = { ...list, cards: reordered };
-        persistMove = { cardId: activeId, fromListId: list.id, toListId: list.id, toIndex: overAsCard.cardIndex };
-        return next;
+        // Reordering within the same list (which is now the destination list)
+        if (fromCardIndex !== overAsCard.cardIndex) {
+           const list = curr[fromListIndex];
+           const reordered = arrayMove(list.cards, fromCardIndex, overAsCard.cardIndex);
+           const next = [...curr];
+           next[fromListIndex] = { ...list, cards: reordered };
+           toIndex = overAsCard.cardIndex;
+           persistMove = { cardId: activeId, fromListId: originListId || currentListId, toListId: currentListId, toIndex };
+           return next;
+        }
+      } 
+      
+      // If we didn't move index within the list (or dropped on container/self), 
+      // check if we moved lists (originListId !== currentListId)
+      if (originListId && originListId !== currentListId) {
+         persistMove = { cardId: activeId, fromListId: originListId, toListId: currentListId, toIndex: fromCardIndex };
+      } else if (originListId === currentListId && overAsCard && fromCardIndex !== overAsCard.cardIndex) {
+         // Reorder in same list (handled above usually, but just in case)
+         // Wait, the block above handles it.
       }
-
-      // move to a specific card in another list
-      if (overAsCard && overAsCard.listIndex !== fromListIndex) {
-        const moving = curr[fromListIndex].cards[fromCardIndex];
-        const next = [...curr];
-        const fromCards = curr[fromListIndex].cards.filter((_, i) => i !== fromCardIndex);
-        next[fromListIndex] = { ...curr[fromListIndex], cards: fromCards };
-        const destIdx = overAsCard.listIndex;
-        const toCardsBase = curr[destIdx].cards.filter((c) => c.id !== moving.id); // dedupe if already present
-        const toCards = [...toCardsBase];
-        toCards.splice(overAsCard.cardIndex, 0, moving);
-        next[destIdx] = { ...curr[destIdx], cards: toCards };
-        persistMove = { cardId: moving.id, fromListId: curr[fromListIndex].id, toListId: curr[destIdx].id, toIndex: overAsCard.cardIndex };
-        return next;
-      }
-
-      // dropped in empty area of a list
-      if (overListIndex !== -1) {
-        const moving = curr[fromListIndex].cards[fromCardIndex];
-        const next = [...curr];
-        const fromCards = curr[fromListIndex].cards.filter((_, i) => i !== fromCardIndex);
-        next[fromListIndex] = { ...curr[fromListIndex], cards: fromCards };
-        const toCardsBase = curr[overListIndex].cards.filter((c) => c.id !== moving.id); // dedupe if already present
-        const insertIndex = toCardsBase.length;
-        const toCards = [...toCardsBase];
-        toCards.splice(insertIndex, 0, moving);
-        next[overListIndex] = { ...curr[overListIndex], cards: toCards };
-        persistMove = { cardId: moving.id, fromListId: curr[fromListIndex].id, toListId: curr[overListIndex].id, toIndex: insertIndex };
-        return next;
-      }
-
+      
       return curr;
     });
 
@@ -783,7 +890,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
 
   return (
     <>
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={() => setActiveCard(null)}>
         <SortableContext items={lists.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
           <div className="pt-16 h-[calc(100vh-40px)] overflow-x-auto overflow-y-hidden pb-8">
             <div className="mx-auto max-w-7xl px-6 flex items-start gap-3">
@@ -814,7 +921,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
                       ) : (
                         <p 
                           onPointerDown={(e) => e.stopPropagation()}
-                          onClick={() => setEditingListId(l.id)}
+                          onClick={(e) => { e.stopPropagation(); setEditingListId(l.id); }}
                           className="text-sm font-bold cursor-pointer hover:bg-foreground/5 px-1 rounded flex-1 truncate"
                         >
                           {l.title}
@@ -869,6 +976,18 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
             </div>
           </div>
         </SortableContext>
+        <DragOverlay>
+          {activeCard ? (
+            <div className="opacity-80 rotate-2 cursor-grabbing">
+              <SortableCard 
+                card={activeCard} 
+                onOpen={() => {}} 
+                onToggleArchive={() => {}} 
+                onUpdateTitle={() => {}} 
+              />
+            </div>
+          ) : null}
+        </DragOverlay>
       </DndContext>
       {openedCardId && (
         <CardModal
