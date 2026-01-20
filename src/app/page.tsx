@@ -1,11 +1,18 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { verifySession } from "@/lib/session";
 import CreateBoard from "@/components/create-board";
 import HomeScene from "@/components/home-scene";
 
 export const revalidate = 60; // cache homepage data for snappier loads
 
 export default async function Home() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("session")?.value || "";
+  const payload = token ? await verifySession(token) : null;
+  const isAdmin = !!payload?.admin;
+
   let boards: Array<{ id: string; title: string; background: string | null }>;
   try {
     boards = await prisma.board.findMany({
