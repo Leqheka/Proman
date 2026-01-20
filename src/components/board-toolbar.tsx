@@ -41,6 +41,8 @@ export default function BoardToolbar({
   const [openArchives, setOpenArchives] = useState(false);
   const [archives, setArchives] = useState<Array<{ id: string; title: string; listId: string | null; listTitle: string }>>([]);
 
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -49,13 +51,26 @@ export default function BoardToolbar({
         const j = await r.json().catch(() => ({}));
         if (!alive) return;
         setIsAdmin(r.ok ? !!j?.user?.isAdmin : false);
+        setCurrentUserId(r.ok ? j?.user?.id : null);
       } catch {
         if (!alive) return;
         setIsAdmin(false);
+        setCurrentUserId(null);
       }
     })();
     return () => { alive = false; };
   }, []);
+
+  useEffect(() => {
+    if (currentUserId && currentBoardId) {
+      try {
+        const localBg = localStorage.getItem(`proman-bg-${currentUserId}-${currentBoardId}`);
+        if (localBg) {
+            onBackgroundChanged?.(localBg);
+        }
+      } catch {}
+    }
+  }, [currentUserId, currentBoardId, onBackgroundChanged]);
 
   // Close Change background menu on outside click or Escape
   useEffect(() => {
@@ -121,11 +136,21 @@ export default function BoardToolbar({
     try {
       // Optimistically change local background without a full refresh
       onBackgroundChanged?.(url);
+      
+      // Save per-user preference locally
+      if (currentUserId && currentBoardId) {
+          localStorage.setItem(`proman-bg-${currentUserId}-${currentBoardId}`, url);
+      }
+      
+      // We do NOT update the server board background to keep it personal
+      // If we wanted to update global board background, we would uncomment this:
+      /*
       await fetch(`/api/boards/${currentBoardId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ background: url }),
       });
+      */
       // No blocking refresh; UI already reflects change
     } catch (err) {
       console.error("Failed to change background", err);
@@ -136,7 +161,7 @@ export default function BoardToolbar({
 
   return (
     <div className="sticky top-10 -mt-px z-30 w-full bg-white/60 dark:bg-black/40 backdrop-blur supports-[backdrop-filter]:bg-background/40 border-b border-black/10 dark:border-white/15">
-      <div className="mx-auto w-full px-1 h-10 flex items-center gap-3">
+      <div className="mx-auto w-full px-16 h-10 flex items-center gap-3">
         <div className="flex items-center gap-2">
           <select
             value={currentBoardId}
