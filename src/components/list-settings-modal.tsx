@@ -41,7 +41,7 @@ type ChecklistItem = { title: string; completed: boolean };
   useEffect(() => {
     let active = true;
     setLoadingMembers(true);
-    fetch(`/api/boards/${boardId}/members`)
+    fetch(`/api/members`)
       .then((res) => res.json())
       .then((data) => {
         if (active && Array.isArray(data)) {
@@ -53,7 +53,7 @@ type ChecklistItem = { title: string; completed: boolean };
         if (active) setLoadingMembers(false);
       });
     return () => { active = false; };
-  }, [boardId]);
+  }, []);
 
   async function handleSave() {
     setSaving(true);
