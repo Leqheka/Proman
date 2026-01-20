@@ -20,7 +20,7 @@ const HOME_BACKGROUNDS = [
 
 const DEFAULT_HOME_BG = HOME_BACKGROUNDS[0];
 
-export default function HomeScene({ children }: { children: React.ReactNode }) {
+export default function HomeScene({ children, isAdmin }: { children: React.ReactNode; isAdmin?: boolean }) {
   const [bg, setBg] = React.useState<string | null>(null);
   const [open, setOpen] = React.useState(false);
 
