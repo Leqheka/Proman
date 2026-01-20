@@ -32,10 +32,27 @@ type CardDetail = {
   assignmentCount?: number;
 };
 
-export default function CardModal({ cardId, onClose, onCardUpdated, initial }: { cardId: string; onClose: () => void; onCardUpdated?: (patch: { id: string; title?: string; dueDate?: string | null; hasDescription?: boolean; checklistCount?: number; assignmentCount?: number; commentCount?: number; attachmentCount?: number; members?: Member[] }) => void; initial?: Partial<CardDetail> | null }) {
+export default function CardModal({ cardId, onClose, onCardUpdated, initial, availableLists, onMoveCard }: { cardId: string; onClose: () => void; onCardUpdated?: (patch: { id: string; title?: string; dueDate?: string | null; hasDescription?: boolean; checklistCount?: number; assignmentCount?: number; commentCount?: number; attachmentCount?: number; members?: Member[] }) => void; initial?: Partial<CardDetail> | null; availableLists?: { id: string; title: string }[]; onMoveCard?: (toListId: string) => void }) {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [data, setData] = React.useState<CardDetail | null>(null);
+  
+  // Move to menu state
+  const [showMoveMenu, setShowMoveMenu] = React.useState(false);
+  const moveMenuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!showMoveMenu) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (moveMenuRef.current && !moveMenuRef.current.contains(target)) {
+        setShowMoveMenu(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [showMoveMenu]);
+
   const [title, setTitle] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [dueDate, setDueDate] = React.useState<string>("");
@@ -1076,7 +1093,35 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial }: {
                 className="text-lg font-semibold bg-transparent outline-none w-full"
               />
             </div>
-            <button onClick={onClose} className="ml-3 text-xs rounded px-2 py-1 bg-foreground/5">Close</button>
+            <div className="relative ml-3" ref={moveMenuRef}>
+              <button 
+                onClick={() => setShowMoveMenu(!showMoveMenu)} 
+                className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors"
+              >
+                Move to
+              </button>
+              {showMoveMenu && availableLists && (
+                <div className="absolute right-0 top-full mt-1 w-48 rounded border border-black/10 dark:border-neutral-800 bg-background dark:bg-neutral-900 shadow-lg z-50 py-1 max-h-60 overflow-y-auto">
+                  {availableLists.map((l) => (
+                    <button
+                      key={l.id}
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-foreground/5 truncate flex items-center justify-between"
+                      onClick={() => {
+                        if (onMoveCard) {
+                            onMoveCard(l.id);
+                            setData((d) => (d ? { ...d, list: { ...d.list, id: l.id, title: l.title } } : d));
+                        }
+                        setShowMoveMenu(false);
+                      }}
+                    >
+                      <span className="truncate">{l.title}</span>
+                      {data?.list?.id === l.id && <span className="ml-2 opacity-50 text-[10px] shrink-0">(current)</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button onClick={onClose} className="ml-2 text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Close</button>
           </div>
 
           <div className="grid flex-1 min-h-0 grid-cols-1 items-start gap-4 p-3 md:gap-6 md:p-4 lg:grid-cols-[1fr_320px]">

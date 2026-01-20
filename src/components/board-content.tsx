@@ -826,6 +826,40 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     }
   }
 
+  async function handleMoveCardFromModal(cardId: string, toListId: string) {
+    const loc = findListByCardId(cardId);
+    if (!loc) return;
+    const fromListId = lists[loc.listIndex].id;
+    if (fromListId === toListId) return;
+
+    const toListIndex = lists.findIndex(l => l.id === toListId);
+    if (toListIndex === -1) return;
+    const toList = lists[toListIndex];
+    const toIndex = toList.cards.length;
+
+    // Optimistic Update
+    setLists(curr => {
+      const sLoc = findListByCardId(cardId, curr);
+      if (!sLoc) return curr;
+      const next = [...curr];
+      const sList = next[sLoc.listIndex];
+      const dListIdx = next.findIndex(l => l.id === toListId);
+      if (dListIdx === -1) return curr;
+      const dList = next[dListIdx];
+      
+      const newSourceCards = [...sList.cards];
+      const [moved] = newSourceCards.splice(sLoc.cardIndex, 1);
+      next[sLoc.listIndex] = { ...sList, cards: newSourceCards };
+
+      const newDestCards = [...dList.cards, { ...moved, listId: toListId }];
+      next[dListIdx] = { ...dList, cards: newDestCards };
+      
+      return next;
+    });
+
+    await moveCard(cardId, fromListId, toListId, toIndex);
+  }
+
   async function handleCloseModal() {
     const id = openedCardId;
     setOpenedCardId(null);
@@ -927,7 +961,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={() => setActiveCard(null)}>
         <SortableContext items={lists.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
           <div className="pt-16 h-[calc(100vh-40px)] overflow-x-auto overflow-y-hidden pb-8">
-            <div className="mx-auto max-w-7xl px-6 flex items-start gap-3">
+            <div className="mx-auto max-w-7xl px-1 flex items-start gap-3">
               {lists.length === 0 ? (
                 <AddListTile
                   boardId={boardId}
@@ -1028,6 +1062,8 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
           cardId={openedCardId}
           onClose={handleCloseModal}
           onCardUpdated={handleCardUpdated}
+          availableLists={lists.map(l => ({ id: l.id, title: l.title }))}
+          onMoveCard={handleMoveCardFromModal}
           initial={(() => {
             const loc = findListByCardId(openedCardId!);
             if (!loc) return null;
