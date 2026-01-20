@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { revalidateTag } from "next/cache";
 import { verifySession } from "@/lib/session";
+import { hashPassword } from "@/lib/auth";
 
 // List board members
 export async function GET(req: Request, { params }: { params: Promise<{ boardId: string }> }) {
