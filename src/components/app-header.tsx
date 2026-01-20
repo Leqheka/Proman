@@ -77,7 +77,7 @@ export default function AppHeader() {
 
   return (
     <header className="fixed top-0 z-40 w-full backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b border-black/10 dark:border-white/15">
-      <div className="mx-auto w-full px-16 h-10 grid grid-cols-[1fr_minmax(0,2fr)_1fr] items-center gap-4">
+      <div className="mx-auto w-full px-8 h-10 grid grid-cols-[1fr_minmax(0,2fr)_1fr] items-center gap-4">
         {loggedIn ? (
           <Link href="/" className="font-semibold text-sm whitespace-nowrap">Proman</Link>
         ) : (
@@ -108,7 +108,6 @@ export default function AppHeader() {
             </button>
             {openProfile && (
               <div className="absolute right-0 mt-2 w-48 rounded border border-black/10 dark:border-white/15 bg-background p-2 shadow">
-                <Link href="/settings/password" className="block text-sm rounded px-3 py-2 hover:bg-foreground/5">Settings</Link>
                 <Link href="/settings/profile" className="block text-sm rounded px-3 py-2 hover:bg-foreground/5">Profile</Link>
                 <button onClick={logout} className="block w-full text-left text-sm rounded px-3 py-2 hover:bg-foreground/5">Logout</button>
               </div>

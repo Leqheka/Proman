@@ -64,6 +64,12 @@ export default function ProfileSettingsPage() {
   const [name, setName] = React.useState("");
   const [username, setUsername] = React.useState("");
   const [email, setEmail] = React.useState("");
+  
+  // Password state
+  const [currentPassword, setCurrentPassword] = React.useState("");
+  const [newPassword, setNewPassword] = React.useState("");
+  const [showConfirm, setShowConfirm] = React.useState(false);
+
   const [msg, setMsg] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [backHref, setBackHref] = React.useState<string>("/");
@@ -103,18 +109,57 @@ export default function ProfileSettingsPage() {
     } catch {}
   }, []);
 
-  async function save() {
+  async function performSave() {
     setBusy(true);
     setMsg(null);
+    setShowConfirm(false);
     try {
+      // 1. Update Profile Info
       const r = await fetch("/api/users/me", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, username, email }) });
       if (r.status === 401) {
         router.push("/login");
         return;
       }
       const j = await r.json();
-      if (!r.ok) setMsg(j?.error || "Failed"); else { setMsg("Saved"); setUser(j.user); }
+      if (!r.ok) {
+          setMsg(j?.error || "Failed to update profile");
+          return;
+      }
+      
+      setUser(j.user);
+
+      // 2. Update Password if provided
+      if (currentPassword || newPassword) {
+          if (!currentPassword || !newPassword) {
+              setMsg("Both current and new passwords are required to change password");
+              return;
+          }
+          const pResp = await fetch("/api/auth/password", { 
+              method: "PATCH", 
+              headers: { "Content-Type": "application/json" }, 
+              body: JSON.stringify({ currentPassword, newPassword }) 
+          });
+          if (!pResp.ok) {
+              const pJson = await pResp.json();
+              setMsg(`Profile saved, but password update failed: ${pJson.error || "Unknown error"}`);
+              return;
+          }
+          // Clear password fields on success
+          setCurrentPassword("");
+          setNewPassword("");
+      }
+
+      setMsg("Saved successfully");
     } catch { setMsg("Network error"); } finally { setBusy(false); }
+  }
+
+  function handleSaveClick() {
+      setShowConfirm(true);
+  }
+
+  async function save() {
+      // Legacy save function kept for reference but unused, replaced by performSave and handleSaveClick
+      performSave();
   }
 
   async function uploadAvatar(blob: Blob) {
@@ -201,9 +246,54 @@ export default function ProfileSettingsPage() {
         <input value={username} onChange={(e) => setUsername(e.target.value)} className="mt-1 w-full text-sm px-2 py-1 border rounded bg-background" />
         <label className="text-xs mt-3 block">Email</label>
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 w-full text-sm px-2 py-1 border rounded bg-background" />
-        {msg ? <p className="mt-2 text-xs">{msg}</p> : null}
-        <button onClick={save} disabled={busy} className="mt-3 w-full text-xs rounded px-3 py-2 bg-foreground text-background">{busy ? "Saving..." : "Save"}</button>
+        
+        <div className="mt-6 pt-4 border-t border-black/10 dark:border-white/15">
+            <p className="text-sm font-semibold mb-2">Change Password</p>
+            <label className="text-xs mt-2 block">Current password</label>
+            <input 
+                type="password" 
+                value={currentPassword} 
+                onChange={(e) => setCurrentPassword(e.target.value)} 
+                className="mt-1 w-full text-sm px-2 py-1 border rounded bg-background" 
+                placeholder="Leave blank to keep unchanged"
+            />
+            <label className="text-xs mt-3 block">New password</label>
+            <input 
+                type="password" 
+                value={newPassword} 
+                onChange={(e) => setNewPassword(e.target.value)} 
+                className="mt-1 w-full text-sm px-2 py-1 border rounded bg-background" 
+                placeholder="Leave blank to keep unchanged"
+            />
+        </div>
+
+        {msg ? <p className="mt-2 text-xs text-red-500">{msg}</p> : null}
+        <button onClick={handleSaveClick} disabled={busy} className="mt-4 w-full text-xs rounded px-3 py-2 bg-foreground text-background font-medium hover:opacity-90 transition-opacity">{busy ? "Saving..." : "Save Changes"}</button>
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-sm rounded bg-background p-6 shadow-xl border border-black/10 dark:border-white/15">
+                <h3 className="text-lg font-semibold mb-2">Confirm Changes</h3>
+                <p className="text-sm text-foreground/80 mb-4">Are you sure you want to save these changes?</p>
+                <div className="flex justify-end gap-3">
+                    <button 
+                        onClick={() => setShowConfirm(false)}
+                        className="text-sm px-3 py-2 rounded hover:bg-foreground/5 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={performSave}
+                        className="text-sm px-3 py-2 rounded bg-foreground text-background font-medium hover:opacity-90 transition-opacity"
+                    >
+                        Confirm Save
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
 
       {/* Cropper Modal */}
       {imageSrc && (

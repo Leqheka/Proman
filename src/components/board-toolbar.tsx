@@ -161,7 +161,7 @@ export default function BoardToolbar({
 
   return (
     <div className="sticky top-10 -mt-px z-30 w-full bg-white/60 dark:bg-black/40 backdrop-blur supports-[backdrop-filter]:bg-background/40 border-b border-black/10 dark:border-white/15">
-      <div className="mx-auto w-full px-16 h-10 flex items-center gap-3">
+      <div className="mx-auto w-full px-8 h-10 flex items-center gap-3">
         <div className="flex items-center gap-2">
           <select
             value={currentBoardId}
