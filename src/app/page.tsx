@@ -45,7 +45,7 @@ export default async function Home() {
   const toProxy = (u: string) => (u && u.startsWith("http") ? `/api/image-proxy?url=${encodeURIComponent(u)}` : u);
 
   return (
-    <HomeScene>
+    <HomeScene isAdmin={isAdmin}>
       <main className="mx-auto max-w-5xl px-6 py-16 text-foreground">
         <h1 className="text-4xl font-bold tracking-tight">Proman</h1>
         <p className="mt-2 text-base text-foreground/70">
