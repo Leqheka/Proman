@@ -1063,7 +1063,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
           onClose={handleCloseModal}
           onCardUpdated={handleCardUpdated}
           availableLists={lists.map(l => ({ id: l.id, title: l.title }))}
-          onMoveCard={handleMoveCardFromModal}
+          onMoveCard={(toListId) => handleMoveCardFromModal(openedCardId, toListId)}
           initial={(() => {
             const loc = findListByCardId(openedCardId!);
             if (!loc) return null;
