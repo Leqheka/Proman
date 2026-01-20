@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { verifySession } from "@/lib/session";
 import CreateBoard from "@/components/create-board";
 import HomeScene from "@/components/home-scene";
+import BoardCard from "@/components/board-card";
 
 export const revalidate = 60; // cache homepage data for snappier loads
 
@@ -77,23 +78,7 @@ export default async function Home() {
                 const bgRaw = normalizeUnsplash(raw);
                 const bgUrl = toProxy(bgRaw);
                 return (
-                  <div key={b.id} className="rounded-lg border border-black/10 dark:border-white/15 overflow-hidden">
-                    <Link href={`/boards/${b.id}`} className="block">
-                      <div
-                        className="h-24"
-                        style={{
-                          backgroundImage: `url(${bgUrl}), linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)`,
-                          backgroundSize: "cover, auto",
-                          backgroundPosition: "center, center",
-                        }}
-                      >
-                        <div className="w-full h-full bg-black/10 hover:bg-black/20 transition-colors p-4 flex items-end">
-                          <p className="text-sm font-medium text-white drop-shadow">{b.title}</p>
-                        </div>
-                      </div>
-                    </Link>
-                    {/* Removed background picker thumbnails under each board tile */}
-                  </div>
+                  <BoardCard key={b.id} board={b} bgUrl={bgUrl} />
                 );
               })
             )}

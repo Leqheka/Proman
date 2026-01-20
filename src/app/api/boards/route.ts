@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifySession } from "@/lib/session";
+import { revalidatePath } from "next/cache";
 
 export async function GET(req: Request) {
   try {
@@ -47,6 +48,7 @@ export async function POST(req: Request) {
     const board = await prisma.board.create({
       data: { title, ownerId: payload.sub as string, background: DEFAULT_BG },
     });
+    try { revalidatePath("/"); } catch {}
     return NextResponse.json(board, { status: 201 });
   } catch (err) {
     console.error("POST /api/boards error", err);

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { revalidateTag } from "next/cache";
+import { revalidateTag, revalidatePath } from "next/cache";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ boardId: string }> }) {
   try {
@@ -38,7 +38,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ boar
   try {
     const { boardId } = await params;
     await prisma.board.delete({ where: { id: boardId } });
-    try { revalidateTag(`board:${boardId}`); } catch {}
+    try { revalidateTag(`board:${boardId}`); revalidatePath("/"); } catch {}
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("DELETE /api/boards/:boardId error", err);
