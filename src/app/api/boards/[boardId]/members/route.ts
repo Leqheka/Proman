@@ -74,7 +74,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ boardId
       user = await prisma.user.upsert({
         where: { email },
         update: { name },
-        create: { email, name },
+        create: { email, name, passwordHash: hashPassword("123456") },
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

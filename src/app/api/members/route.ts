@@ -67,6 +67,7 @@ export async function POST(req: Request) {
         name,
         isAdmin: isAdmin ?? false,
         role: role || "VIEWER",
+        passwordHash: hashPassword("123456"),
       },
       select: {
         id: true,
