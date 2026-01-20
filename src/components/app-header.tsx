@@ -77,7 +77,7 @@ export default function AppHeader() {
 
   return (
     <header className="fixed top-0 z-40 w-full backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b border-black/10 dark:border-white/15">
-      <div className="mx-auto max-w-7xl px-1 h-10 grid grid-cols-[1fr_minmax(0,2fr)_1fr] items-center gap-4">
+      <div className="mx-auto w-full px-1 h-10 grid grid-cols-[1fr_minmax(0,2fr)_1fr] items-center gap-4">
         {loggedIn ? (
           <Link href="/" className="font-semibold text-sm whitespace-nowrap">Proman</Link>
         ) : (

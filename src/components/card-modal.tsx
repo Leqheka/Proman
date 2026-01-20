@@ -1096,9 +1096,10 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
             <div className="relative ml-3" ref={moveMenuRef}>
               <button 
                 onClick={() => setShowMoveMenu(!showMoveMenu)} 
-                className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors"
+                className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors whitespace-nowrap"
               >
-                Move to
+                <span className="hidden sm:inline">Move to</span>
+                <span className="sm:hidden">&gt;&gt;</span>
               </button>
               {showMoveMenu && availableLists && (
                 <div className="absolute right-0 top-full mt-1 w-48 rounded border border-black/10 dark:border-neutral-800 bg-background dark:bg-neutral-900 shadow-lg z-50 py-1 max-h-60 overflow-y-auto">
@@ -1121,7 +1122,10 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                 </div>
               )}
             </div>
-            <button onClick={onClose} className="ml-2 text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Close</button>
+            <button onClick={onClose} className="ml-2 text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">
+              <span className="hidden sm:inline">Close</span>
+              <span className="sm:hidden text-sm font-bold">&times;</span>
+            </button>
           </div>
 
           <div className="grid flex-1 min-h-0 grid-cols-1 items-start gap-4 p-3 md:gap-6 md:p-4 lg:grid-cols-[1fr_320px]">
