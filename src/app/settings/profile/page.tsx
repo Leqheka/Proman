@@ -256,6 +256,7 @@ export default function ProfileSettingsPage() {
                 onChange={(e) => setCurrentPassword(e.target.value)} 
                 className="mt-1 w-full text-sm px-2 py-1 border rounded bg-background" 
                 placeholder="Leave blank to keep unchanged"
+                autoComplete="new-password"
             />
             <label className="text-xs mt-3 block">New password</label>
             <input 
@@ -264,6 +265,7 @@ export default function ProfileSettingsPage() {
                 onChange={(e) => setNewPassword(e.target.value)} 
                 className="mt-1 w-full text-sm px-2 py-1 border rounded bg-background" 
                 placeholder="Leave blank to keep unchanged"
+                autoComplete="new-password"
             />
         </div>
 
