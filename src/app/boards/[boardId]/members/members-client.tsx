@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import Avatar from "@/components/avatar";
 
-type Member = { id: string; name?: string | null; email: string; role: string; image?: string | null };
+type Member = { id: string; name?: string | null; email: string; role: string; image?: string | null; isAdmin?: boolean };
 
 export default function MembersClient({
   boardId,
@@ -26,6 +26,10 @@ export default function MembersClient({
   const [toast, setToast] = React.useState<{ type: "success" | "error"; message: string } | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [uploadingUserId, setUploadingUserId] = React.useState<string | null>(null);
+  
+  // Password reset state
+  const [resetMember, setResetMember] = React.useState<Member | null>(null);
+  const [newPassword, setNewPassword] = React.useState("");
 
   function showToast(type: "success" | "error", message: string) {
     setToast({ type, message });
@@ -49,7 +53,7 @@ export default function MembersClient({
       if (!resp.ok) {
         showToast("error", data?.error || "Failed to add member");
       } else {
-        const created: Member = { id: data.id, name: data.name, email: data.email, role: data.role, image: data.image };
+        const created: Member = { id: data.id, name: data.name, email: data.email, role: data.role, image: data.image, isAdmin: data.isAdmin };
         setMembers((prev) => {
           const exists = prev.some((m) => m.id === created.id);
           const next = exists ? prev.map((m) => (m.id === created.id ? created : m)) : [created, ...prev];
@@ -87,6 +91,30 @@ export default function MembersClient({
     } finally {
       setUploadingUserId(null);
     }
+  }
+
+  async function handleResetPassword() {
+      if (!resetMember || !newPassword.trim()) return;
+      setBusy(true);
+      try {
+          const resp = await fetch("/api/auth/admin/reset", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ identifier: resetMember.id, newPassword: newPassword.trim() })
+          });
+          const data = await resp.json();
+          if (!resp.ok) {
+              showToast("error", data?.error || "Failed to reset password");
+          } else {
+              showToast("success", "Password reset successfully");
+              setResetMember(null);
+              setNewPassword("");
+          }
+      } catch (e) {
+          showToast("error", "Network error");
+      } finally {
+          setBusy(false);
+      }
   }
 
   return (
@@ -198,6 +226,15 @@ export default function MembersClient({
                       <button className="text-xs rounded px-2 py-1 bg-red-600 text-background" disabled={m.role === "OWNER" || (!!ownerId && m.id === ownerId)} title={(m.role === "OWNER" || (!!ownerId && m.id === ownerId)) ? "Owner cannot be removed" : ""}>Remove</button>
                     </form>
                     )}
+                    {isAdmin && !m.isAdmin && (
+                        <button 
+                            onClick={() => setResetMember(m)}
+                            className="text-xs rounded px-2 py-1 bg-yellow-600 text-background ml-2"
+                            title="Reset Password"
+                        >
+                            Reset Pwd
+                        </button>
+                    )}
                   </div>
                 </li>
               ))}
@@ -205,6 +242,38 @@ export default function MembersClient({
           )}
         </section>
       </div>
+
+      {/* Password Reset Modal */}
+      {resetMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-sm rounded bg-background p-6 shadow-xl border border-black/10 dark:border-white/15">
+                <h3 className="text-lg font-semibold mb-2">Reset Password for {resetMember.name || resetMember.email}</h3>
+                <p className="text-xs text-foreground/60 mb-4">Enter a new password for this user.</p>
+                <input 
+                    type="text" 
+                    value={newPassword} 
+                    onChange={(e) => setNewPassword(e.target.value)} 
+                    className="w-full text-sm px-2 py-1 border rounded bg-background mb-4"
+                    placeholder="New Password"
+                />
+                <div className="flex justify-end gap-3">
+                    <button 
+                        onClick={() => { setResetMember(null); setNewPassword(""); }}
+                        className="text-sm px-3 py-2 rounded hover:bg-foreground/5 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={handleResetPassword}
+                        disabled={!newPassword.trim() || busy}
+                        className="text-sm px-3 py-2 rounded bg-foreground text-background font-medium hover:opacity-90 transition-opacity"
+                    >
+                        {busy ? "Resetting..." : "Confirm Reset"}
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 }

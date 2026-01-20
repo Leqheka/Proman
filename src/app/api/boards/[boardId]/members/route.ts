@@ -23,7 +23,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ boardId:
     }
     const memberships = await prisma.membership.findMany({
       where: { boardId },
-      include: { user: { select: { id: true, name: true, email: true, image: true } } },
+      include: { user: { select: { id: true, name: true, email: true, image: true, isAdmin: true } } },
       orderBy: { role: "asc" },
     });
     const members = memberships.map((m) => ({
@@ -32,6 +32,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ boardId:
       email: m.user.email,
       image: m.user.image,
       role: m.role,
+      isAdmin: m.user.isAdmin,
     }));
     return NextResponse.json(members);
   } catch (err) {
@@ -100,6 +101,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ boardId
       email: user.email,
       image: user.image,
       role: membership.role,
+      isAdmin: user.isAdmin,
     }, { status: 201 });
     try { revalidateTag(`board:${boardId}`); } catch {}
     return response;

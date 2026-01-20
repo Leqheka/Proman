@@ -14,6 +14,7 @@ export async function POST(req: Request) {
     if (!identifier || !newPassword) return NextResponse.json({ error: "identifier and newPassword required" }, { status: 400 });
     const user = await prisma.user.findFirst({ where: { OR: [{ email: identifier }, { username: identifier }, { id: identifier }] } });
     if (!user) return NextResponse.json({ error: "user not found" }, { status: 404 });
+    if (user.isAdmin) return NextResponse.json({ error: "Cannot reset password for an admin user" }, { status: 403 });
     await prisma.user.update({ where: { id: user.id }, data: { passwordHash: hashPassword(newPassword) } });
     return NextResponse.json({ ok: true });
   } catch {
