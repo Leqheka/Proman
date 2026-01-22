@@ -144,6 +144,8 @@ model ChecklistItem {
   id          String  @id @default(cuid())
   title       String
   completed   Boolean @default(false)
+  dueDate     DateTime?
+  order       Float   @default(0)
 
   checklistId String
   checklist   Checklist @relation(fields: [checklistId], references: [id])

@@ -12,6 +12,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ itemId
     const data: any = {};
     if (typeof body.completed === "boolean") data.completed = body.completed;
     if (typeof body.title === "string") data.title = body.title.trim();
+    if (body.dueDate !== undefined) data.dueDate = body.dueDate ? new Date(body.dueDate) : null;
+    if (typeof body.order === "number") data.order = body.order;
 
     const updated = await prisma.checklistItem.update({ where: { id: itemId }, data, include: { checklist: true } });
 

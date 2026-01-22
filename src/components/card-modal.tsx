@@ -2,12 +2,13 @@
 
 import React from "react";
 import Avatar from "./avatar";
+import ChecklistItems from "./checklist-items";
 
 type Member = { id: string; name?: string | null; email: string; image?: string | null };
 
 type Attachment = { id: string; url: string; filename: string; size: number; type: string };
 
-type ChecklistItem = { id: string; title: string; completed: boolean };
+type ChecklistItem = { id: string; title: string; completed: boolean; dueDate?: string | null; order?: number };
 
 type Checklist = { id: string; title: string; items: ChecklistItem[]; itemsCount?: number };
 
@@ -69,8 +70,6 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
   const [newChecklistTitle, setNewChecklistTitle] = React.useState("Checklist");
   const [copyFromChecklistId, setCopyFromChecklistId] = React.useState<string | "none">("none");
   const [boardChecklists, setBoardChecklists] = React.useState<Array<{ id: string; title: string }>>([]);
-  const [editingItemId, setEditingItemId] = React.useState<string | null>(null);
-  const [editingItemTitle, setEditingItemTitle] = React.useState<string>("");
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [hasMoreComments, setHasMoreComments] = React.useState(false);
   const [commentsCursor, setCommentsCursor] = React.useState<string | null>(null);
@@ -758,14 +757,12 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     }
   }
 
-  async function updateChecklistItemTitle(itemId: string, title: string) {
-    const t = title.trim();
-    if (!t) return setEditingItemId(null);
+  async function updateChecklistItem(itemId: string, data: Partial<ChecklistItem>) {
     try {
       const resp = await fetch(`/api/checklist-items/${itemId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: t }),
+        body: JSON.stringify(data),
       });
       if (resp.ok) {
         setData((d) => {
@@ -774,16 +771,53 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
             ...d,
             checklists: d.checklists.map((c) => ({
               ...c,
-              items: c.items.map((it) => (it.id === itemId ? { ...it, title: t } : it)),
+              items: c.items.map((it) => (it.id === itemId ? { ...it, ...data } : it)),
             })),
           };
         });
-        setEditingItemId(null);
-        setEditingItemTitle("");
+
+        if (data.completed !== undefined) {
+             // Fetch activity for checklist toggle
+            try {
+                const actResp = await fetch(`/api/cards/${cardId}/activity?take=1&order=desc`);
+                if (actResp.ok) {
+                    const latest = await actResp.json();
+                    if (Array.isArray(latest) && latest.length > 0) {
+                         const diff = Date.now() - new Date(latest[0].createdAt).getTime();
+                         if (diff < 5000) {
+                             setActivities((curr) => {
+                                 if (curr.some(a => a.id === latest[0].id)) return curr;
+                                 return [latest[0], ...curr];
+                             });
+                         }
+                    }
+                }
+            } catch {}
+        }
       }
     } catch (err) {
-      console.error("Failed to update item title", err);
+      console.error("Failed to update item", err);
     }
+  }
+
+  async function handleReorderItems(checklistId: string, newItems: ChecklistItem[]) {
+     setData((d) => {
+         if (!d) return d;
+         return {
+             ...d,
+             checklists: d.checklists.map(c => c.id === checklistId ? { ...c, items: newItems } : c)
+         };
+     });
+
+     try {
+         await fetch(`/api/checklists/${checklistId}/items`, {
+             method: "PUT",
+             headers: { "Content-Type": "application/json" },
+             body: JSON.stringify({ items: newItems.map(i => ({ id: i.id, order: i.order })) })
+         });
+     } catch (err) {
+         console.error("Failed to reorder items", err);
+     }
   }
 
   async function deleteChecklistItem(itemId: string) {
@@ -806,228 +840,6 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     }
   }
 
-  async function toggleChecklistItem(itemId: string, completed: boolean) {
-    try {
-      const resp = await fetch(`/api/checklist-items/${itemId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ completed }),
-      });
-      if (resp.ok) {
-        setData((d) => {
-          if (!d) return d;
-          return {
-            ...d,
-            checklists: d.checklists.map((c) => ({
-              ...c,
-              items: c.items.map((it) => (it.id === itemId ? { ...it, completed } : it)),
-            })),
-          };
-        });
-
-        // Fetch activity for checklist toggle
-        try {
-            const actResp = await fetch(`/api/cards/${cardId}/activity?take=1&order=desc`);
-            if (actResp.ok) {
-                const latest = await actResp.json();
-                if (Array.isArray(latest) && latest.length > 0) {
-                     // Check if this activity is indeed recent (within 5s) to avoid stale data
-                     const diff = Date.now() - new Date(latest[0].createdAt).getTime();
-                     if (diff < 5000) {
-                         setActivities((curr) => {
-                             if (curr.some(a => a.id === latest[0].id)) return curr;
-                             return [latest[0], ...curr];
-                         });
-                     }
-                }
-            }
-        } catch {}
-      }
-    } catch (err) {
-      console.error("Failed to toggle item", err);
-    }
-  }
-
-  function VirtualChecklistItems({ cl }: { cl: Checklist }) {
-    const containerRef = React.useRef<HTMLDivElement | null>(null);
-    const [scrollTop, setScrollTop] = React.useState(0);
-    const [containerHeight, setContainerHeight] = React.useState(0);
-    const ITEM_HEIGHT = 28;
-    const BUFFER = 6;
-
-    React.useEffect(() => {
-      const el = containerRef.current;
-      if (!el) return;
-      setContainerHeight(el.clientHeight);
-      const onScroll = () => setScrollTop(el.scrollTop);
-      el.addEventListener("scroll", onScroll);
-      const onResize = () => setContainerHeight(el.clientHeight);
-      window.addEventListener("resize", onResize);
-      return () => {
-        el.removeEventListener("scroll", onScroll);
-        window.removeEventListener("resize", onResize);
-      };
-    }, []);
-
-    const items = cl.items;
-    const long = items.length >= 60;
-    if (!long) {
-      return (
-        <ul className="mt-2 space-y-2">
-          {items.length === 0 && (cl.itemsCount || 0) > 0 ? (
-            <li className="space-y-2 animate-pulse">
-              <div className="h-3 rounded bg-foreground/10 w-3/5" />
-              <div className="h-3 rounded bg-foreground/10 w-2/5" />
-              <div className="h-3 rounded bg-foreground/10 w-4/5" />
-            </li>
-          ) : null}
-          {items.map((it) => (
-            <li key={it.id} className="group flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-foreground/5">
-              <div className="flex items-center gap-2">
-                <input type="checkbox" checked={it.completed} onChange={(e) => toggleChecklistItem(it.id, e.target.checked)} />
-                {editingItemId === it.id ? (
-                  <input
-                    autoFocus
-                    value={editingItemTitle}
-                    onChange={(e) => setEditingItemTitle(e.target.value)}
-                    onBlur={() => updateChecklistItemTitle(it.id, editingItemTitle)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") updateChecklistItemTitle(it.id, editingItemTitle);
-                      if (e.key === "Escape") { setEditingItemId(null); setEditingItemTitle(""); }
-                    }}
-                    className="text-sm bg-transparent outline-none border rounded px-1"
-                  />
-                ) : (
-                  <button
-                    onClick={() => { setEditingItemId(it.id); setEditingItemTitle(it.title); }}
-                    className={`text-sm ${it.completed ? "line-through text-foreground/50" : ""}`}
-                  >
-                    {it.title}
-                  </button>
-                )}
-              </div>
-              <button
-                className="opacity-60 group-hover:opacity-100 text-foreground/70 hover:text-foreground"
-                title="Delete item"
-                onClick={() => deleteChecklistItem(it.id)}
-              >
-                <span
-                  className="w-4 h-4 inline-block"
-                  style={{
-                    WebkitMaskImage: 'url(/icons/trash.svg)',
-                    maskImage: 'url(/icons/trash.svg)',
-                    backgroundColor: 'currentColor',
-                    WebkitMaskRepeat: 'no-repeat',
-                    maskRepeat: 'no-repeat',
-                    WebkitMaskPosition: 'center',
-                    maskPosition: 'center',
-                    WebkitMaskSize: 'contain',
-                    maskSize: 'contain',
-                  }}
-                  aria-hidden
-                />
-              </button>
-            </li>
-          ))}
-          <li className="flex items-center gap-2">
-            <input
-              placeholder="Add an item"
-              className="flex-1 w-full text-xs px-2 py-1 border rounded bg-background"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  const t = (e.currentTarget as HTMLInputElement).value;
-                  (e.currentTarget as HTMLInputElement).value = "";
-                  addChecklistItem(cl.id, t);
-                }
-              }}
-            />
-          </li>
-        </ul>
-      );
-    }
-
-    const total = items.length;
-    const start = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - BUFFER);
-    const end = Math.min(total, Math.ceil((scrollTop + containerHeight) / ITEM_HEIGHT) + BUFFER);
-    const visible = items.slice(start, end);
-
-    return (
-      <div className="mt-2">
-        {items.length === 0 && (cl.itemsCount || 0) > 0 ? (
-          <div className="space-y-2 animate-pulse">
-            <div className="h-3 rounded bg-foreground/10 w-3/5" />
-            <div className="h-3 rounded bg-foreground/10 w-2/5" />
-            <div className="h-3 rounded bg-foreground/10 w-4/5" />
-          </div>
-        ) : null}
-        <div ref={containerRef} className="space-y-2 overflow-y-auto max-h-64 min-h-0">
-          <div style={{ height: start * ITEM_HEIGHT }} />
-          {visible.map((it) => (
-            <div key={it.id} className="group flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-foreground/5">
-              <div className="flex items-center gap-2">
-                <input type="checkbox" checked={it.completed} onChange={(e) => toggleChecklistItem(it.id, e.target.checked)} />
-                {editingItemId === it.id ? (
-                  <input
-                    autoFocus
-                    value={editingItemTitle}
-                    onChange={(e) => setEditingItemTitle(e.target.value)}
-                    onBlur={() => updateChecklistItemTitle(it.id, editingItemTitle)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") updateChecklistItemTitle(it.id, editingItemTitle);
-                      if (e.key === "Escape") { setEditingItemId(null); setEditingItemTitle(""); }
-                    }}
-                    className="text-sm bg-transparent outline-none border rounded px-1"
-                  />
-                ) : (
-                  <button
-                    onClick={() => { setEditingItemId(it.id); setEditingItemTitle(it.title); }}
-                    className={`text-sm ${it.completed ? "line-through text-foreground/50" : ""}`}
-                  >
-                    {it.title}
-                  </button>
-                )}
-              </div>
-              <button
-                className="opacity-60 group-hover:opacity-100 text-foreground/70 hover:text-foreground"
-                title="Delete item"
-                onClick={() => deleteChecklistItem(it.id)}
-              >
-                <span
-                  className="w-4 h-4 inline-block"
-                  style={{
-                    WebkitMaskImage: 'url(/icons/trash.svg)',
-                    maskImage: 'url(/icons/trash.svg)',
-                    backgroundColor: 'currentColor',
-                    WebkitMaskRepeat: 'no-repeat',
-                    maskRepeat: 'no-repeat',
-                    WebkitMaskPosition: 'center',
-                    maskPosition: 'center',
-                    WebkitMaskSize: 'contain',
-                    maskSize: 'contain',
-                  }}
-                  aria-hidden
-                />
-              </button>
-            </div>
-          ))}
-          <div style={{ height: (total - end) * ITEM_HEIGHT }} />
-        </div>
-        <div className="flex items-center gap-2 mt-2">
-          <input
-            placeholder="Add an item"
-            className="flex-1 w-full text-xs px-2 py-1 border rounded bg-background"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                const t = (e.currentTarget as HTMLInputElement).value;
-                (e.currentTarget as HTMLInputElement).value = "";
-                addChecklistItem(cl.id, t);
-              }
-            }}
-          />
-        </div>
-      </div>
-    );
-  }
 
 
 
@@ -1456,7 +1268,13 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                           </div>
                           <button onClick={() => deleteChecklist(cl.id)} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10">Delete</button>
                         </div>
-                        <VirtualChecklistItems cl={cl} />
+                        <ChecklistItems
+                          checklist={cl}
+                          onUpdateItem={updateChecklistItem}
+                          onDeleteItem={deleteChecklistItem}
+                          onAddItem={addChecklistItem}
+                          onReorderItems={handleReorderItems}
+                        />
                       </div>
                     ))}
                   </div>

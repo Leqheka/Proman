@@ -48,7 +48,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ checklis
     const cursor = searchParams.get("cursor") || null;
     const items = await prisma.checklistItem.findMany({
       where: { checklistId },
-      orderBy: { id: "asc" },
+      orderBy: [{ order: "asc" }, { id: "asc" }],
       take,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
@@ -58,5 +58,30 @@ export async function GET(req: Request, { params }: { params: Promise<{ checklis
   } catch (err) {
     console.error("GET /api/checklists/[checklistId]/items error", err);
     return NextResponse.json({ error: "Failed to list items" }, { status: 500 });
+  }
+}
+
+export async function PUT(req: Request, { params }: { params: Promise<{ checklistId: string }> }) {
+  try {
+    const { checklistId } = await params;
+    const body = await req.json();
+    const { items } = body; 
+
+    if (!checklistId) return NextResponse.json({ error: "checklistId required" }, { status: 400 });
+    if (!Array.isArray(items)) return NextResponse.json({ error: "items array required" }, { status: 400 });
+
+    await prisma.$transaction(
+      items.map((item: any) => 
+        prisma.checklistItem.update({
+          where: { id: item.id },
+          data: { order: item.order }
+        })
+      )
+    );
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("PUT /api/checklists/[checklistId]/items reorder error", err);
+    return NextResponse.json({ error: "Failed to reorder items" }, { status: 500 });
   }
 }
