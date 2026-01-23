@@ -34,8 +34,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ boardI
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ boardId: string }> }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ boardId: string }> }) {
   try {
+    const cookie = (req.headers as any).get?.("cookie") || "";
+    const m = cookie.match(/session=([^;]+)/);
+    const token = m?.[1] || "";
+    const session = token ? await verifySession(token) : null;
+    if (!session?.admin) return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
+
     const { boardId } = await params;
     await prisma.board.delete({ where: { id: boardId } });
     try { revalidateTag(`board:${boardId}`); revalidatePath("/"); } catch {}

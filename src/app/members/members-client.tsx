@@ -249,6 +249,49 @@ export default function MembersClient({
         </div>
       )}
 
+      {/* Reset Password Modal */}
+      {resettingMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded bg-background p-6 shadow-lg border border-black/10 dark:border-white/15">
+            <h3 className="text-lg font-bold">Reset Password</h3>
+            <p className="mt-1 text-xs text-foreground/60">
+              For user: <span className="font-semibold">{resettingMember.name || resettingMember.email}</span>
+            </p>
+            <form onSubmit={handleResetPassword} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-xs font-medium mb-1">New Password</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Enter new password"
+                  className="w-full text-sm px-3 py-2 border rounded bg-background"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button 
+                  type="button"
+                  onClick={() => { setResettingMember(null); setNewPassword(""); }} 
+                  className="text-xs rounded px-3 py-1.5 bg-foreground/10 hover:bg-foreground/20"
+                  disabled={busy}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="text-xs rounded px-3 py-1.5 bg-red-600 text-white hover:bg-red-700"
+                  disabled={busy}
+                >
+                  {busy ? "Resetting..." : "Reset Password"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="mx-auto max-w-5xl px-6 py-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Workspace Members</h1>
@@ -363,6 +406,12 @@ export default function MembersClient({
                               className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 text-foreground"
                             >
                               Edit
+                            </button>
+                            <button 
+                              onClick={() => setResettingMember(m)}
+                              className="text-xs rounded px-2 py-1 bg-yellow-50 hover:bg-yellow-100 text-yellow-600 dark:bg-yellow-900/20 dark:hover:bg-yellow-900/40 dark:text-yellow-400"
+                            >
+                              Reset PW
                             </button>
                             <button 
                               onClick={() => setDeleteId(m.id)}

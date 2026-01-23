@@ -84,12 +84,17 @@ export async function POST(req: Request) {
           if (toList.defaultChecklist) {
             const items = toList.defaultChecklist as any[];
             if (Array.isArray(items) && items.length > 0) {
-              const checklist = await tx.checklist.create({
-                data: { title: "Checklist", cardId },
-              });
-              await tx.checklistItem.createMany({
-                data: items.map((i) => ({ checklistId: checklist.id, title: i.title, completed: !!i.completed })),
-              });
+              // Filter out invalid items to prevent creating empty checklists/items
+              const validItems = items.filter(i => i && typeof i.title === 'string' && i.title.trim().length > 0);
+              
+              if (validItems.length > 0) {
+                const checklist = await tx.checklist.create({
+                  data: { title: "Checklist", cardId },
+                });
+                await tx.checklistItem.createMany({
+                  data: validItems.map((i) => ({ checklistId: checklist.id, title: i.title, completed: !!i.completed })),
+                });
+              }
             }
           }
         }

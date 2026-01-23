@@ -291,6 +291,38 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
   const [activeCard, setActiveCard] = React.useState<CardItem | null>(null);
   const [dragOriginListId, setDragOriginListId] = React.useState<string | null>(null);
 
+  // Drag to scroll
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const [isDraggingScroll, setIsDraggingScroll] = React.useState(false);
+  const [startX, setStartX] = React.useState(0);
+  const [scrollLeft, setScrollLeft] = React.useState(0);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // Ignore if clicking on a list (which has w-72 class) or any interactive element
+    if ((e.target as HTMLElement).closest('.w-72, button, input, textarea, select, a')) return;
+    
+    if (!scrollContainerRef.current) return;
+    setIsDraggingScroll(true);
+    setStartX(e.pageX - scrollContainerRef.current.offsetLeft);
+    setScrollLeft(scrollContainerRef.current.scrollLeft);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDraggingScroll(false);
+  };
+
+  const handleMouseUp = () => {
+    setIsDraggingScroll(false);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDraggingScroll || !scrollContainerRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollContainerRef.current.offsetLeft;
+    const walk = (x - startX) * 1.5; 
+    scrollContainerRef.current.scrollLeft = scrollLeft - walk;
+  };
+
   // Fix for stale closure in drag handlers
   const listsRef = React.useRef(lists);
   React.useEffect(() => {
