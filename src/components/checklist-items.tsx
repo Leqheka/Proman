@@ -149,7 +149,7 @@ function SortableItem({
                 type="date" 
                 value={item.dueDate ? new Date(item.dueDate).toISOString().split('T')[0] : ""} 
                 onChange={(e) => onUpdate(item.id, { dueDate: e.target.value ? new Date(e.target.value).toISOString() : null })}
-                className={`text-xs bg-transparent border-none p-0 cursor-pointer ${!item.dueDate ? 'w-6 opacity-20 group-hover/date:opacity-100' : 'w-auto'}`}
+                className={`text-xs bg-transparent border-none p-0 cursor-pointer ${!item.dueDate ? 'w-6 opacity-0' : 'w-auto'}`}
                 title="Set due date"
             />
             {!item.dueDate && (

@@ -8,10 +8,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ checkli
     const { checklistId } = await params;
     const body = await req.json();
     const title = (body?.title ?? "").trim();
+    const order = typeof body?.order === "number" ? body.order : 0;
+
     if (!checklistId) return NextResponse.json({ error: "checklistId required" }, { status: 400 });
     if (!title) return NextResponse.json({ error: "title required" }, { status: 400 });
 
-    const created = await prisma.checklistItem.create({ data: { checklistId, title } });
+    const created = await prisma.checklistItem.create({ data: { checklistId, title, order } });
     
     try {
       const cookie = (req.headers as any).get?.("cookie") || "";

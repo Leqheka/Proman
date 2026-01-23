@@ -721,11 +721,16 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
   async function addChecklistItem(checklistId: string, title: string) {
     const t = title.trim();
     if (!t) return;
+
+    const checklist = data?.checklists.find(c => c.id === checklistId);
+    const maxOrder = checklist?.items.reduce((max, item) => Math.max(max, item.order || 0), -1) ?? -1;
+    const newOrder = maxOrder + 1;
+
     try {
       const resp = await fetch(`/api/checklists/${checklistId}/items`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: t }),
+        body: JSON.stringify({ title: t, order: newOrder }),
       });
       if (resp.ok) {
         const created = await resp.json();
