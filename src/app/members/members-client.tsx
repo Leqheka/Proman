@@ -131,6 +131,32 @@ export default function MembersClient({
     }
   }
 
+  async function handleResetPassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!resettingMember || !newPassword) return;
+    setBusy(true);
+    try {
+      const resp = await fetch("/api/auth/admin/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: resettingMember.id, newPassword }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        showToast("error", data?.error || "Failed to reset password");
+      } else {
+        showToast("success", "Password reset successfully");
+        setResettingMember(null);
+        setNewPassword("");
+      }
+    } catch (err) {
+      console.error("Reset password error", err);
+      showToast("error", "Network error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function uploadAvatar(userId: string, file: File) {
     setUploadingUserId(userId);
     try {
