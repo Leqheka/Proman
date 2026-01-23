@@ -992,7 +992,14 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     <>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={() => setActiveCard(null)}>
         <SortableContext items={lists.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
-          <div className="pt-16 h-[calc(100vh-40px)] overflow-x-auto overflow-y-hidden pb-8">
+          <div
+            ref={scrollContainerRef}
+            onMouseDown={handleMouseDown}
+            onMouseLeave={handleMouseLeave}
+            onMouseUp={handleMouseUp}
+            onMouseMove={handleMouseMove}
+            className={`pt-16 h-[calc(100vh-40px)] overflow-x-auto overflow-y-hidden pb-8 ${isDraggingScroll ? "cursor-grabbing select-none" : ""}`}
+          >
             <div className="mx-auto w-full px-8 flex items-start gap-3">
               {lists.length === 0 ? (
                 <AddListTile

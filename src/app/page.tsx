@@ -78,7 +78,7 @@ export default async function Home() {
                 const bgRaw = normalizeUnsplash(raw);
                 const bgUrl = toProxy(bgRaw);
                 return (
-                  <BoardCard key={b.id} board={b} bgUrl={bgUrl} />
+                  <BoardCard key={b.id} board={b} bgUrl={bgUrl} isAdmin={isAdmin} />
                 );
               })
             )}
