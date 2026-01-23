@@ -1141,7 +1141,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                     <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <span
-                      className="w-[18px] h-[18px] inline-block"
+                      className="w-[15px] h-[15px] inline-block"
                       style={{
                         WebkitMaskImage: 'url(/icons/New/attachments.svg)',
                         maskImage: 'url(/icons/New/attachments.svg)',
@@ -1182,7 +1182,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                   {!!(data?.members && data.members.length) && (
                     <div className="ml-auto flex items-center gap-1">
                       {data.members.slice(0, 6).map((m) => (
-                        <Avatar key={m.id} name={m.name || undefined} email={m.email} image={m.image || undefined} size={24} />
+                        <Avatar key={m.id} name={m.name || undefined} email={m.email} image={m.image || undefined} size={29} />
                       ))}
                       {data.members.length > 6 && (
                         <span className="text-[10px] text-foreground/60">+{data.members.length - 6}</span>
@@ -1250,7 +1250,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span
-                              className="w-[18px] h-[18px] opacity-80 inline-block"
+                              className="w-[15px] h-[15px] opacity-80 inline-block"
                               style={{
                                 WebkitMaskImage: 'url(/icons/New/checklists.svg)',
                                 maskImage: 'url(/icons/New/checklists.svg)',
@@ -1329,7 +1329,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                         [creationActivity].map((a) => (
                           <li key={`a-${a.id}`} className="text-sm">
                             <div className="flex items-center gap-2">
-                              <Avatar image={a.user?.image || ""} name={a.user?.name || a.user?.email || ""} email={a.user?.email || ""} size={24} />
+                              <Avatar image={a.user?.image || ""} name={a.user?.name || a.user?.email || ""} email={a.user?.email || ""} size={29} />
                               <span className="font-semibold">{a.user?.name || a.user?.email || "Someone"}</span>
                               <span className="text-foreground/80">{String(a.details?.message || "Someone created this card")}</span>
                             </div>
@@ -1361,7 +1361,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                             <li key={`a-${item.a.id}`} className="text-sm">
                               <div className="grid grid-cols-[auto_1fr] gap-x-2">
                                 <div className="mt-1">
-                                  <Avatar image={item.a.user?.image || ""} name={item.a.user?.name || item.a.user?.email || ""} email={item.a.user?.email || ""} size={24} />
+                                  <Avatar image={item.a.user?.image || ""} name={item.a.user?.name || item.a.user?.email || ""} email={item.a.user?.email || ""} size={29} />
                                 </div>
                                 <div>
                                   <div>
@@ -1376,7 +1376,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                             <li key={`c-${item.c.id}`} className="text-sm group">
                               <div className="grid grid-cols-[auto_1fr] gap-x-2">
                                 <div className="mt-1">
-                                  <Avatar image={item.c.author?.image || ""} name={item.c.author?.name || item.c.author?.email || ""} email={item.c.author?.email || ""} size={28} />
+                                  <Avatar image={item.c.author?.image || ""} name={item.c.author?.name || item.c.author?.email || ""} email={item.c.author?.email || ""} size={34} />
                                 </div>
                                 <div className="w-full">
                                   <div className="flex items-center justify-between">

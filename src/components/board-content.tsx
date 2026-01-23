@@ -113,7 +113,7 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
           {card.dueDate && (
             <span className={`inline-flex items-center gap-1 px-2 py-[2px] rounded ${dueClasses}`}>
               <span
-                className="w-[18px] h-[18px] inline-block"
+                className="w-[15px] h-[15px] inline-block"
                 style={{
                   WebkitMaskImage: 'url(/icons/New/due_date.svg)',
                   maskImage: 'url(/icons/New/due_date.svg)',
@@ -133,7 +133,7 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
           {card.hasDescription && (
             <span className="inline-flex items-center gap-1">
               <span
-                className="w-[18px] h-[18px] inline-block"
+                className="w-[15px] h-[15px] inline-block"
                 style={{
                   WebkitMaskImage: 'url(/icons/New/description.svg)',
                   maskImage: 'url(/icons/New/description.svg)',
@@ -152,7 +152,7 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
           {(card.checklistCount ?? 0) > 0 && (
             <span className="inline-flex items-center gap-1">
               <span
-                className="w-[18px] h-[18px] inline-block"
+                className="w-[15px] h-[15px] inline-block"
                 style={{
                   WebkitMaskImage: 'url(/icons/New/checklists.svg)',
                   maskImage: 'url(/icons/New/checklists.svg)',
@@ -172,7 +172,7 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
           {(card.commentCount ?? 0) > 0 && (
             <span className="inline-flex items-center gap-1">
               <span
-                className="w-[18px] h-[18px] inline-block"
+                className="w-[15px] h-[15px] inline-block"
                 style={{
                   WebkitMaskImage: 'url(/icons/New/comment.svg)',
                   maskImage: 'url(/icons/New/comment.svg)',
@@ -192,7 +192,7 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
           {(card.attachmentCount ?? 0) > 0 && (
             <span className="inline-flex items-center gap-1">
               <span
-                className="w-[18px] h-[18px] inline-block"
+                className="w-[15px] h-[15px] inline-block"
                 style={{
                   WebkitMaskImage: 'url(/icons/New/attachments.svg)',
                   maskImage: 'url(/icons/New/attachments.svg)',
@@ -213,7 +213,7 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
           {!!(card.members && card.members.length) && (
             <div className="ml-auto flex items-center gap-1">
               {card.members.slice(0, 5).map((m) => (
-                <Avatar key={m.id} name={m.name || undefined} email={m.email} image={m.image || undefined} size={22} />
+                <Avatar key={m.id} name={m.name || undefined} email={m.email} image={m.image || undefined} size={26} />
               ))}
               {card.members.length > 5 && (
                 <span className="text-[10px] text-foreground/60">+{card.members.length - 5}</span>

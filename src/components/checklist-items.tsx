@@ -153,7 +153,7 @@ function SortableItem({
                 title="Set due date"
             />
             {!item.dueDate && (
-                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center text-foreground/50">
+                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center text-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                         <line x1="16" y1="2" x2="16" y2="6" />
