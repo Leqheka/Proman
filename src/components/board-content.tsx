@@ -113,10 +113,10 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
           {card.dueDate && (
             <span className={`inline-flex items-center gap-1 px-2 py-[2px] rounded ${dueClasses}`}>
               <span
-                className="w-3.5 h-3.5 inline-block"
+                className="w-[18px] h-[18px] inline-block"
                 style={{
-                  WebkitMaskImage: 'url(/icons/calendar.svg)',
-                  maskImage: 'url(/icons/calendar.svg)',
+                  WebkitMaskImage: 'url(/icons/New/due_date.svg)',
+                  maskImage: 'url(/icons/New/due_date.svg)',
                   backgroundColor: 'currentColor',
                   WebkitMaskRepeat: 'no-repeat',
                   maskRepeat: 'no-repeat',
@@ -133,10 +133,10 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
           {card.hasDescription && (
             <span className="inline-flex items-center gap-1">
               <span
-                className="w-3.5 h-3.5 inline-block"
+                className="w-[18px] h-[18px] inline-block"
                 style={{
-                  WebkitMaskImage: 'url(/icons/note.svg)',
-                  maskImage: 'url(/icons/note.svg)',
+                  WebkitMaskImage: 'url(/icons/New/description.svg)',
+                  maskImage: 'url(/icons/New/description.svg)',
                   backgroundColor: 'currentColor',
                   WebkitMaskRepeat: 'no-repeat',
                   maskRepeat: 'no-repeat',
@@ -152,10 +152,10 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
           {(card.checklistCount ?? 0) > 0 && (
             <span className="inline-flex items-center gap-1">
               <span
-                className="w-3.5 h-3.5 inline-block"
+                className="w-[18px] h-[18px] inline-block"
                 style={{
-                  WebkitMaskImage: 'url(/icons/checklist.svg)',
-                  maskImage: 'url(/icons/checklist.svg)',
+                  WebkitMaskImage: 'url(/icons/New/checklists.svg)',
+                  maskImage: 'url(/icons/New/checklists.svg)',
                   backgroundColor: 'currentColor',
                   WebkitMaskRepeat: 'no-repeat',
                   maskRepeat: 'no-repeat',
@@ -172,10 +172,10 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
           {(card.commentCount ?? 0) > 0 && (
             <span className="inline-flex items-center gap-1">
               <span
-                className="w-3.5 h-3.5 inline-block"
+                className="w-[18px] h-[18px] inline-block"
                 style={{
-                  WebkitMaskImage: 'url(/icons/comment.svg)',
-                  maskImage: 'url(/icons/comment.svg)',
+                  WebkitMaskImage: 'url(/icons/New/comment.svg)',
+                  maskImage: 'url(/icons/New/comment.svg)',
                   backgroundColor: 'currentColor',
                   WebkitMaskRepeat: 'no-repeat',
                   maskRepeat: 'no-repeat',
@@ -192,10 +192,10 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
           {(card.attachmentCount ?? 0) > 0 && (
             <span className="inline-flex items-center gap-1">
               <span
-                className="w-3.5 h-3.5 inline-block"
+                className="w-[18px] h-[18px] inline-block"
                 style={{
-                  WebkitMaskImage: 'url(/icons/attachment.svg)',
-                  maskImage: 'url(/icons/attachment.svg)',
+                  WebkitMaskImage: 'url(/icons/New/attachments.svg)',
+                  maskImage: 'url(/icons/New/attachments.svg)',
                   backgroundColor: 'currentColor',
                   WebkitMaskRepeat: 'no-repeat',
                   maskRepeat: 'no-repeat',
@@ -213,7 +213,7 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
           {!!(card.members && card.members.length) && (
             <div className="ml-auto flex items-center gap-1">
               {card.members.slice(0, 5).map((m) => (
-                <Avatar key={m.id} name={m.name || undefined} email={m.email} image={m.image || undefined} size={18} />
+                <Avatar key={m.id} name={m.name || undefined} email={m.email} image={m.image || undefined} size={22} />
               ))}
               {card.members.length > 5 && (
                 <span className="text-[10px] text-foreground/60">+{card.members.length - 5}</span>
