@@ -28,6 +28,8 @@ export default function MembersClient({
   const [uploadingUserId, setUploadingUserId] = React.useState<string | null>(null);
   const [editingMember, setEditingMember] = React.useState<Member | null>(null);
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
+  const [resettingMember, setResettingMember] = React.useState<Member | null>(null);
+  const [newPassword, setNewPassword] = React.useState("");
 
   function showToast(type: "success" | "error", message: string) {
     setToast({ type, message });
