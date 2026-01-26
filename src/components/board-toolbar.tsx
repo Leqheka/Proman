@@ -203,21 +203,35 @@ export default function BoardToolbar({
               </div>
             )}
           </div>
-          <div className="relative" ref={settingsWrapRef}>
-            <button
-              onClick={() => setOpenSettings((v) => !v)}
-              className="flex items-center justify-center text-xs rounded px-2 py-1 bg-background text-foreground border border-black/10 dark:border-white/15 hover:bg-foreground hover:text-background"
-              title="Board settings"
-            >
-              <span className="block sm:hidden">⚙</span>
-              <span className="hidden sm:inline">Board settings</span>
-            </button>
-            {openSettings && (
-              <div className="absolute right-0 mt-2 w-48 rounded border border-black/10 dark:border-white/15 bg-background p-2 shadow">
-                <button onClick={() => { setOpenSettings(false); setOpenArchives(true); }} className="block w-full text-left text-xs rounded px-2 py-1 hover:bg-foreground/5">Archives</button>
-              </div>
-            )}
-          </div>
+          {isAdmin && (
+            <div className="relative" ref={settingsWrapRef}>
+              <button
+                onClick={() => setOpenSettings((v) => !v)}
+                className="flex items-center justify-center text-xs rounded px-2 py-1 bg-background text-foreground border border-black/10 dark:border-white/15 hover:bg-foreground hover:text-background"
+                title="Board settings"
+              >
+                <span className="block sm:hidden">⚙</span>
+                <span className="hidden sm:inline">Settings</span>
+              </button>
+              {openSettings && (
+                <div className="absolute right-0 mt-2 w-48 rounded border border-black/10 dark:border-white/15 bg-background p-2 shadow z-50 flex flex-col gap-1">
+                  <a
+                    href={`/boards/${currentBoardId}/members`}
+                    className="block w-full text-left text-xs rounded px-2 py-1 hover:bg-foreground/5 text-foreground"
+                    onClick={() => setOpenSettings(false)}
+                  >
+                    Manage members
+                  </a>
+                  <button
+                    onClick={() => { setOpenSettings(false); setOpenArchives(true); }}
+                    className="block w-full text-left text-xs rounded px-2 py-1 hover:bg-foreground/5 text-foreground"
+                  >
+                    Board Archives
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
       {openArchives && typeof document !== "undefined" && createPortal(

@@ -28,6 +28,9 @@ export async function POST(req: Request) {
     }
 
     await prisma.$transaction(async (tx) => {
+      // Lock the card to prevent race conditions during rapid moves
+      await tx.$executeRaw`SELECT 1 FROM "Card" WHERE id = ${cardId} FOR UPDATE`;
+
       if (isSameList) {
         const currentOrder = card.order;
         if (toIndex === currentOrder) return;
@@ -83,23 +86,34 @@ export async function POST(req: Request) {
           }
           if (toList.defaultChecklist) {
             // Check if card already has any checklist to avoid duplication
+            // We use findFirst to see if a checklist exists.
+            // Since we locked the Card row at the start of transaction, we should be safe from races on this card.
             const existingChecklist = await tx.checklist.findFirst({
               where: { cardId },
               select: { id: true },
             });
 
             if (!existingChecklist) {
-              const items = toList.defaultChecklist as any[];
-              if (Array.isArray(items) && items.length > 0) {
-                // Filter out invalid items to prevent creating empty checklists/items
-                const validItems = items.filter(i => i && typeof i.title === 'string' && i.title.trim().length > 0);
+              const rawItems = toList.defaultChecklist;
+              if (Array.isArray(rawItems) && rawItems.length > 0) {
+                // Filter out invalid items (empty titles, non-objects)
+                const validItems = rawItems.filter((i: any) => 
+                  i && 
+                  typeof i === 'object' && 
+                  typeof i.title === 'string' && 
+                  i.title.trim().length > 0
+                );
                 
                 if (validItems.length > 0) {
                   const checklist = await tx.checklist.create({
                     data: { title: "Checklist", cardId },
                   });
                   await tx.checklistItem.createMany({
-                    data: validItems.map((i) => ({ checklistId: checklist.id, title: i.title, completed: !!i.completed })),
+                    data: validItems.map((i: any) => ({ 
+                      checklistId: checklist.id, 
+                      title: i.title, 
+                      completed: !!i.completed 
+                    })),
                   });
                 }
               }

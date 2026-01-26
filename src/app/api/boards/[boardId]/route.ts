@@ -44,7 +44,11 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ board
     if (!session?.admin) return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
 
     const { boardId } = await params;
-    await prisma.board.delete({ where: { id: boardId } });
+    // Instead of deleting, we archive the board
+    await prisma.board.update({
+      where: { id: boardId },
+      data: { isArchived: true },
+    });
     try { revalidateTag(`board:${boardId}`); revalidatePath("/"); } catch {}
     return NextResponse.json({ ok: true });
   } catch (err) {
