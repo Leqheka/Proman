@@ -114,13 +114,27 @@ export async function POST(req: Request) {
                }
             }
 
+            // Fetch existing checklists with items to avoid duplicates if moving back to source list
+            const existingChecklists = await tx.checklist.findMany({
+                where: { cardId },
+                include: { items: { orderBy: { order: 'asc' } } }
+            });
+
             for (const cl of checklistsToCreate) {
-                // Check if a checklist with this title already exists on the card
-                const existing = await tx.checklist.findFirst({
-                    where: { cardId, title: cl.title }
+                // Check if an EXACT match exists (title + items)
+                // This satisfies "accept in the case where it's being dragged back to a list it came from"
+                // i.e., don't add the same checklist again if it's already there.
+                const match = existingChecklists.find(ex => {
+                    if (ex.title !== cl.title) return false;
+                    if (ex.items.length !== cl.items.length) return false;
+                    // Compare items
+                    for (let i = 0; i < ex.items.length; i++) {
+                        if (ex.items[i].title !== cl.items[i].title) return false;
+                    }
+                    return true;
                 });
 
-                if (!existing) {
+                if (!match) {
                     const created = await tx.checklist.create({
                         data: { title: cl.title, cardId }
                     });

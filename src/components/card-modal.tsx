@@ -98,6 +98,9 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
   const [showMembersMenu, setShowMembersMenu] = React.useState(false);
   const [assignableMembers, setAssignableMembers] = React.useState<Member[]>([]);
 
+  // Collapsible checklists state
+  const [expandedChecklists, setExpandedChecklists] = React.useState<Record<string, boolean>>({});
+
   React.useEffect(() => {
     const controller = new AbortController();
     async function fetchCard() {
@@ -1245,10 +1248,20 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                   <p className="text-xs text-foreground/60 mt-2">No checklists</p>
                 ) : (
                   <div className="mt-3 space-y-4">
-                    {data.checklists.map((cl) => (
+                    {data.checklists.map((cl, index) => {
+                      const isExpanded = expandedChecklists[cl.id] ?? (index === data.checklists.length - 1);
+                      return (
                       <div key={cl.id} className="rounded border border-black/10 dark:border-neutral-800 p-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setExpandedChecklists(prev => ({ ...prev, [cl.id]: !isExpanded }))}
+                                className="p-0.5 hover:bg-foreground/10 rounded transition-colors"
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}>
+                                    <path d="M9 18l6-6-6-6" />
+                                </svg>
+                            </button>
                             <span
                               className="w-[15px] h-[15px] opacity-80 inline-block"
                               style={{
@@ -1287,15 +1300,19 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                           </div>
                           <button onClick={() => deleteChecklist(cl.id)} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10">Delete</button>
                         </div>
-                        <ChecklistItems
-                          checklist={cl}
-                          onUpdateItem={updateChecklistItem}
-                          onDeleteItem={deleteChecklistItem}
-                          onAddItem={addChecklistItem}
-                          onReorderItems={handleReorderItems}
-                        />
+                        {isExpanded && (
+                          <div className="mt-2">
+                            <ChecklistItems
+                              checklist={cl}
+                              onUpdateItem={updateChecklistItem}
+                              onDeleteItem={deleteChecklistItem}
+                              onAddItem={addChecklistItem}
+                              onReorderItems={handleReorderItems}
+                            />
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    )})}
                   </div>
                 )}
               </div>
