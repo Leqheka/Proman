@@ -13,7 +13,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ cardId: 
     if (withItems) {
       const checklists = await prisma.checklist.findMany({
         where: { cardId },
-        include: { items: { take: takeItems, orderBy: { id: "asc" } } },
+        include: { items: { take: takeItems, orderBy: { order: "asc" } } },
         orderBy: { id: "asc" },
       });
       const res = NextResponse.json(checklists);

@@ -215,7 +215,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
             const wantChecklists = (normalized.checklistCount || 0) > 0;
             const promises: Array<Promise<any>> = [];
             promises.push(wantAttachments ? tf("attachments", `/api/cards/${cardId}/attachments?take=${TAKE}`) : Promise.resolve(null));
-            promises.push(wantChecklists ? tf("checklists", `/api/cards/${cardId}/checklists?withItems=0`) : Promise.resolve(null));
+            promises.push(wantChecklists ? tf("checklists", `/api/cards/${cardId}/checklists?withItems=1`) : Promise.resolve(null));
             promises.push(wantDescription ? tf("description", `/api/cards/${cardId}/description`) : Promise.resolve(null));
             const [attachmentsRes, checklistsRes, descriptionRes] = await Promise.allSettled(promises);
             const attachmentsOk = attachmentsRes.status === "fulfilled" && attachmentsRes.value && attachmentsRes.value.ok;
@@ -231,7 +231,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
               return {
                 ...d,
                 ...(attachments !== undefined ? { attachments } : {}),
-                ...(checklists !== undefined ? { checklists: (checklists as any[]).map((cl: any) => ({ id: cl.id, title: cl.title, items: [], itemsCount: cl.itemsCount ?? 0 })) } : {}),
+                ...(checklists !== undefined ? { checklists: (checklists as any[]).map((cl: any) => ({ id: cl.id, title: cl.title, items: cl.items || [], itemsCount: cl.itemsCount ?? (cl.items?.length || 0) })) } : {}),
                 ...(descObj !== undefined ? { description: descObj.description ?? "" } : {}),
               };
             });
@@ -241,24 +241,6 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
               setAttachmentsCursor(attachments.length ? attachments[attachments.length - 1].id : null);
             }
 
-            if (Array.isArray(checklists)) {
-              const firstIds = (checklists as any[]).slice(0, 3).map((cl: any) => cl.id);
-              if (firstIds.length) {
-                const batched = await tf("items", `/api/cards/${cardId}/checklists/items?ids=${encodeURIComponent(firstIds.join(","))}&take=200`);
-                if (batched.ok) {
-                  const rows = await batched.json();
-                  const itemsById = new Map<string, ChecklistItem[]>();
-                  rows.forEach((r: any) => itemsById.set(r.id, r.items || []));
-                  setData((d) => {
-                    if (!d) return d;
-                    return {
-                      ...d,
-                      checklists: d.checklists.map((c) => (itemsById.has(c.id) ? { ...c, items: itemsById.get(c.id)! } : c)),
-                    };
-                  });
-                }
-              }
-            }
           } finally {
             setLoadingChecklists(false);
           }
