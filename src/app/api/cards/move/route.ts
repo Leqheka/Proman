@@ -6,10 +6,10 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const cardId: string = body?.cardId;
-    const fromListId: string = body?.fromListId;
-    const toListId: string = body?.toListId;
+    const fromListId: string = String(body?.fromListId);
+    const toListId: string = String(body?.toListId);
     let toIndex: number = Number(body?.toIndex ?? 0);
-    if (!cardId || !fromListId || !toListId) {
+    if (!cardId || !body?.fromListId || !body?.toListId) {
       return NextResponse.json({ error: "cardId, fromListId, toListId required" }, { status: 400 });
     }
 
@@ -85,38 +85,57 @@ export async function POST(req: Request) {
             });
           }
           if (toList.defaultChecklist) {
-            // Check if card already has any checklist to avoid duplication
-            // We use findFirst to see if a checklist exists.
-            // Since we locked the Card row at the start of transaction, we should be safe from races on this card.
-            const existingChecklist = await tx.checklist.findFirst({
-              where: { cardId },
-              select: { id: true },
-            });
+            const defaults = toList.defaultChecklist as any;
+            let checklistsToCreate: { title: string; items: any[] }[] = [];
 
-            if (!existingChecklist) {
-              const rawItems = toList.defaultChecklist;
-              if (Array.isArray(rawItems) && rawItems.length > 0) {
-                // Filter out invalid items (empty titles, non-objects)
-                const validItems = rawItems.filter((i: any) => 
-                  i && 
-                  typeof i === 'object' && 
-                  typeof i.title === 'string' && 
-                  i.title.trim().length > 0
-                );
-                
-                if (validItems.length > 0) {
-                  const checklist = await tx.checklist.create({
-                    data: { title: "Checklist", cardId },
-                  });
-                  await tx.checklistItem.createMany({
-                    data: validItems.map((i: any) => ({ 
-                      checklistId: checklist.id, 
-                      title: i.title, 
-                      completed: !!i.completed 
-                    })),
-                  });
+            if (Array.isArray(defaults) && defaults.length > 0) {
+               // Check format: New format has objects with 'items' array
+               const isNewFormat = defaults.some(d => d && typeof d === 'object' && 'items' in d && Array.isArray(d.items));
+               
+               if (isNewFormat) {
+                   checklistsToCreate = defaults
+                     .filter(d => d && d.title)
+                     .map(d => ({
+                       title: d.title,
+                       items: Array.isArray(d.items) ? d.items : []
+                   }));
+               } else {
+                   // Old format: Array of items, create single checklist
+                   // Only proceed if card has NO checklists to avoid cluttering existing cards
+                   // (Preserving conservative behavior for legacy format, or should we align with new format?)
+                   // Let's use the 'Checklist' title check for consistency.
+                   const validItems = defaults.filter((i: any) => i && i.title);
+                   if (validItems.length > 0) {
+                       checklistsToCreate.push({
+                           title: "Checklist",
+                           items: validItems
+                       });
+                   }
+               }
+            }
+
+            for (const cl of checklistsToCreate) {
+                // Check if a checklist with this title already exists on the card
+                const existing = await tx.checklist.findFirst({
+                    where: { cardId, title: cl.title }
+                });
+
+                if (!existing) {
+                    const created = await tx.checklist.create({
+                        data: { title: cl.title, cardId }
+                    });
+                    
+                    if (cl.items.length > 0) {
+                        await tx.checklistItem.createMany({
+                            data: cl.items.map((item: any, idx: number) => ({
+                                checklistId: created.id,
+                                title: item.title || "Untitled",
+                                completed: !!item.completed,
+                                order: idx
+                            }))
+                        });
+                    }
                 }
-              }
             }
           }
         }
