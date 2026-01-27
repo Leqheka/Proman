@@ -22,12 +22,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ boardI
   try {
     const { boardId } = await params;
     const body = await req.json();
-    const data: { title?: string; background?: string } = {};
+    const data: { title?: string; background?: string; isArchived?: boolean } = {};
     if (typeof body?.title === "string") data.title = body.title.trim();
     if (typeof body?.background === "string") data.background = body.background.trim();
+    if (typeof body?.isArchived === "boolean") data.isArchived = body.isArchived;
 
     const board = await prisma.board.update({ where: { id: boardId }, data });
-    try { revalidateTag(`board:${boardId}`); } catch {}
+    try { 
+      revalidateTag(`board:${boardId}`); 
+      revalidatePath("/"); 
+    } catch {}
     return NextResponse.json(board);
   } catch (err) {
     console.error("PATCH /api/boards/:boardId error", err);

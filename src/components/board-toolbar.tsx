@@ -36,11 +36,6 @@ export default function BoardToolbar({
   const [openBg, setOpenBg] = useState(false);
   const bgMenuWrapRef = useRef<HTMLDivElement | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [openSettings, setOpenSettings] = useState(false);
-  const settingsWrapRef = useRef<HTMLDivElement | null>(null);
-  const [openArchives, setOpenArchives] = useState(false);
-  const [archives, setArchives] = useState<Array<{ id: string; title: string; listId: string | null; listTitle: string }>>([]);
-
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -92,43 +87,6 @@ export default function BoardToolbar({
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [openBg]);
-
-  useEffect(() => {
-    if (!openSettings) return;
-    const onPointerDown = (e: PointerEvent) => {
-      const target = e.target as Node;
-      const container = settingsWrapRef.current;
-      if (container && !container.contains(target)) {
-        setOpenSettings(false);
-      }
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenSettings(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [openSettings]);
-
-  useEffect(() => {
-    if (!openArchives) return;
-    let alive = true;
-    (async () => {
-      try {
-        const r = await fetch(`/api/boards/${currentBoardId}/archives`);
-        const j = await r.json();
-        if (!alive) return;
-        setArchives(Array.isArray(j) ? j : []);
-      } catch {
-        if (!alive) return;
-        setArchives([]);
-      }
-    })();
-    return () => { alive = false; };
-  }, [openArchives, currentBoardId]);
 
   const toProxy = (u: string) => (u && u.startsWith("http") ? `/api/image-proxy?url=${encodeURIComponent(u)}` : u);
 
@@ -203,66 +161,8 @@ export default function BoardToolbar({
               </div>
             )}
           </div>
-          {isAdmin && (
-            <div className="relative" ref={settingsWrapRef}>
-              <button
-                onClick={() => setOpenSettings((v) => !v)}
-                className="flex items-center justify-center text-xs rounded px-2 py-1 bg-background text-foreground border border-black/10 dark:border-white/15 hover:bg-foreground hover:text-background"
-                title="Board settings"
-              >
-                <span className="block sm:hidden">⚙</span>
-                <span className="hidden sm:inline">Settings</span>
-              </button>
-              {openSettings && (
-                <div className="absolute right-0 mt-2 w-48 rounded border border-black/10 dark:border-white/15 bg-background p-2 shadow z-50 flex flex-col gap-1">
-                  <a
-                    href={`/boards/${currentBoardId}/members`}
-                    className="block w-full text-left text-xs rounded px-2 py-1 hover:bg-foreground/5 text-foreground"
-                    onClick={() => setOpenSettings(false)}
-                  >
-                    Manage members
-                  </a>
-                  <button
-                    onClick={() => { setOpenSettings(false); setOpenArchives(true); }}
-                    className="block w-full text-left text-xs rounded px-2 py-1 hover:bg-foreground/5 text-foreground"
-                  >
-                    Board Archives
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
-      {openArchives && typeof document !== "undefined" && createPortal(
-        <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setOpenArchives(false); }}>
-          <div className="w-full max-w-lg rounded border border-black/10 dark:border-white/15 bg-background p-4 shadow">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold">Archives</p>
-              <button className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10" onClick={() => setOpenArchives(false)}>Close</button>
-            </div>
-            <div className="mt-3 max-h-[60vh] overflow-y-auto">
-              {archives.length === 0 ? (
-                <p className="text-xs text-foreground/60">No archived cards</p>
-              ) : (
-                <ul className="space-y-2">
-                  {archives.map((c) => (
-                    <li key={c.id}>
-                      <button
-                        className="w-full text-left rounded px-3 py-2 border bg-background hover:bg-foreground/5 text-sm"
-                        onClick={() => { setOpenArchives(false); router.push(`/boards/${currentBoardId}?openCard=${c.id}`); }}
-                        title={c.listTitle ? `From ${c.listTitle}` : "Open card"}
-                      >
-                        {c.title}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </div>, document.body)
-      }
     </div>
   );
 }
