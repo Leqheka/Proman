@@ -2,7 +2,7 @@
 
 import React from "react";
 import Avatar from "./avatar";
-import ChecklistItems from "./checklist-items";
+import ChecklistRenderer from "./checklist-renderer";
 
 type Member = { id: string; name?: string | null; email: string; image?: string | null };
 
@@ -33,7 +33,7 @@ type CardDetail = {
   assignmentCount?: number;
 };
 
-export default function CardModal({ cardId, onClose, onCardUpdated, initial, availableLists, onMoveCard }: { cardId: string; onClose: () => void; onCardUpdated?: (patch: { id: string; title?: string; dueDate?: string | null; hasDescription?: boolean; checklistCount?: number; assignmentCount?: number; commentCount?: number; attachmentCount?: number; members?: Member[] }) => void; initial?: Partial<CardDetail> | null; availableLists?: { id: string; title: string }[]; onMoveCard?: (toListId: string) => void }) {
+export default function CardModal({ cardId, onClose, onCardUpdated, initial, availableLists, onMoveCard }: { cardId: string; onClose: () => void; onCardUpdated?: (patch: { id: string; title?: string; dueDate?: string | null; hasDescription?: boolean; checklistCount?: number; assignmentCount?: number; commentCount?: number; attachmentCount?: number; members?: Member[] }) => void; initial?: Partial<CardDetail> | null; availableLists?: { id: string; title: string }[]; onMoveCard?: (toListId: string) => Promise<any> }) {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [data, setData] = React.useState<CardDetail | null>(null);
@@ -64,8 +64,6 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
   const [editingCommentText, setEditingCommentText] = React.useState("");
   const [loadingChecklists, setLoadingChecklists] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
-  const [editingChecklistId, setEditingChecklistId] = React.useState<string | null>(null);
-  const [editingChecklistTitle, setEditingChecklistTitle] = React.useState<string>("");
   const [showChecklistMenu, setShowChecklistMenu] = React.useState(false);
   const [newChecklistTitle, setNewChecklistTitle] = React.useState("Checklist");
   const [copyFromChecklistId, setCopyFromChecklistId] = React.useState<string | "none">("none");
@@ -98,8 +96,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
   const [showMembersMenu, setShowMembersMenu] = React.useState(false);
   const [assignableMembers, setAssignableMembers] = React.useState<Member[]>([]);
 
-  // Collapsible checklists state
-  const [expandedChecklists, setExpandedChecklists] = React.useState<Record<string, boolean>>({});
+  // Collapsible checklists state - managed by ChecklistRenderer now
+
 
   React.useEffect(() => {
     const controller = new AbortController();
@@ -909,10 +907,26 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                     <button
                       key={l.id}
                       className="w-full text-left px-3 py-2 text-xs hover:bg-foreground/5 truncate flex items-center justify-between"
-                      onClick={() => {
+                      onClick={async () => {
                         if (onMoveCard) {
-                            onMoveCard(l.id);
-                            setData((d) => (d ? { ...d, list: { ...d.list, id: l.id, title: l.title } } : d));
+                            const updated = await onMoveCard(l.id);
+                            setData((d) => {
+                                if (!d) return d;
+                                const next = { ...d, list: { ...d.list, id: l.id, title: l.title } };
+                                if (updated && updated.checklists) {
+                                    return { 
+                                        ...next, 
+                                        checklists: updated.checklists.map((cl: any) => ({
+                                            id: cl.id,
+                                            title: cl.title,
+                                            items: cl.items || [],
+                                            itemsCount: cl.items?.length ?? cl.itemsCount ?? 0
+                                        })), 
+                                        checklistCount: updated.checklistCount ?? updated.checklists.length 
+                                    };
+                                }
+                                return next;
+                            });
                         }
                         setShowMoveMenu(false);
                       }}
@@ -1230,71 +1244,20 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                   <p className="text-xs text-foreground/60 mt-2">No checklists</p>
                 ) : (
                   <div className="mt-3 space-y-4">
-                    {data.checklists.map((cl, index) => {
-                      const isExpanded = expandedChecklists[cl.id] ?? (index === data.checklists.length - 1);
-                      return (
-                      <div key={cl.id} className="rounded border border-black/10 dark:border-neutral-800 p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => setExpandedChecklists(prev => ({ ...prev, [cl.id]: !isExpanded }))}
-                                className="p-0.5 hover:bg-foreground/10 rounded transition-colors"
-                            >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}>
-                                    <path d="M9 18l6-6-6-6" />
-                                </svg>
-                            </button>
-                            <span
-                              className="w-[15px] h-[15px] opacity-80 inline-block"
-                              style={{
-                                WebkitMaskImage: 'url(/icons/New/checklists.svg)',
-                                maskImage: 'url(/icons/New/checklists.svg)',
-                                backgroundColor: 'currentColor',
-                                WebkitMaskRepeat: 'no-repeat',
-                                maskRepeat: 'no-repeat',
-                                WebkitMaskPosition: 'center',
-                                maskPosition: 'center',
-                                WebkitMaskSize: 'contain',
-                                maskSize: 'contain',
-                              }}
-                              aria-hidden
-                            />
-                            {editingChecklistId === cl.id ? (
-                              <input
-                                autoFocus
-                                value={editingChecklistTitle}
-                                onChange={(e) => setEditingChecklistTitle(e.target.value)}
-                                onBlur={() => { updateChecklistTitle(cl.id, editingChecklistTitle); setEditingChecklistId(null); }}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") { updateChecklistTitle(cl.id, editingChecklistTitle); setEditingChecklistId(null); }
-                                  if (e.key === "Escape") { setEditingChecklistId(null); setEditingChecklistTitle(""); }
-                                }}
-                                className="text-sm font-semibold bg-transparent outline-none border rounded px-1"
-                              />
-                            ) : (
-                              <button
-                                onClick={() => { setEditingChecklistId(cl.id); setEditingChecklistTitle(cl.title); }}
-                                className="text-sm font-semibold text-left"
-                              >
-                                {cl.title}
-                              </button>
-                            )}
-                          </div>
-                          <button onClick={() => deleteChecklist(cl.id)} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10">Delete</button>
-                        </div>
-                        {isExpanded && (
-                          <div className="mt-2">
-                            <ChecklistItems
-                              checklist={cl}
-                              onUpdateItem={updateChecklistItem}
-                              onDeleteItem={deleteChecklistItem}
-                              onAddItem={addChecklistItem}
-                              onReorderItems={handleReorderItems}
-                            />
-                          </div>
-                        )}
+                    {data.checklists.map((cl, index) => (
+                      <div key={cl.id} className="mb-4">
+                        <ChecklistRenderer
+                          checklist={cl}
+                          defaultOpen={index === data.checklists.length - 1}
+                          onUpdateTitle={updateChecklistTitle}
+                          onDelete={deleteChecklist}
+                          onUpdateItem={updateChecklistItem}
+                          onDeleteItem={deleteChecklistItem}
+                          onAddItem={addChecklistItem}
+                          onReorderItems={handleReorderItems}
+                        />
                       </div>
-                    )})}
+                    ))}
                   </div>
                 )}
               </div>

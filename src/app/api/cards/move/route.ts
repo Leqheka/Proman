@@ -114,41 +114,43 @@ export async function POST(req: Request) {
                }
             }
 
-            // Fetch existing checklists with items to avoid duplicates if moving back to source list
+            // Fetch existing checklists with items to check for duplicates
+            // We check for exact match (Title + Item Titles) to avoid adding the same checklist twice
+            // (e.g. when moving back to a list), but allow same-title checklists if items differ.
             const existingChecklists = await tx.checklist.findMany({
                 where: { cardId },
-                include: { items: { orderBy: { order: 'asc' } } }
+                include: { items: true }
             });
 
             for (const cl of checklistsToCreate) {
-                // Check if an EXACT match exists (title + items)
-                // This satisfies "accept in the case where it's being dragged back to a list it came from"
-                // i.e., don't add the same checklist again if it's already there.
                 const match = existingChecklists.find(ex => {
                     if (ex.title !== cl.title) return false;
                     if (ex.items.length !== cl.items.length) return false;
-                    // Compare items
-                    for (let i = 0; i < ex.items.length; i++) {
-                        if (ex.items[i].title !== cl.items[i].title) return false;
-                    }
-                    return true;
+                    
+                    // Sort existing items by order
+                    const sortedEx = [...ex.items].sort((a, b) => (a.order || 0) - (b.order || 0));
+                    
+                    return sortedEx.every((item, idx) => {
+                         const clItem = cl.items[idx];
+                         return item.title === (clItem.title || "Untitled");
+                    });
                 });
 
-                if (!match) {
-                    const created = await tx.checklist.create({
-                        data: { title: cl.title, cardId }
+                if (match) continue;
+
+                const created = await tx.checklist.create({
+                    data: { title: cl.title, cardId }
+                });
+                
+                if (cl.items.length > 0) {
+                    await tx.checklistItem.createMany({
+                        data: cl.items.map((item: any, idx: number) => ({
+                            checklistId: created.id,
+                            title: item.title || "Untitled",
+                            completed: !!item.completed,
+                            order: idx
+                        }))
                     });
-                    
-                    if (cl.items.length > 0) {
-                        await tx.checklistItem.createMany({
-                            data: cl.items.map((item: any, idx: number) => ({
-                                checklistId: created.id,
-                                title: item.title || "Untitled",
-                                completed: !!item.completed,
-                                order: idx
-                            }))
-                        });
-                    }
                 }
             }
           }

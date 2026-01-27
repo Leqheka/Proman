@@ -889,7 +889,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
       return next;
     });
 
-    await moveCard(cardId, fromListId, toListId, toIndex);
+    return await moveCard(cardId, fromListId, toListId, toIndex);
   }
 
   async function handleCloseModal() {
