@@ -76,6 +76,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
   const [loadingActivity, setLoadingActivity] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
   const [showDetails, setShowDetails] = React.useState(true);
+  const [isEditingDescription, setIsEditingDescription] = React.useState(false);
   const [hasMoreActivity, setHasMoreActivity] = React.useState(false);
   const [activityCursor, setActivityCursor] = React.useState<string | null>(null);
 
@@ -1191,15 +1192,83 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                 </div>
               </div>
 
-              <div>
-                <p className="text-sm font-semibold">Description</p>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  onBlur={saveBasics}
-                  placeholder="Add a more detailed description..."
-                  className="mt-2 w-full h-24 text-sm border rounded p-2 bg-background"
-                />
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-foreground opacity-70" style={{
+                    maskImage: 'url(/icons/New/description.svg)',
+                    WebkitMaskImage: 'url(/icons/New/description.svg)',
+                    maskRepeat: 'no-repeat',
+                    maskPosition: 'center',
+                    maskSize: 'contain'
+                  }} />
+                  <p className="text-sm font-semibold">Description</p>
+                </div>
+
+                {isEditingDescription ? (
+                  <div className="flex flex-col gap-2 animate-in fade-in duration-200">
+                    <div className="border-2 border-blue-500 rounded-md overflow-hidden bg-background ring-offset-background transition-all">
+                      {/* Toolbar */}
+                      <div className="flex items-center gap-1 p-1.5 border-b bg-foreground/5 overflow-x-auto no-scrollbar">
+                        <button className="flex items-center gap-0.5 px-1.5 py-1 text-xs font-medium hover:bg-foreground/10 rounded transition-colors" title="Text style">
+                          <span>Tt</span>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                        </button>
+                        <div className="w-[1px] h-4 bg-foreground/10 mx-1 flex-shrink-0" />
+                        <button className="px-2 py-1 text-xs font-bold hover:bg-foreground/10 rounded transition-colors" title="Bold">B</button>
+                        <button className="px-2 py-1 text-xs italic hover:bg-foreground/10 rounded transition-colors" title="Italic">I</button>
+                        <button className="px-2 py-1 text-xs hover:bg-foreground/10 rounded transition-colors" title="More options">...</button>
+                        <div className="w-[1px] h-4 bg-foreground/10 mx-1 flex-shrink-0" />
+                        <button className="flex items-center gap-0.5 px-1.5 py-1 hover:bg-foreground/10 rounded transition-colors" title="List">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                        </button>
+                        <div className="w-[1px] h-4 bg-foreground/10 mx-1 flex-shrink-0" />
+                        <button className="px-2 py-1 hover:bg-foreground/10 rounded transition-colors" title="Link">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                        </button>
+                        <button className="flex items-center gap-0.5 px-1.5 py-1 hover:bg-foreground/10 rounded transition-colors" title="Insert">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                        </button>
+                      </div>
+                      <textarea
+                        autoFocus
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Add a more detailed description..."
+                        className="w-full min-h-[120px] p-3 text-sm focus:outline-none resize-none bg-background placeholder:text-foreground/40"
+                      />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={async () => {
+                          await saveBasics();
+                          setIsEditingDescription(false);
+                        }}
+                        disabled={saving}
+                        className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded shadow-sm transition-all disabled:opacity-50"
+                      >
+                        {saving ? "Saving..." : "Save"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDescription(data?.description || "");
+                          setIsEditingDescription(false);
+                        }}
+                        className="px-3 py-1.5 text-sm font-medium text-foreground/60 hover:text-foreground hover:bg-foreground/5 rounded transition-all"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => setIsEditingDescription(true)}
+                    className="w-full min-h-[56px] text-sm p-3 rounded-md bg-foreground/5 hover:bg-foreground/10 cursor-pointer transition-all whitespace-pre-wrap border border-transparent hover:border-foreground/10"
+                  >
+                    {description || <span className="text-foreground/40 italic">Add a more detailed description...</span>}
+                  </div>
+                )}
               </div>
 
               {data.attachments.length > 0 && (
