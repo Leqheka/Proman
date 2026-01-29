@@ -139,7 +139,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
         } else {
           setLoading(true);
         }
-        const resp = await fetch(`/api/cards/${cardId}?summary=1`, { signal: controller.signal });
+        const resp = await fetch(`/api/cards/${cardId}?summary=1&t=${Date.now()}`, { signal: controller.signal });
         if (!resp.ok) {
           const status = resp.status;
           setLoadError(status === 404 ? "Card not found" : "Failed to load card");
@@ -187,66 +187,53 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
           const createdAtISO = normalized && (normalized as any).createdAt ? (normalized as any).createdAt : new Date().toISOString();
           setCreationActivity({ id: `local-${cardId}`, type: "CARD_CREATED", details: { message: "Someone created this card" }, createdAt: createdAtISO, user: null });
         }
-        // Run heavy loads just after paint to avoid long idle delays
-        const schedule = (fn: () => void) => {
-          try {
-            if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-              window.requestAnimationFrame(() => fn());
-            } else {
-              setTimeout(fn, 0);
-            }
-          } catch {
-            setTimeout(fn, 0);
-          }
-        };
-        schedule(async () => {
-          try {
-            setLoadingChecklists(true);
-            const wantDescription = !!summary.hasDescription && !(summary.description && summary.description.length > 0);
-            const tf = async (name: string, url: string) => {
-              const t = performance.now();
-              const r = await fetch(url, { signal: controller.signal });
-              console.info(`[CardModalPerf] ${name}_ms=`, Math.round(performance.now() - t));
-              return r;
+        // Run heavy loads directly after summary to ensure immediate reflection
+        try {
+          setLoadingChecklists(true);
+          const wantDescription = !!summary.hasDescription && !(summary.description && summary.description.length > 0);
+          const tf = async (name: string, url: string) => {
+            const t = performance.now();
+            const r = await fetch(url, { signal: controller.signal });
+            console.info(`[CardModalPerf] ${name}_ms=`, Math.round(performance.now() - t));
+            return r;
+          };
+          const TAKE = 20;
+          const wantAttachments = (normalized.attachmentCount || 0) > 0;
+          const wantChecklists = (normalized.checklistCount || 0) > 0;
+          const promises: Array<Promise<any>> = [];
+          promises.push(wantAttachments ? tf("attachments", `/api/cards/${cardId}/attachments?take=${TAKE}&t=${Date.now()}`) : Promise.resolve(null));
+          promises.push(wantChecklists ? tf("checklists", `/api/cards/${cardId}/checklists?withItems=1&t=${Date.now()}`) : Promise.resolve(null));
+          promises.push(wantDescription ? tf("description", `/api/cards/${cardId}/description?t=${Date.now()}`) : Promise.resolve(null));
+          const [attachmentsRes, checklistsRes, descriptionRes] = await Promise.allSettled(promises);
+          const attachmentsOk = attachmentsRes.status === "fulfilled" && attachmentsRes.value && attachmentsRes.value.ok;
+          const checklistsOk = checklistsRes.status === "fulfilled" && checklistsRes.value && checklistsRes.value.ok;
+          const descriptionOk = wantDescription && descriptionRes.status === "fulfilled" && descriptionRes.value && descriptionRes.value.ok;
+
+          const attachments = attachmentsOk ? await attachmentsRes.value.json() : undefined;
+          const checklists = checklistsOk ? await checklistsRes.value.json() : undefined;
+          const descObj = descriptionOk ? await descriptionRes.value.json() : undefined;
+
+          setData((d) => {
+            if (!d) return d;
+            return {
+              ...d,
+              ...(attachments !== undefined ? { attachments } : {}),
+              ...(checklists !== undefined ? { checklists: (checklists as any[]).map((cl: any) => ({ id: cl.id, title: cl.title, items: cl.items || [], itemsCount: cl.itemsCount ?? (cl.items?.length || 0) })) } : {}),
+              ...(descObj !== undefined ? { description: descObj.description ?? "" } : {}),
             };
-            const TAKE = 20;
-            const wantAttachments = (normalized.attachmentCount || 0) > 0;
-            const wantChecklists = (normalized.checklistCount || 0) > 0;
-            const promises: Array<Promise<any>> = [];
-            promises.push(wantAttachments ? tf("attachments", `/api/cards/${cardId}/attachments?take=${TAKE}`) : Promise.resolve(null));
-            promises.push(wantChecklists ? tf("checklists", `/api/cards/${cardId}/checklists?withItems=1`) : Promise.resolve(null));
-            promises.push(wantDescription ? tf("description", `/api/cards/${cardId}/description`) : Promise.resolve(null));
-            const [attachmentsRes, checklistsRes, descriptionRes] = await Promise.allSettled(promises);
-            const attachmentsOk = attachmentsRes.status === "fulfilled" && attachmentsRes.value && attachmentsRes.value.ok;
-            const checklistsOk = checklistsRes.status === "fulfilled" && checklistsRes.value && checklistsRes.value.ok;
-            const descriptionOk = wantDescription && descriptionRes.status === "fulfilled" && descriptionRes.value && descriptionRes.value.ok;
-
-            const attachments = attachmentsOk ? await attachmentsRes.value.json() : undefined;
-            const checklists = checklistsOk ? await checklistsRes.value.json() : undefined;
-            const descObj = descriptionOk ? await descriptionRes.value.json() : undefined;
-
-            setData((d) => {
-              if (!d) return d;
-              return {
-                ...d,
-                ...(attachments !== undefined ? { attachments } : {}),
-                ...(checklists !== undefined ? { checklists: (checklists as any[]).map((cl: any) => ({ id: cl.id, title: cl.title, items: cl.items || [], itemsCount: cl.itemsCount ?? (cl.items?.length || 0) })) } : {}),
-                ...(descObj !== undefined ? { description: descObj.description ?? "" } : {}),
-              };
-            });
-            if (descObj !== undefined) {
-              setDescription(descObj.description ?? "");
-            }
-            if (Array.isArray(attachments)) {
-              const takeA = TAKE;
-              setHasMoreAttachments(attachments.length === takeA);
-              setAttachmentsCursor(attachments.length ? attachments[attachments.length - 1].id : null);
-            }
-
-          } finally {
-            setLoadingChecklists(false);
+          });
+          if (descObj !== undefined) {
+            setDescription(descObj.description ?? "");
           }
-        });
+          if (Array.isArray(attachments)) {
+            const takeA = TAKE;
+            setHasMoreAttachments(attachments.length === takeA);
+            setAttachmentsCursor(attachments.length ? attachments[attachments.length - 1].id : null);
+          }
+
+        } finally {
+          setLoadingChecklists(false);
+        }
       } catch (err) {
         if ((err as any)?.name !== "AbortError") {
           console.error("Failed to load card", err);

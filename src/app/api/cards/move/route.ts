@@ -120,6 +120,7 @@ export async function POST(req: Request) {
                 include: { items: true }
             });
 
+            console.info(`[API/cards/move] creating ${checklistsToCreate.length} checklists for card ${cardId}`);
             for (const cl of checklistsToCreate) {
                 const match = existingChecklists.find(ex => {
                     if (ex.title !== cl.title) return false;
@@ -134,8 +135,12 @@ export async function POST(req: Request) {
                     });
                 });
 
-                if (match) continue;
+                if (match) {
+                    console.info(`[API/cards/move] checklist "${cl.title}" already exists on card ${cardId}, skipping`);
+                    continue;
+                }
 
+                console.info(`[API/cards/move] creating checklist "${cl.title}" on card ${cardId}`);
                 const created = await tx.checklist.create({
                     data: { title: cl.title, cardId }
                 });

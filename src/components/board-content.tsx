@@ -907,7 +907,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     try { router.replace(window.location.pathname); } catch {}
     if (!id) return;
     try {
-      const res = await fetch(`/api/cards/${id}?summary=1`);
+      const res = await fetch(`/api/cards/${id}?summary=1&t=${Date.now()}`);
       if (res.ok) {
         const detail = await res.json();
         if (detail.archived) {
