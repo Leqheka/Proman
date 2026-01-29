@@ -101,7 +101,7 @@ async function getBoardDataCached(boardId: string) {
   const cached = unstable_cache(
     () => loadBoardData(boardId),
     ["board-page", boardId],
-    { revalidate: 60, tags: [`board:${boardId}`] }
+    { revalidate: 1, tags: [`board:${boardId}`] }
   );
   return cached();
 }

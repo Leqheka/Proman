@@ -272,6 +272,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
   const [lists, setLists] = React.useState<ListItem[]>(initialLists);
   const [archives, setArchives] = React.useState<CardItem[]>(archivedCards);
   const [openedCardId, setOpenedCardId] = React.useState<string | null>(null);
+  const [cardLastUpdated, setCardLastUpdated] = React.useState<Record<string, number>>({});
   const [editingDefaultsListId, setEditingDefaultsListId] = React.useState<string | null>(null);
   const [editingListId, setEditingListId] = React.useState<string | null>(null);
   const [listPaging, setListPaging] = React.useState<Record<string, { hasMore: boolean; cursor: string | null; loading: boolean; total: number }>>(() => {
@@ -515,11 +516,13 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
                 }))
               : undefined,
           });
+          return data;
         }
       }
     } catch (err) {
       console.error("Failed to persist card move", err);
     }
+    return null;
   }
 
   async function handleUpdateListTitle(listId: string, newTitle: string) {
@@ -780,7 +783,12 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
     attachmentCount?: number;
     members?: Array<{ id: string; name?: string | null; email: string; image?: string | null }>;
   }) {
+    console.info("[BoardContent] handleCardUpdated", patch);
     const { id, title, dueDate, hasDescription, checklistCount, assignmentCount, commentCount, attachmentCount, members } = patch;
+    
+    // Trigger modal refresh if this card is open
+    setCardLastUpdated(curr => ({ ...curr, [id]: Date.now() }));
+
     setLists((curr) => {
       const loc = findListByCardId(id, curr);
       if (!loc) return curr;
@@ -1103,6 +1111,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
           onCardUpdated={handleCardUpdated}
           availableLists={lists.map(l => ({ id: l.id, title: l.title }))}
           onMoveCard={(toListId) => handleMoveCardFromModal(openedCardId, toListId)}
+          lastUpdated={cardLastUpdated[openedCardId] || 0}
           initial={(() => {
             const loc = findListByCardId(openedCardId!);
             if (!loc) return null;

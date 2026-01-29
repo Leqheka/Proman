@@ -27,10 +27,8 @@ export async function POST(req: Request) {
       toIndex = Math.max(0, Math.min(destCount, toIndex));
     }
 
+    const t0 = Date.now();
     await prisma.$transaction(async (tx) => {
-      // Lock the card to prevent race conditions during rapid moves
-      await tx.$executeRaw`SELECT 1 FROM "Card" WHERE id = ${cardId} FOR UPDATE`;
-
       if (isSameList) {
         const currentOrder = card.order;
         if (toIndex === currentOrder) return;
@@ -180,7 +178,7 @@ export async function POST(req: Request) {
     if (fullCard) {
       const responseCard = {
         ...fullCard,
-        checklistCount: fullCard.checklists.reduce((acc, c) => acc + c.items.length, 0),
+        checklistCount: fullCard.checklists.length,
         commentCount: fullCard._count.comments,
         attachmentCount: fullCard._count.attachments,
         assignmentCount: fullCard.assignments.length,
@@ -191,6 +189,7 @@ export async function POST(req: Request) {
           image: a.user.image,
         })),
       };
+      console.info("[API/cards/move] duration_ms=", Date.now() - t0, "cardId=", cardId, "checklistCount=", responseCard.checklistCount);
       return NextResponse.json(responseCard);
     }
 

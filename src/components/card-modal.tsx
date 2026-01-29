@@ -33,7 +33,7 @@ type CardDetail = {
   assignmentCount?: number;
 };
 
-export default function CardModal({ cardId, onClose, onCardUpdated, initial, availableLists, onMoveCard }: { cardId: string; onClose: () => void; onCardUpdated?: (patch: { id: string; title?: string; dueDate?: string | null; hasDescription?: boolean; checklistCount?: number; assignmentCount?: number; commentCount?: number; attachmentCount?: number; members?: Member[] }) => void; initial?: Partial<CardDetail> | null; availableLists?: { id: string; title: string }[]; onMoveCard?: (toListId: string) => Promise<any> }) {
+export default function CardModal({ cardId, onClose, onCardUpdated, initial, availableLists, onMoveCard, lastUpdated }: { cardId: string; onClose: () => void; onCardUpdated?: (patch: { id: string; title?: string; dueDate?: string | null; hasDescription?: boolean; checklistCount?: number; assignmentCount?: number; commentCount?: number; attachmentCount?: number; members?: Member[] }) => void; initial?: Partial<CardDetail> | null; availableLists?: { id: string; title: string }[]; onMoveCard?: (toListId: string) => Promise<any>; lastUpdated?: number }) {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [data, setData] = React.useState<CardDetail | null>(null);
@@ -259,7 +259,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     }
     fetchCard();
     return () => controller.abort();
-  }, [cardId]);
+  }, [cardId, lastUpdated]);
 
   React.useEffect(() => {
     if (!showDetails) return;
