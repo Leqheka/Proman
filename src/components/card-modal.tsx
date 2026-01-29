@@ -234,6 +234,9 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                 ...(descObj !== undefined ? { description: descObj.description ?? "" } : {}),
               };
             });
+            if (descObj !== undefined) {
+              setDescription(descObj.description ?? "");
+            }
             if (Array.isArray(attachments)) {
               const takeA = TAKE;
               setHasMoreAttachments(attachments.length === takeA);
@@ -482,8 +485,14 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
       });
       if (resp.ok) {
         const updated = await resp.json();
-        setData((d) => (d ? { ...d, title: updated.title, description: updated.description ?? "", dueDate: updated.dueDate } : d));
-        if (onCardUpdated) onCardUpdated({ id: cardId, title: updated.title, dueDate: updated.dueDate ?? null });
+        const hasDescription = !!updated.description && updated.description.trim().length > 0;
+        setData((d) => (d ? { ...d, title: updated.title, description: updated.description ?? "", dueDate: updated.dueDate, hasDescription } : d));
+        if (onCardUpdated) onCardUpdated({ 
+          id: cardId, 
+          title: updated.title, 
+          dueDate: updated.dueDate ?? null,
+          hasDescription
+        });
       }
     } catch (err) {
       console.error("Failed to save", err);
@@ -1246,7 +1255,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                           setIsEditingDescription(false);
                         }}
                         disabled={saving}
-                        className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded shadow-sm transition-all disabled:opacity-50"
+                        className="px-4 py-1.5 bg-black hover:bg-black/90 text-white text-sm font-medium rounded shadow-sm transition-all disabled:opacity-50"
                       >
                         {saving ? "Saving..." : "Save"}
                       </button>
@@ -1264,7 +1273,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                 ) : (
                   <div
                     onClick={() => setIsEditingDescription(true)}
-                    className="w-full min-h-[56px] text-sm p-3 rounded-md bg-foreground/5 hover:bg-foreground/10 cursor-pointer transition-all whitespace-pre-wrap border border-transparent hover:border-foreground/10"
+                    className="w-full min-h-[56px] text-sm p-3 rounded-md bg-background border border-black/10 hover:border-black/20 cursor-pointer transition-all whitespace-pre-wrap"
                   >
                     {description || <span className="text-foreground/40 italic">Add a more detailed description...</span>}
                   </div>
