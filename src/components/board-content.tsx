@@ -32,7 +32,7 @@ function SortableListWrapperBase({ list, children }: { list: ListItem; children:
       style={style}
       {...attributes}
       {...listeners}
-      className="w-72 shrink-0 self-start mt-2 mb-4 rounded-lg border border-black/10 dark:border-neutral-800 bg-background/60 dark:bg-neutral-900/60 text-foreground shadow-sm max-h-full flex flex-col p-2"
+      className="w-72 shrink-0 self-start rounded-lg border border-black/10 dark:border-neutral-800 bg-background/60 dark:bg-neutral-900/60 text-foreground shadow-sm max-h-full flex flex-col p-2"
     >
       {children}
     </div>
@@ -1003,7 +1003,7 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
             onMouseMove={handleMouseMove}
             className={`pt-16 h-[calc(100vh-40px)] overflow-x-auto overflow-y-hidden pb-8 ${isDraggingScroll ? "cursor-grabbing select-none" : ""}`}
           >
-            <div className="mx-auto w-full px-8 flex items-start gap-3">
+            <div className="mx-auto w-full px-8 flex items-start gap-3 h-full">
               {lists.length === 0 ? (
                 <AddListTile
                   boardId={boardId}
