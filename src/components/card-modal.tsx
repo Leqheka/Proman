@@ -905,7 +905,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
         if (res.ok) {
           const created = await res.json();
           workflowChecklist = { ...created, items: [] };
-          setData(d => d ? { ...d, checklists: [...d.checklists, workflowChecklist!] } : d);
+          // Immediate update to state so subsequent logic finds it
+          setData(d => d ? { ...d, checklists: [workflowChecklist!, ...d.checklists] } : d);
         }
       }
 
@@ -915,9 +916,12 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
       }
 
       // 2. Clear existing items in workflow checklist if any
-      const currentWorkflowChecklist = data?.checklists.find(c => c.id === workflowChecklist!.id);
-      if (currentWorkflowChecklist?.items && currentWorkflowChecklist.items.length > 0) {
-          for (const item of currentWorkflowChecklist.items) {
+      // Use a fresh reference from current state if possible
+      const currentChecklists = data?.checklists || [];
+      const checklistToClear = currentChecklists.find(c => c.id === workflowChecklist!.id) || workflowChecklist;
+      
+      if (checklistToClear.items && checklistToClear.items.length > 0) {
+          for (const item of checklistToClear.items) {
               await fetch(`/api/checklist-items/${item.id}`, { method: "DELETE" });
           }
       }
@@ -943,14 +947,22 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
         }
       }
 
-      // 4. Update local state
+      // 4. Update local state with all new items and ensure count is updated
       setData(d => {
         if (!d) return d;
+        const nextChecklists = d.checklists.map(c => 
+          c.id === workflowChecklist!.id ? { ...c, items: newItems, itemsCount: newItems.length } : c
+        );
         return {
           ...d,
-          checklists: d.checklists.map(c => c.id === workflowChecklist!.id ? { ...c, items: newItems } : c)
+          checklists: nextChecklists,
+          checklistCount: nextChecklists.length
         };
       });
+      
+      if (onCardUpdated) {
+          onCardUpdated({ id: cardId, checklistCount: (data?.checklists.length || 0) + (workflowChecklist ? 0 : 1) });
+      }
       
       setShowWorkflowMenu(false);
     } catch (err) {
@@ -1031,7 +1043,13 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
               </button>
               {showMoveMenu && availableLists && (
                 <div className="absolute right-0 top-full mt-1 w-48 rounded border border-black/10 dark:border-neutral-800 bg-background dark:bg-neutral-900 shadow-lg z-50 py-1 max-h-60 overflow-y-auto">
-                  {availableLists.map((l) => (
+                  {[...availableLists]
+                    .sort((a, b) => {
+                      if (a.title.toLowerCase() === "archives") return 1;
+                      if (b.title.toLowerCase() === "archives") return -1;
+                      return 0;
+                    })
+                    .map((l) => (
                     <button
                       key={l.id}
                       className="w-full text-left px-3 py-2 text-xs hover:bg-foreground/5 truncate flex items-center justify-between"
@@ -1476,20 +1494,26 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                   <p className="text-xs text-foreground/60 mt-2">No checklists</p>
                 ) : (
                   <div className="mt-3 space-y-4">
-                    {data.checklists.map((cl, index) => (
-                      <div key={cl.id} className="mb-4">
-                        <ChecklistRenderer
-                          checklist={cl}
-                          defaultOpen={index === data.checklists.length - 1}
-                          onUpdateTitle={updateChecklistTitle}
-                          onDelete={deleteChecklist}
-                          onUpdateItem={updateChecklistItem}
-                          onDeleteItem={deleteChecklistItem}
-                          onAddItem={addChecklistItem}
-                          onReorderItems={handleReorderItems}
-                        />
-                      </div>
-                    ))}
+                    {[...data.checklists]
+                      .sort((a, b) => {
+                        if (a.title === "Workflow Checklist") return -1;
+                        if (b.title === "Workflow Checklist") return 1;
+                        return 0;
+                      })
+                      .map((cl, index, sortedArr) => (
+                        <div key={cl.id} className="mb-4">
+                          <ChecklistRenderer
+                            checklist={cl}
+                            defaultOpen={index === sortedArr.length - 1}
+                            onUpdateTitle={updateChecklistTitle}
+                            onDelete={deleteChecklist}
+                            onUpdateItem={updateChecklistItem}
+                            onDeleteItem={deleteChecklistItem}
+                            onAddItem={addChecklistItem}
+                            onReorderItems={handleReorderItems}
+                          />
+                        </div>
+                      ))}
                   </div>
                 )}
               </div>
