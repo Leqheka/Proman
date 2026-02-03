@@ -891,12 +891,18 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
       return;
     }
 
+    console.info("[Workflow] Starting save for card:", cardId, "lists:", selectedWorkflowLists);
+
     try {
       setSaving(true);
-      // 1. Find or create "Workflow Checklist"
-      let workflowChecklist = data?.checklists.find(c => c.title === "Workflow Checklist");
       
+      // 1. Get current checklists from state
+      let currentChecklists = [...(data?.checklists || [])];
+      let workflowChecklist = currentChecklists.find(c => c.title === "Workflow Checklist");
+      
+      // 2. Create "Workflow Checklist" if it doesn't exist
       if (!workflowChecklist) {
+        console.info("[Workflow] Creating new checklist");
         const res = await fetch(`/api/cards/${cardId}/checklists`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -905,49 +911,43 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
         if (res.ok) {
           const created = await res.json();
           workflowChecklist = { ...created, items: [] };
-          // Immediate update to state so subsequent logic finds it
-          setData(d => d ? { ...d, checklists: [workflowChecklist!, ...d.checklists] } : d);
+          currentChecklists = [workflowChecklist!, ...currentChecklists];
+          setData(d => d ? { ...d, checklists: currentChecklists } : d);
         }
       }
 
       if (!workflowChecklist) {
+          console.error("[Workflow] Failed to find or create checklist");
           setSaving(false);
           return;
       }
 
-      // 2. Clear existing items in workflow checklist if any
-      // Use a fresh reference from current state if possible
-      const currentChecklists = data?.checklists || [];
-      const checklistToClear = currentChecklists.find(c => c.id === workflowChecklist!.id) || workflowChecklist;
-      
-      if (checklistToClear.items && checklistToClear.items.length > 0) {
-          for (const item of checklistToClear.items) {
-              await fetch(`/api/checklist-items/${item.id}`, { method: "DELETE" });
-          }
+      // 3. Clear existing items in workflow checklist if any
+      if (workflowChecklist.items && workflowChecklist.items.length > 0) {
+          console.info("[Workflow] Clearing", workflowChecklist.items.length, "items");
+          await Promise.all(workflowChecklist.items.map(item => 
+              fetch(`/api/checklist-items/${item.id}`, { method: "DELETE" })
+          ));
+          workflowChecklist.items = [];
       }
 
-      // 3. Populate items
-      const newItems: ChecklistItem[] = [];
-      for (let i = 0; i < selectedWorkflowLists.length; i++) {
-        const listId = selectedWorkflowLists[i];
+      // 4. Populate items
+      console.info("[Workflow] Adding new items");
+      const itemPromises = selectedWorkflowLists.map((listId, i) => {
         const listTitle = availableLists?.find(l => l.id === listId)?.title || "Unknown List";
         const title = `${listTitle}|${listId}`;
-        const res = await fetch(`/api/cards/${cardId}/checklists/items`, {
+        return fetch(`/api/checklists/${workflowChecklist!.id}/items`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            checklistId: workflowChecklist.id, 
-            title,
-            order: i 
-          }),
-        });
-        if (res.ok) {
-          const item = await res.json();
-          newItems.push(item);
-        }
-      }
+          body: JSON.stringify({ title, order: i }),
+        }).then(r => r.ok ? r.json() : null);
+      });
 
-      // 4. Update local state with all new items and ensure count is updated
+      const items = await Promise.all(itemPromises);
+      const newItems = items.filter(Boolean) as ChecklistItem[];
+      console.info("[Workflow] Successfully added", newItems.length, "items");
+
+      // 5. Final state update
       setData(d => {
         if (!d) return d;
         const nextChecklists = d.checklists.map(c => 
@@ -961,12 +961,12 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
       });
       
       if (onCardUpdated) {
-          onCardUpdated({ id: cardId, checklistCount: (data?.checklists.length || 0) + (workflowChecklist ? 0 : 1) });
+          onCardUpdated({ id: cardId, checklistCount: currentChecklists.length });
       }
       
       setShowWorkflowMenu(false);
     } catch (err) {
-      console.error("Failed to save workflow", err);
+      console.error("[Workflow] Failed to save workflow", err);
     } finally {
       setSaving(false);
     }
@@ -1041,15 +1041,9 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                 <span className="hidden sm:inline">Move to</span>
                 <span className="sm:hidden">&gt;&gt;</span>
               </button>
-              {showMoveMenu && availableLists && (
+              {showMoveMenu && (
                 <div className="absolute right-0 top-full mt-1 w-48 rounded border border-black/10 dark:border-neutral-800 bg-background dark:bg-neutral-900 shadow-lg z-50 py-1 max-h-60 overflow-y-auto">
-                  {[...availableLists]
-                    .sort((a, b) => {
-                      if (a.title.toLowerCase() === "archives") return 1;
-                      if (b.title.toLowerCase() === "archives") return -1;
-                      return 0;
-                    })
-                    .map((l) => (
+                  {(availableLists || []).map((l) => (
                     <button
                       key={l.id}
                       className="w-full text-left px-3 py-2 text-xs hover:bg-foreground/5 truncate flex items-center justify-between"
@@ -1081,6 +1075,17 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                       {data?.list?.id === l.id && <span className="ml-2 opacity-50 text-[10px] shrink-0">(current)</span>}
                     </button>
                   ))}
+                  {(availableLists || []).length > 0 && <div className="border-t border-black/10 dark:border-neutral-800 my-1" />}
+                  <button
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-foreground/5 truncate flex items-center justify-between text-red-500"
+                    onClick={async () => {
+                      await toggleCardArchived(true);
+                      setShowMoveMenu(false);
+                      onClose();
+                    }}
+                  >
+                    <span className="truncate">Archives</span>
+                  </button>
                 </div>
               )}
             </div>
