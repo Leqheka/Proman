@@ -882,7 +882,6 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
         <div className="flex h-full w-full max-w-[980px] flex-col rounded-2xl border border-black/10 bg-background text-foreground shadow-lg dark:border-neutral-800 dark:bg-neutral-900">
           <div className="p-4 border-b border-black/10 dark:border-neutral-800 flex items-center justify-between">
             <div className="flex items-center gap-2 w-full">
-              <input type="checkbox" checked={!!data.archived} onChange={(e) => toggleCardArchived(e.target.checked)} />
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
