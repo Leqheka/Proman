@@ -65,6 +65,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
   const [loadingChecklists, setLoadingChecklists] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [showChecklistMenu, setShowChecklistMenu] = React.useState(false);
+  const [showWorkflowMenu, setShowWorkflowMenu] = React.useState(false);
+  const [selectedWorkflowLists, setSelectedWorkflowLists] = React.useState<string[]>([]);
   const [newChecklistTitle, setNewChecklistTitle] = React.useState("Checklist");
   const [copyFromChecklistId, setCopyFromChecklistId] = React.useState<string | "none">("none");
   const [boardChecklists, setBoardChecklists] = React.useState<Array<{ id: string; title: string }>>([]);
@@ -92,6 +94,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
 
   const datesMenuWrapRef = React.useRef<HTMLDivElement | null>(null);
   const checklistMenuWrapRef = React.useRef<HTMLDivElement | null>(null);
+  const workflowMenuWrapRef = React.useRef<HTMLDivElement | null>(null);
   // Added: members menu state and ref
   const membersMenuWrapRef = React.useRef<HTMLDivElement | null>(null);
   const [showMembersMenu, setShowMembersMenu] = React.useState(false);
@@ -377,6 +380,19 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     });
   }
 
+  function openWorkflowMenu() {
+    const workflowChecklist = data?.checklists.find(c => c.title === "Workflow Checklist");
+    if (workflowChecklist) {
+        const listIds = workflowChecklist.items
+            .filter(it => it.title.includes("|"))
+            .map(it => it.title.split("|")[1]);
+        setSelectedWorkflowLists(listIds);
+    } else {
+        setSelectedWorkflowLists([]);
+    }
+    setShowWorkflowMenu(true);
+  }
+
   async function fetchAssignableMembers() {
     try {
       const resp = await fetch(`/api/members`);
@@ -418,6 +434,21 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
       document.removeEventListener("pointerdown", onPointerDown);
     };
   }, [showDatesMenu]);
+
+  React.useEffect(() => {
+    if (!showWorkflowMenu) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      const container = workflowMenuWrapRef.current;
+      if (container && !container.contains(target)) {
+        setShowWorkflowMenu(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [showWorkflowMenu]);
 
   // Added: toggle assignment for a member
   async function toggleAssignment(m: Member) {
@@ -750,8 +781,25 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
         body: JSON.stringify(data),
       });
       if (resp.ok) {
+        let nextListId: string | null = null;
         setData((d) => {
           if (!d) return d;
+          
+          // Check for workflow movement
+          if (data.completed === true) {
+              const checklist = d.checklists.find(c => c.items.some(it => it.id === itemId));
+              if (checklist && checklist.title === "Workflow Checklist") {
+                  const sortedItems = [...checklist.items].sort((a, b) => (a.order || 0) - (b.order || 0));
+                  const currentIdx = sortedItems.findIndex(it => it.id === itemId);
+                  if (currentIdx !== -1 && currentIdx < sortedItems.length - 1) {
+                      const nextItem = sortedItems[currentIdx + 1];
+                      if (nextItem.title.includes("|")) {
+                          nextListId = nextItem.title.split("|")[1];
+                      }
+                  }
+              }
+          }
+
           return {
             ...d,
             checklists: d.checklists.map((c) => ({
@@ -760,6 +808,18 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
             })),
           };
         });
+
+        if (nextListId && onMoveCard) {
+            onMoveCard(nextListId).then(updated => {
+                if (updated && updated.id) {
+                    setData(d => {
+                        if (!d) return d;
+                        const l = availableLists?.find(al => al.id === nextListId);
+                        return { ...d, list: { ...d.list, id: nextListId!, title: l?.title || d.list.title } };
+                    });
+                }
+            });
+        }
 
         if (data.completed !== undefined) {
              // Fetch activity for checklist toggle
@@ -825,8 +885,80 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     }
   }
 
+  async function handleSaveWorkflow() {
+    if (selectedWorkflowLists.length === 0) {
+      setShowWorkflowMenu(false);
+      return;
+    }
 
+    try {
+      setSaving(true);
+      // 1. Find or create "Workflow Checklist"
+      let workflowChecklist = data?.checklists.find(c => c.title === "Workflow Checklist");
+      
+      if (!workflowChecklist) {
+        const res = await fetch(`/api/cards/${cardId}/checklists`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: "Workflow Checklist" }),
+        });
+        if (res.ok) {
+          const created = await res.json();
+          workflowChecklist = { ...created, items: [] };
+          setData(d => d ? { ...d, checklists: [...d.checklists, workflowChecklist!] } : d);
+        }
+      }
 
+      if (!workflowChecklist) {
+          setSaving(false);
+          return;
+      }
+
+      // 2. Clear existing items in workflow checklist if any
+      const currentWorkflowChecklist = data?.checklists.find(c => c.id === workflowChecklist!.id);
+      if (currentWorkflowChecklist?.items && currentWorkflowChecklist.items.length > 0) {
+          for (const item of currentWorkflowChecklist.items) {
+              await fetch(`/api/checklist-items/${item.id}`, { method: "DELETE" });
+          }
+      }
+
+      // 3. Populate items
+      const newItems: ChecklistItem[] = [];
+      for (let i = 0; i < selectedWorkflowLists.length; i++) {
+        const listId = selectedWorkflowLists[i];
+        const listTitle = availableLists?.find(l => l.id === listId)?.title || "Unknown List";
+        const title = `${listTitle}|${listId}`;
+        const res = await fetch(`/api/cards/${cardId}/checklists/items`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            checklistId: workflowChecklist.id, 
+            title,
+            order: i 
+          }),
+        });
+        if (res.ok) {
+          const item = await res.json();
+          newItems.push(item);
+        }
+      }
+
+      // 4. Update local state
+      setData(d => {
+        if (!d) return d;
+        return {
+          ...d,
+          checklists: d.checklists.map(c => c.id === workflowChecklist!.id ? { ...c, items: newItems } : c)
+        };
+      });
+      
+      setShowWorkflowMenu(false);
+    } catch (err) {
+      console.error("Failed to save workflow", err);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const [hasMoreAttachments, setHasMoreAttachments] = React.useState(false);
   const [attachmentsCursor, setAttachmentsCursor] = React.useState<string | null>(null);
@@ -944,7 +1076,43 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
             <div className="flex h-full min-h-0 flex-col space-y-6 overflow-y-auto pr-1">
               <div className="flex items-center gap-2">
                 <span className="text-xs">Add:</span>
-                <button className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Labels</button>
+                <div className="relative" ref={workflowMenuWrapRef}>
+                  <button onClick={openWorkflowMenu} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Workflow</button>
+                  {showWorkflowMenu && (
+                    <div className="absolute z-20 mt-2 w-64 rounded border border-black/10 dark:border-neutral-800 bg-background dark:bg-neutral-900 p-3 shadow">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-semibold">Workflow</p>
+                        <button className="text-xs" onClick={() => setShowWorkflowMenu(false)}>×</button>
+                      </div>
+                      <p className="text-xs text-foreground/60 mb-2">Select lists for workflow:</p>
+                      <div className="max-h-48 overflow-y-auto space-y-1 mb-3">
+                        {availableLists?.map((l) => (
+                          <label key={l.id} className="flex items-center gap-2 p-1 hover:bg-foreground/5 rounded cursor-pointer text-xs">
+                            <input 
+                              type="checkbox" 
+                              checked={selectedWorkflowLists.includes(l.id)} 
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedWorkflowLists([...selectedWorkflowLists, l.id]);
+                                } else {
+                                  setSelectedWorkflowLists(selectedWorkflowLists.filter(id => id !== l.id));
+                                }
+                              }}
+                            />
+                            <span className="truncate">{l.title}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <button 
+                        onClick={handleSaveWorkflow} 
+                        disabled={saving}
+                        className="w-full text-xs rounded px-2 py-1.5 bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-50"
+                      >
+                        {saving ? "Applying..." : "Apply Workflow"}
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <div className="relative" ref={datesMenuWrapRef}>
                   <button onClick={openDatesMenu} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Dates</button>
                   {showDatesMenu && (

@@ -77,15 +77,24 @@ function SortableItem({
   };
 
   // Local state for title to avoid cursor jumping
-  const [title, setTitle] = useState(item.title);
+  const [title, setTitle] = useState(item.title.includes("|") ? item.title.split("|")[0] : item.title);
   
   useEffect(() => {
-    if (!isEditing) setTitle(item.title);
+    if (!isEditing) {
+        const displayTitle = item.title.includes("|") ? item.title.split("|")[0] : item.title;
+        setTitle(displayTitle);
+    }
   }, [item.title, isEditing]);
 
   const save = () => {
-    if (title.trim() !== item.title) {
-        onUpdate(item.id, { title: title.trim() });
+    const displayTitle = item.title.includes("|") ? item.title.split("|")[0] : item.title;
+    if (title.trim() !== displayTitle) {
+        let finalTitle = title.trim();
+        if (item.title.includes("|")) {
+            const id = item.title.split("|")[1];
+            finalTitle = `${finalTitle}|${id}`;
+        }
+        onUpdate(item.id, { title: finalTitle });
     }
   };
 
@@ -138,7 +147,7 @@ function SortableItem({
                 onClick={onEdit} 
                 className={`text-sm cursor-text break-words px-1 py-0.5 rounded hover:bg-foreground/5 ${item.completed ? "line-through text-foreground/50" : ""}`}
             >
-                {item.title}
+                {item.title.includes("|") ? item.title.split("|")[0] : item.title}
             </div>
          )}
        </div>
