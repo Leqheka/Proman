@@ -94,13 +94,8 @@ function Card({ card, onOpen, onToggleArchive, onUpdateTitle, style, dragHandleP
       }}
       className="group relative rounded-lg border border-black/10 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:bg-neutral-200 dark:hover:bg-black text-neutral-900 dark:text-neutral-100 p-3 hover:shadow-sm transition-colors cursor-pointer"
     >
-      {/* Header: checkbox always visible next to title */}
+      {/* Header: title */}
       <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          onClick={(e) => e.stopPropagation()}
-          onChange={(e) => onToggleArchive(card, e.target.checked)}
-        />
         <span className="text-sm font-medium truncate">
           {card.title}
         </span>

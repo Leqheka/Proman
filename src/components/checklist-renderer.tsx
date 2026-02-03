@@ -47,6 +47,10 @@ export default function ChecklistRenderer({
     setIsOpen(defaultOpen);
   }, [defaultOpen]);
 
+  const totalItems = cl.items.length;
+  const completedItems = cl.items.filter((i) => i.completed).length;
+  const progressPercent = totalItems === 0 ? 0 : Math.round((completedItems / totalItems) * 100);
+
   return (
     <div className="rounded border border-black/10 dark:border-neutral-800 p-3 bg-background">
       <div className="flex items-center justify-between">
@@ -116,11 +120,6 @@ export default function ChecklistRenderer({
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-          {!isOpen && (
-             <div className="text-xs text-foreground/60 flex items-center gap-1">
-                 <span>{cl.items.filter(i => i.completed).length}/{cl.items.length}</span>
-             </div>
-          )}
           <button
             onClick={() => onDelete(cl.id)}
             className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors"
@@ -129,6 +128,19 @@ export default function ChecklistRenderer({
           </button>
         </div>
       </div>
+
+      <div className="mt-2 flex items-center gap-3">
+        <span className="text-[11px] text-foreground/60 w-8 text-right font-medium">
+          {progressPercent}%
+        </span>
+        <div className="flex-1 h-2 bg-foreground/5 rounded-full overflow-hidden border border-black/5 dark:border-white/5">
+          <div 
+            className="h-full bg-black dark:bg-white transition-all duration-300 ease-in-out"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+      </div>
+
       {isOpen && (
         <div className="mt-3">
           <ChecklistItems
