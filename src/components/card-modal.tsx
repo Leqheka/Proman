@@ -891,68 +891,40 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
       return;
     }
 
-    console.info("[Workflow] Starting save for card:", cardId, "lists:", selectedWorkflowLists);
+    console.info("[Workflow] Starting atomic save for card:", cardId, "lists:", selectedWorkflowLists);
 
     try {
       setSaving(true);
       
-      // 1. Get current checklists from state
-      let currentChecklists = [...(data?.checklists || [])];
-      let workflowChecklist = currentChecklists.find(c => c.title === "Workflow Checklist");
-      
-      // 2. Create "Workflow Checklist" if it doesn't exist
-      if (!workflowChecklist) {
-        console.info("[Workflow] Creating new checklist");
-        const res = await fetch(`/api/cards/${cardId}/checklists`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: "Workflow Checklist" }),
-        });
-        if (res.ok) {
-          const created = await res.json();
-          workflowChecklist = { ...created, items: [] };
-          currentChecklists = [workflowChecklist!, ...currentChecklists];
-          setData(d => d ? { ...d, checklists: currentChecklists } : d);
-        }
-      }
-
-      if (!workflowChecklist) {
-          console.error("[Workflow] Failed to find or create checklist");
-          setSaving(false);
-          return;
-      }
-
-      // 3. Clear existing items in workflow checklist if any
-      if (workflowChecklist.items && workflowChecklist.items.length > 0) {
-          console.info("[Workflow] Clearing", workflowChecklist.items.length, "items");
-          await Promise.all(workflowChecklist.items.map(item => 
-              fetch(`/api/checklist-items/${item.id}`, { method: "DELETE" })
-          ));
-          workflowChecklist.items = [];
-      }
-
-      // 4. Populate items
-      console.info("[Workflow] Adding new items");
-      const itemPromises = selectedWorkflowLists.map((listId, i) => {
-        const listTitle = availableLists?.find(l => l.id === listId)?.title || "Unknown List";
-        const title = `${listTitle}|${listId}`;
-        return fetch(`/api/checklists/${workflowChecklist!.id}/items`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, order: i }),
-        }).then(r => r.ok ? r.json() : null);
+      const res = await fetch(`/api/cards/${cardId}/workflow`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ listIds: selectedWorkflowLists }),
       });
 
-      const items = await Promise.all(itemPromises);
-      const newItems = items.filter(Boolean) as ChecklistItem[];
-      console.info("[Workflow] Successfully added", newItems.length, "items");
+      if (!res.ok) {
+          throw new Error(`Failed to save workflow: ${res.statusText}`);
+      }
 
-      // 5. Final state update
+      const updatedChecklist = await res.json();
+      console.info("[Workflow] Successfully saved workflow checklist:", updatedChecklist.id);
+
+      // Final state update
       setData(d => {
         if (!d) return d;
-        const nextChecklists = d.checklists.map(c => 
-          c.id === workflowChecklist!.id ? { ...c, items: newItems, itemsCount: newItems.length } : c
-        );
+        
+        // Find if we already have it in state
+        const exists = d.checklists.some(c => c.id === updatedChecklist.id);
+        let nextChecklists;
+        
+        if (exists) {
+            nextChecklists = d.checklists.map(c => 
+                c.id === updatedChecklist.id ? updatedChecklist : c
+            );
+        } else {
+            nextChecklists = [updatedChecklist, ...d.checklists];
+        }
+
         return {
           ...d,
           checklists: nextChecklists,
@@ -961,12 +933,16 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
       });
       
       if (onCardUpdated) {
-          onCardUpdated({ id: cardId, checklistCount: currentChecklists.length });
+          setData(d => {
+              if (d) onCardUpdated({ id: cardId, checklistCount: d.checklists.length });
+              return d;
+          });
       }
       
       setShowWorkflowMenu(false);
     } catch (err) {
       console.error("[Workflow] Failed to save workflow", err);
+      alert("Failed to save workflow. Please check your connection and try again.");
     } finally {
       setSaving(false);
     }
