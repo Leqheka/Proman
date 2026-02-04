@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidateTag } from "next/cache";
 import { verifySession } from "@/lib/session";
 import { logActivity } from "@/lib/activity-log";
+import { cookies } from "next/headers";
 
 export async function GET(
   req: Request,
@@ -114,9 +115,8 @@ export async function PATCH(
       const bId = (updated as any)?.list?.boardId;
       if (bId) revalidateTag(`board:${bId}`);
 
-      const cookie = (req.headers as any).get?.("cookie") || "";
-      const m = cookie.match(/session=([^;]+)/);
-      const token = m?.[1] || "";
+      const cookieStore = await cookies();
+      const token = cookieStore.get("session")?.value || "";
       const session = token ? await verifySession(token) : null;
 
       if (session?.sub) {

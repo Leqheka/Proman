@@ -494,6 +494,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
             const nextMembers = [...(data?.members ?? []), created.user];
             onCardUpdated({ id: cardId, members: nextMembers, assignmentCount: nextMembers.length });
           }
+          fetchLatestActivity();
         }
       } else {
         const resp = await fetch(`/api/cards/${cardId}/assignments/${m.id}`, { method: "DELETE" });
@@ -501,6 +502,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
           const nextMembers = (data?.members ?? []).filter((mm) => mm.id !== m.id);
           setData((d) => (d ? { ...d, members: nextMembers } : d));
           if (onCardUpdated) onCardUpdated({ id: cardId, members: nextMembers, assignmentCount: nextMembers.length });
+          fetchLatestActivity();
         }
       }
     } catch (err) {
@@ -520,6 +522,23 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     return cells;
   }
 
+  async function fetchLatestActivity() {
+    try {
+      const actResp = await fetch(`/api/cards/${cardId}/activity?take=1&order=desc&t=${Date.now()}`);
+      if (actResp.ok) {
+        const latest = await actResp.json();
+        if (Array.isArray(latest) && latest.length > 0) {
+          setActivities((curr) => {
+            if (curr.some(a => a.id === latest[0].id)) return curr;
+            return [latest[0], ...curr];
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch latest activity", err);
+    }
+  }
+
   async function saveBasics() {
     try {
       setSaving(true);
@@ -532,6 +551,12 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
         const updated = await resp.json();
         const hasDescription = !!updated.description && updated.description.trim().length > 0;
         setData((d) => (d ? { ...d, title: updated.title, description: updated.description ?? "", dueDate: updated.dueDate, hasDescription } : d));
+        
+        // Refresh activity if description was potentially updated
+        if (description !== data?.description) {
+            fetchLatestActivity();
+        }
+
         if (onCardUpdated) onCardUpdated({ 
           id: cardId, 
           title: updated.title, 
@@ -557,6 +582,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
         const updated = await resp.json();
         setData((d) => (d ? { ...d, dueDate: updated.dueDate } : d));
         setDueDate(updated.dueDate ? new Date(updated.dueDate).toISOString().slice(0, 16) : "");
+        fetchLatestActivity();
         if (onCardUpdated) onCardUpdated({ id: cardId, dueDate: updated.dueDate ?? null });
       }
     } catch (err) {

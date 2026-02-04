@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidateTag } from "next/cache";
 import { verifySession } from "@/lib/session";
 import { logActivity } from "@/lib/activity-log";
+import { cookies } from "next/headers";
 
 // Unassign a member from a card
 export async function DELETE(_req: Request, { params }: { params: Promise<{ cardId: string; userId: string }> }) {
@@ -17,9 +18,8 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ card
       const card = await prisma.card.findUnique({ where: { id: cardId }, select: { boardId: true } });
       if (card?.boardId) revalidateTag(`board:${card.boardId}`);
 
-      const cookie = (_req.headers as any).get?.("cookie") || "";
-      const m = cookie.match(/session=([^;]+)/);
-      const token = m?.[1] || "";
+      const cookieStore = await cookies();
+      const token = cookieStore.get("session")?.value || "";
       const session = token ? await verifySession(token) : null;
       if (session?.sub && userToRemove) {
         const removedName = userToRemove.name || userToRemove.email || "someone";

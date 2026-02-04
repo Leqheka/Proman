@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidateTag } from "next/cache";
 import { verifySession } from "@/lib/session";
 import { logActivity } from "@/lib/activity-log";
+import { cookies } from "next/headers";
 
 // List assigned members for a card
 export async function GET(_req: Request, { params }: { params: Promise<{ cardId: string }> }) {
@@ -46,9 +47,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ cardId:
       const card = await prisma.card.findUnique({ where: { id: cardId }, select: { boardId: true } });
       if (card?.boardId) revalidateTag(`board:${card.boardId}`);
 
-      const cookie = (req.headers as any).get?.("cookie") || "";
-      const m = cookie.match(/session=([^;]+)/);
-      const token = m?.[1] || "";
+      const cookieStore = await cookies();
+      const token = cookieStore.get("session")?.value || "";
       const session = token ? await verifySession(token) : null;
       if (session?.sub && full?.user) {
         const assignedName = full.user.name || full.user.email || "someone";
