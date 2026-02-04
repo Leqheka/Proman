@@ -1009,8 +1009,25 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     if (!msg) return "";
     // Match pattern: "Title|ListId"
     return msg.replace(/"([^"|]+)\|([^"]+)"/g, (match, title, listId) => {
-      const list = availableLists?.find((l) => l.id === listId);
-      return list ? `"${title} >> ${list.title}"` : `"${title}"`;
+      // Attempt to find transition in Workflow Checklist
+      const workflowChecklist = data?.checklists.find(c => c.title === "Workflow Checklist");
+      if (workflowChecklist) {
+          const sorted = [...workflowChecklist.items].sort((a, b) => (a.order || 0) - (b.order || 0));
+          const idx = sorted.findIndex(it => it.title === `${title}|${listId}`);
+          
+          if (idx !== -1) {
+              if (idx < sorted.length - 1) {
+                  const nextItem = sorted[idx + 1];
+                  const nextTitle = nextItem.title.split('|')[0];
+                  return `"${title} >> ${nextTitle}"`;
+              } else {
+                  return `"${title} >> Archives"`;
+              }
+          }
+      }
+
+      // Fallback: just show title
+      return `"${title}"`;
     });
   }
 
