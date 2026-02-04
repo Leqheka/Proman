@@ -1625,7 +1625,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                             <div className="flex items-center gap-2">
                               <Avatar image={a.user?.image || ""} name={a.user?.name || a.user?.email || ""} email={a.user?.email || ""} size={29} />
                               <span className="font-semibold">{a.user?.name || a.user?.email || "Someone"}</span>
-                              <span className="text-foreground/80">{String(a.details?.message || "Someone created this card")}</span>
+                              <span className="text-foreground/80">{formatActivityMessage(String(a.details?.message || "Someone created this card"))}</span>
                             </div>
                             <div className="text-xs text-foreground/60">{new Date(a.createdAt).toLocaleString()}</div>
                           </li>
@@ -1660,7 +1660,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                                 <div>
                                   <div>
                                     <span className="font-semibold mr-1">{item.a.user?.name || item.a.user?.email || "Someone"}</span>
-                                    <span className="text-foreground/80">{String(item.a.details?.message || (item.a.type === "CARD_CREATED" ? "created this card" : item.a.type))}</span>
+                                    <span className="text-foreground/80">{formatActivityMessage(String(item.a.details?.message || (item.a.type === "CARD_CREATED" ? "created this card" : item.a.type)))}</span>
                                   </div>
                                   <div className="text-xs text-foreground/60">{new Date(item.createdAt).toLocaleString()}</div>
                                 </div>
