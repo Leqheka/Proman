@@ -1005,6 +1005,15 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     }
   }
 
+  function formatActivityMessage(msg: string) {
+    if (!msg) return "";
+    // Match pattern: "Title|ListId"
+    return msg.replace(/"([^"|]+)\|([^"]+)"/g, (match, title, listId) => {
+      const list = availableLists?.find((l) => l.id === listId);
+      return list ? `"${title} >> ${list.title}"` : `"${title}"`;
+    });
+  }
+
   const [hasMoreAttachments, setHasMoreAttachments] = React.useState(false);
   const [attachmentsCursor, setAttachmentsCursor] = React.useState<string | null>(null);
   const [loadingMoreAttachments, setLoadingMoreAttachments] = React.useState(false);
