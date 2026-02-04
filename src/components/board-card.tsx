@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import ConfirmationPopup from "./confirmation-popup";
 
 interface Board {
   id: string;
@@ -154,31 +155,21 @@ export default function BoardCard({ board, bgUrl, isAdmin }: BoardCardProps) {
       )}
 
       {/* Delete Confirmation Modal */}
-      {showDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowDelete(false)}>
-          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl w-full max-w-sm p-4 border border-black/10 dark:border-white/10" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold mb-2 text-foreground">Archive Board?</h3>
-            <p className="text-sm text-foreground/70 mb-4">
-              Are you sure you want to archive <strong>{board.title}</strong>? You can restore it later from the archives.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowDelete(false)}
-                className="px-3 py-1.5 text-sm hover:bg-black/5 dark:hover:bg-white/5 rounded text-foreground"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={isPending}
-                className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700 font-medium"
-              >
-                {isPending ? "Archiving..." : "Archive"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmationPopup
+        isOpen={showDelete}
+        onClose={() => setShowDelete(false)}
+        onConfirm={handleDelete}
+        title="Archive Board?"
+        message={
+          <>
+            Are you sure you want to archive <strong>{board.title}</strong>? You can restore it later from the archives.
+          </>
+        }
+        confirmText={isPending ? "Archiving..." : "Archive"}
+        cancelText="Cancel"
+        isLoading={isPending}
+        variant="danger"
+      />
     </>
   );
 }

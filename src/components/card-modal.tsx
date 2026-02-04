@@ -3,6 +3,7 @@
 import React from "react";
 import Avatar from "./avatar";
 import ChecklistRenderer from "./checklist-renderer";
+import ConfirmationPopup from "./confirmation-popup";
 
 type Member = { id: string; name?: string | null; email: string; image?: string | null };
 
@@ -101,6 +102,15 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
   const [assignableMembers, setAssignableMembers] = React.useState<Member[]>([]);
   const [activeMemberMenu, setActiveMemberMenu] = React.useState<string | null>(null);
   const activeMemberMenuRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Confirmation popup state
+  const [confirmation, setConfirmation] = React.useState<{
+    title: string;
+    message: React.ReactNode;
+    onConfirm: () => void;
+    variant?: "danger" | "primary";
+    confirmText?: string;
+  } | null>(null);
 
   // Collapsible checklists state - managed by ChecklistRenderer now
 
@@ -799,16 +809,28 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
             if (item) {
                 const titlePart = item.title.split("|")[0];
                 if (titlePart === "Invoicing") {
-                    if (confirm("Move card to Archives?")) {
-                        await toggleCardArchived(true);
-                    } else {
-                        return;
-                    }
+                    setConfirmation({
+                        title: "Archive Card?",
+                        message: "Move card to Archives?",
+                        confirmText: "Archive",
+                        variant: "danger",
+                        onConfirm: async () => {
+                            await toggleCardArchived(true);
+                            setConfirmation(null);
+                            // Proceed with the update
+                            await _performUpdateChecklistItem(itemId, updateData);
+                        }
+                    });
+                    return;
                 }
             }
         }
     }
 
+    await _performUpdateChecklistItem(itemId, updateData);
+  }
+
+  async function _performUpdateChecklistItem(itemId: string, updateData: Partial<ChecklistItem>) {
     try {
       const resp = await fetch(`/api/checklist-items/${itemId}`, {
         method: "PATCH",
@@ -1391,10 +1413,17 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                                     <button
                                         className="w-full text-left text-xs px-2 py-1.5 text-red-500 hover:bg-foreground/5 rounded flex items-center gap-2"
                                         onClick={() => {
-                                            if (confirm(`Remove ${m.name || m.email} from this card?`)) {
-                                                toggleAssignment(m);
-                                            }
                                             setActiveMemberMenu(null);
+                                            setConfirmation({
+                                                title: "Remove Member?",
+                                                message: `Remove ${m.name || m.email} from this card?`,
+                                                confirmText: "Remove",
+                                                variant: "danger",
+                                                onConfirm: () => {
+                                                    toggleAssignment(m);
+                                                    setConfirmation(null);
+                                                }
+                                            });
                                         }}
                                     >
                                         <span>Remove member</span>
@@ -1687,6 +1716,16 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
           </div>
         </div>
       </div>
+      
+      <ConfirmationPopup
+        isOpen={!!confirmation}
+        onClose={() => setConfirmation(null)}
+        onConfirm={confirmation?.onConfirm || (() => {})}
+        title={confirmation?.title || ""}
+        message={confirmation?.message}
+        confirmText={confirmation?.confirmText}
+        variant={confirmation?.variant}
+      />
     </div>
   );
 }
