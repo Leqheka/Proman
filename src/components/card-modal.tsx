@@ -99,6 +99,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
   const membersMenuWrapRef = React.useRef<HTMLDivElement | null>(null);
   const [showMembersMenu, setShowMembersMenu] = React.useState(false);
   const [assignableMembers, setAssignableMembers] = React.useState<Member[]>([]);
+  const [activeMemberMenu, setActiveMemberMenu] = React.useState<string | null>(null);
+  const activeMemberMenuRef = React.useRef<HTMLDivElement | null>(null);
 
   // Collapsible checklists state - managed by ChecklistRenderer now
 
@@ -419,6 +421,21 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
       document.removeEventListener("pointerdown", onPointerDown);
     };
   }, [showMembersMenu]);
+
+  React.useEffect(() => {
+    if (!activeMemberMenu) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      const container = activeMemberMenuRef.current;
+      if (container && !container.contains(target)) {
+        setActiveMemberMenu(null);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [activeMemberMenu]);
 
   React.useEffect(() => {
     if (!showDatesMenu) return;
@@ -773,12 +790,30 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     }
   }
 
-  async function updateChecklistItem(itemId: string, data: Partial<ChecklistItem>) {
+  async function updateChecklistItem(itemId: string, updateData: Partial<ChecklistItem>) {
+    // Special logic for "Invoicing" in Workflow Checklist
+    if (updateData.completed === true) {
+        const checklist = (data?.checklists || []).find(c => c.items.some(it => it.id === itemId));
+        if (checklist && checklist.title === "Workflow Checklist") {
+            const item = checklist.items.find(it => it.id === itemId);
+            if (item) {
+                const titlePart = item.title.split("|")[0];
+                if (titlePart === "Invoicing") {
+                    if (confirm("Move card to Archives?")) {
+                        await toggleCardArchived(true);
+                    } else {
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
     try {
       const resp = await fetch(`/api/checklist-items/${itemId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(updateData),
       });
       if (resp.ok) {
         let nextListId: string | null = null;
@@ -786,7 +821,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
           if (!d) return d;
           
           // Check for workflow movement
-          if (data.completed === true) {
+          if (updateData.completed === true) {
               const checklist = d.checklists.find(c => c.items.some(it => it.id === itemId));
               if (checklist && checklist.title === "Workflow Checklist") {
                   const sortedItems = [...checklist.items].sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -804,7 +839,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
             ...d,
             checklists: d.checklists.map((c) => ({
               ...c,
-              items: c.items.map((it) => (it.id === itemId ? { ...it, ...data } : it)),
+              items: c.items.map((it) => (it.id === itemId ? { ...it, ...updateData } : it)),
             })),
           };
         });
@@ -821,7 +856,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
             });
         }
 
-        if (data.completed !== undefined) {
+        if (updateData.completed !== undefined) {
              // Fetch activity for checklist toggle
             try {
                 const actResp = await fetch(`/api/cards/${cardId}/activity?take=1&order=desc`);
@@ -1344,7 +1379,29 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                   {!!(data?.members && data.members.length) && (
                     <div className="ml-auto flex items-center gap-1">
                       {data.members.slice(0, 6).map((m) => (
-                        <Avatar key={m.id} name={m.name || undefined} email={m.email} image={m.image || undefined} size={29} />
+                        <div key={m.id} className="relative">
+                            <button onClick={() => setActiveMemberMenu(m.id)}>
+                                <Avatar name={m.name || undefined} email={m.email} image={m.image || undefined} size={29} />
+                            </button>
+                            {activeMemberMenu === m.id && (
+                                <div 
+                                    ref={activeMemberMenuRef}
+                                    className="absolute top-full right-0 mt-1 z-50 bg-background dark:bg-neutral-900 border border-black/10 dark:border-neutral-800 rounded shadow-lg p-1 min-w-[120px]"
+                                >
+                                    <button
+                                        className="w-full text-left text-xs px-2 py-1.5 text-red-500 hover:bg-foreground/5 rounded flex items-center gap-2"
+                                        onClick={() => {
+                                            if (confirm(`Remove ${m.name || m.email} from this card?`)) {
+                                                toggleAssignment(m);
+                                            }
+                                            setActiveMemberMenu(null);
+                                        }}
+                                    >
+                                        <span>Remove member</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                       ))}
                       {data.members.length > 6 && (
                         <span className="text-[10px] text-foreground/60">+{data.members.length - 6}</span>
