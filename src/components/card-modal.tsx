@@ -113,6 +113,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
   } | null>(null);
 
   // Collapsible checklists state - managed by ChecklistRenderer now
+  const [showAllMembers, setShowAllMembers] = React.useState(false);
 
 
   React.useEffect(() => {
@@ -1452,7 +1453,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                   )}
                   {!!(data?.members && data.members.length) && (
                     <div className="ml-auto flex items-center gap-1">
-                      {data.members.slice(0, 6).map((m) => (
+                      {data.members.slice(0, showAllMembers ? undefined : 6).map((m) => (
                         <div key={m.id} className="relative">
                             <button onClick={() => setActiveMemberMenu(m.id)}>
                                 <Avatar name={m.name || undefined} email={m.email} image={m.image || undefined} size={29} />
@@ -1484,8 +1485,13 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                             )}
                         </div>
                       ))}
-                      {data.members.length > 6 && (
-                        <span className="text-[10px] text-foreground/60">+{data.members.length - 6}</span>
+                      {!showAllMembers && data.members.length > 6 && (
+                        <button 
+                          onClick={() => setShowAllMembers(true)}
+                          className="w-[29px] h-[29px] rounded-full bg-foreground/10 hover:bg-foreground/20 flex items-center justify-center text-[10px] text-foreground/60 transition-colors"
+                        >
+                          +{data.members.length - 6}
+                        </button>
                       )}
                     </div>
                   )}

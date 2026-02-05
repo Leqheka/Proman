@@ -85,7 +85,11 @@ async function loadBoardData(boardId: string) {
     select: { id: true, title: true, order: true, listId: true },
   });
 
-  const boards = await prisma.board.findMany({ select: { id: true, title: true }, orderBy: { updatedAt: "desc" } });
+  const boards = await prisma.board.findMany({ 
+    where: { isArchived: false },
+    select: { id: true, title: true }, 
+    orderBy: { updatedAt: "desc" } 
+  });
 
   return {
     boardTitle: board?.title ?? "Board",
