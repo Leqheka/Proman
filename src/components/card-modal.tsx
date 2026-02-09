@@ -112,6 +112,12 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     confirmText?: string;
   } | null>(null);
 
+  // Drag and drop state
+  const [isDraggingOver, setIsDraggingOver] = React.useState(false);
+  
+  // File preview state
+  const [previewAttachment, setPreviewAttachment] = React.useState<Attachment | null>(null);
+
   // Collapsible checklists state - managed by ChecklistRenderer now
   const [showAllMembers, setShowAllMembers] = React.useState(false);
 
@@ -306,44 +312,47 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     return () => controller.abort();
   }, [showDetails]);
 
-  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    // Reset input so same file can be selected again if needed
-    e.target.value = "";
-
+  async function uploadFiles(files: FileList) {
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
+      const promises = Array.from(files).map(async (file) => {
+        const formData = new FormData();
+        formData.append("file", file);
 
-      const upRes = await fetch("/api/files", {
-        method: "POST",
-        body: formData,
+        const upRes = await fetch("/api/files", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!upRes.ok) {
+          throw new Error(`Upload failed for ${file.name}`);
+        }
+        const upData = await upRes.json();
+
+        const attRes = await fetch(`/api/cards/${cardId}/attachments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: upData.url,
+            filename: upData.filename,
+            type: upData.type,
+            size: upData.size
+          }),
+        });
+
+        if (!attRes.ok) {
+           throw new Error(`Attachment failed for ${file.name}`);
+        }
+        return await attRes.json();
       });
 
-      if (!upRes.ok) {
-        console.error("Upload failed", await upRes.text());
-        alert("Failed to upload file");
-        return;
-      }
-      const upData = await upRes.json();
-
-      const attRes = await fetch(`/api/cards/${cardId}/attachments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: upData.url,
-          filename: upData.filename,
-          type: upData.type,
-          size: upData.size
-        }),
-      });
-
-      if (attRes.ok) {
-        const newAtt = await attRes.json();
-        setData((d) => (d ? { ...d, attachments: [...d.attachments, newAtt], attachmentCount: (d.attachmentCount || 0) + 1 } : d));
+      const results = await Promise.allSettled(promises);
+      const successful = results
+        .filter((r): r is PromiseFulfilledResult<Attachment> => r.status === "fulfilled")
+        .map(r => r.value);
+      
+      if (successful.length > 0) {
+        setData((d) => (d ? { ...d, attachments: [...d.attachments, ...successful], attachmentCount: (d.attachmentCount || 0) + successful.length } : d));
         
         // Fetch activity for attachment
         try {
@@ -363,10 +372,17 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
         if (onCardUpdated) {
           onCardUpdated({ 
             id: cardId, 
-            attachmentCount: (data?.attachmentCount || 0) + 1 
+            attachmentCount: (data?.attachmentCount || 0) + successful.length 
           });
         }
       }
+      
+      const failed = results.filter(r => r.status === "rejected");
+      if (failed.length > 0) {
+          console.error("Some files failed to upload", failed);
+          alert(`Failed to upload ${failed.length} file(s)`);
+      }
+
     } catch (err) {
       console.error("Failed to upload/attach file", err);
       alert("Failed to attach file");
@@ -374,6 +390,37 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
       setIsUploading(false);
     }
   }
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.files && e.target.files.length > 0) {
+        await uploadFiles(e.target.files);
+    }
+    // Reset input so same file can be selected again if needed
+    e.target.value = "";
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      await uploadFiles(files);
+    }
+  };
 
   // Keep tempDueDate synced with controlled dueDate input
   React.useEffect(() => {
@@ -1104,11 +1151,21 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div
         ref={scrollWrapRef}
-        className="absolute inset-0 flex items-stretch justify-center overflow-hidden p-2 sm:p-4 md:p-8"
+        className={`absolute inset-0 flex items-stretch justify-center overflow-hidden p-2 sm:p-4 md:p-8 transition-colors ${isDraggingOver ? "bg-primary/10" : ""}`}
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
       >
+        {isDraggingOver && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
+             <div className="bg-background/90 dark:bg-neutral-900/90 border-2 border-dashed border-primary rounded-xl p-8 text-center shadow-2xl">
+                <p className="text-xl font-bold text-primary">Drop files to upload</p>
+             </div>
+          </div>
+        )}
         <div className="flex h-full w-full max-w-[980px] flex-col rounded-2xl border border-black/10 bg-background text-foreground shadow-lg dark:border-neutral-800 dark:bg-neutral-900">
           <div className="p-4 border-b border-black/10 dark:border-neutral-800 flex items-center justify-between">
             <div className="flex items-center gap-2 w-full">
@@ -1431,6 +1488,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                 </button>
                 <input
                   type="file"
+                  multiple
                   ref={fileInputRef}
                   className="hidden"
                   onChange={handleFileSelect}
@@ -1583,7 +1641,19 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                   <ul className="mt-2 space-y-2">
                     {data.attachments.map((a) => (
                       <li key={a.id} className="flex items-center justify-between border border-black/10 dark:border-neutral-800 rounded p-2 bg-foreground/5">
-                        <a href={a.url} target="_blank" rel="noreferrer" className="text-sm truncate max-w-[60%] hover:underline text-primary">{a.filename || a.url}</a>
+                        <button 
+                            onClick={(e) => {
+                                e.preventDefault();
+                                if (a.type.startsWith("image/") || a.type === "application/pdf") {
+                                    setPreviewAttachment(a);
+                                } else {
+                                    window.open(a.url, "_blank");
+                                }
+                            }} 
+                            className="text-sm truncate max-w-[60%] hover:underline text-primary text-left"
+                        >
+                            {a.filename || a.url}
+                        </button>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-foreground/60">{a.type || "link"}</span>
                           <a href={a.url} download target="_blank" rel="noreferrer" className="text-xs bg-foreground/10 hover:bg-foreground/20 rounded px-2 py-1">Download</a>
@@ -1591,6 +1661,15 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                       </li>
                     ))}
                   </ul>
+                  <div className="mt-2">
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="text-xs flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-foreground/5 text-foreground/80 transition-colors"
+                    >
+                        <span className="text-lg leading-none">+</span>
+                        Add attachment
+                    </button>
+                  </div>
                   {hasMoreAttachments && (
                     <div className="mt-2 flex justify-center">
                       <button
@@ -1784,6 +1863,48 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
         confirmText={confirmation?.confirmText}
         variant={confirmation?.variant}
       />
+      
+      {previewAttachment && (
+        <div 
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200" 
+            onClick={() => setPreviewAttachment(null)}
+        >
+            <div 
+                className="relative max-w-5xl max-h-[90vh] w-full flex flex-col items-center justify-center bg-transparent" 
+                onClick={e => e.stopPropagation()}
+            >
+                <button 
+                    onClick={() => setPreviewAttachment(null)} 
+                    className="absolute -top-10 right-0 text-white/70 hover:text-white transition-colors"
+                >
+                    <span className="text-2xl font-light">&times;</span>
+                </button>
+                
+                <div className="w-full h-full flex items-center justify-center overflow-hidden rounded-lg shadow-2xl bg-black/50">
+                    {previewAttachment.type.startsWith("image/") ? (
+                        <img 
+                            src={previewAttachment.url} 
+                            alt={previewAttachment.filename} 
+                            className="max-w-full max-h-[85vh] object-contain" 
+                        />
+                    ) : (
+                        <iframe 
+                            src={previewAttachment.url} 
+                            className="w-full h-[85vh] bg-white rounded-lg"
+                            title={previewAttachment.filename}
+                        />
+                    )}
+                </div>
+
+                <div className="mt-4 flex gap-4 bg-black/50 px-4 py-2 rounded-full backdrop-blur-md">
+                    <span className="text-white text-sm font-medium truncate max-w-[200px]">{previewAttachment.filename}</span>
+                    <div className="w-[1px] bg-white/20" />
+                    <a href={previewAttachment.url} download target="_blank" rel="noreferrer" className="text-white/80 hover:text-white text-sm hover:underline">Download</a>
+                    <a href={previewAttachment.url} target="_blank" rel="noreferrer" className="text-white/80 hover:text-white text-sm hover:underline">Open Original</a>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 }
