@@ -117,6 +117,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
   
   // File preview state
   const [previewAttachment, setPreviewAttachment] = React.useState<Attachment | null>(null);
+  
+  const descriptionRef = React.useRef<HTMLTextAreaElement>(null);
 
   // Collapsible checklists state - managed by ChecklistRenderer now
   const [showAllMembers, setShowAllMembers] = React.useState(false);
@@ -421,6 +423,48 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
       await uploadFiles(files);
     }
   };
+
+  async function deleteAttachment(attId: string) {
+      setConfirmation({
+        title: "Delete attachment?",
+        message: "This cannot be undone.",
+        confirmText: "Delete",
+        variant: "danger",
+        onConfirm: async () => {
+          try {
+            const res = await fetch(`/api/cards/${cardId}/attachments/${attId}`, { method: "DELETE" });
+            if (res.ok) {
+               setData(d => d ? { ...d, attachments: d.attachments.filter(a => a.id !== attId), attachmentCount: (d.attachmentCount || 1) - 1 } : d);
+               if (onCardUpdated) onCardUpdated({ id: cardId, attachmentCount: (data?.attachmentCount || 1) - 1 });
+               setConfirmation(null);
+            }
+          } catch (e) {
+            console.error(e);
+            alert("Failed to delete attachment");
+          }
+        }
+      });
+  }
+
+  function insertMarkdown(prefix: string, suffix: string = "") {
+    if (!descriptionRef.current) return;
+    const textarea = descriptionRef.current;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const before = text.substring(0, start);
+    const selection = text.substring(start, end);
+    const after = text.substring(end);
+    
+    const newText = before + prefix + selection + suffix + after;
+    setDescription(newText);
+    
+    // Restore selection/cursor
+    setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + prefix.length, end + prefix.length);
+    }, 0);
+  }
 
   // Keep tempDueDate synced with controlled dueDate input
   React.useEffect(() => {
@@ -1573,29 +1617,25 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                     <div className="border-2 border-blue-500 rounded-md overflow-hidden bg-background ring-offset-background transition-all">
                       {/* Toolbar */}
                       <div className="flex items-center gap-1 p-1.5 border-b bg-foreground/5 overflow-x-auto no-scrollbar">
-                        <button className="flex items-center gap-0.5 px-1.5 py-1 text-xs font-medium hover:bg-foreground/10 rounded transition-colors" title="Text style">
+                        <button onClick={() => insertMarkdown("# ", "")} className="flex items-center gap-0.5 px-1.5 py-1 text-xs font-medium hover:bg-foreground/10 rounded transition-colors" title="Heading">
                           <span>Tt</span>
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                         </button>
                         <div className="w-[1px] h-4 bg-foreground/10 mx-1 flex-shrink-0" />
-                        <button className="px-2 py-1 text-xs font-bold hover:bg-foreground/10 rounded transition-colors" title="Bold">B</button>
-                        <button className="px-2 py-1 text-xs italic hover:bg-foreground/10 rounded transition-colors" title="Italic">I</button>
-                        <button className="px-2 py-1 text-xs hover:bg-foreground/10 rounded transition-colors" title="More options">...</button>
+                        <button onClick={() => insertMarkdown("**", "**")} className="px-2 py-1 text-xs font-bold hover:bg-foreground/10 rounded transition-colors" title="Bold">B</button>
+                        <button onClick={() => insertMarkdown("*", "*")} className="px-2 py-1 text-xs italic hover:bg-foreground/10 rounded transition-colors" title="Italic">I</button>
                         <div className="w-[1px] h-4 bg-foreground/10 mx-1 flex-shrink-0" />
-                        <button className="flex items-center gap-0.5 px-1.5 py-1 hover:bg-foreground/10 rounded transition-colors" title="List">
+                        <button onClick={() => insertMarkdown("- ", "")} className="flex items-center gap-0.5 px-1.5 py-1 hover:bg-foreground/10 rounded transition-colors" title="List">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                         </button>
                         <div className="w-[1px] h-4 bg-foreground/10 mx-1 flex-shrink-0" />
-                        <button className="px-2 py-1 hover:bg-foreground/10 rounded transition-colors" title="Link">
+                        <button onClick={() => insertMarkdown("[", "](url)")} className="px-2 py-1 hover:bg-foreground/10 rounded transition-colors" title="Link">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                        </button>
-                        <button className="flex items-center gap-0.5 px-1.5 py-1 hover:bg-foreground/10 rounded transition-colors" title="Insert">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                         </button>
                       </div>
                       <textarea
+                        ref={descriptionRef}
                         autoFocus
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
@@ -1657,6 +1697,13 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-foreground/60">{a.type || "link"}</span>
                           <a href={a.url} download target="_blank" rel="noreferrer" className="text-xs bg-foreground/10 hover:bg-foreground/20 rounded px-2 py-1">Download</a>
+                          <button 
+                            onClick={() => deleteAttachment(a.id)}
+                            className="text-xs text-foreground/40 hover:text-red-500 p-1"
+                            title="Remove attachment"
+                          >
+                             <span className="text-lg leading-none">&times;</span>
+                          </button>
                         </div>
                       </li>
                     ))}
