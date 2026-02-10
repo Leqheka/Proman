@@ -282,8 +282,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
         const TAKE = 20;
         const wantComments = (data?.commentCount || 0) > 0;
         const [commentsRes, activityRes] = await Promise.allSettled([
-          wantComments ? fetch(`/api/cards/${cardId}/comments?take=${TAKE}`, { signal: controller.signal }) : Promise.resolve(null),
-          fetch(`/api/cards/${cardId}/activity?take=200`, { signal: controller.signal }),
+          wantComments ? fetch(`/api/cards/${cardId}/comments?take=${TAKE}&t=${Date.now()}`, { signal: controller.signal }) : Promise.resolve(null),
+          fetch(`/api/cards/${cardId}/activity?take=200&t=${Date.now()}`, { signal: controller.signal }),
         ]);
         const commentsOk = commentsRes.status === "fulfilled" && commentsRes.value && commentsRes.value.ok;
         const activityOk = activityRes.status === "fulfilled" && activityRes.value && activityRes.value.ok;
@@ -693,8 +693,10 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
       });
       if (resp.ok) {
         const created = await resp.json();
-        setData((d) => (d ? { ...d, comments: [created, ...d.comments] } : d));
+        const nextCount = (data?.commentCount || 0) + 1;
+        setData((d) => (d ? { ...d, comments: [created, ...d.comments], commentCount: nextCount } : d));
         setCommentText("");
+        if (onCardUpdated) onCardUpdated({ id: cardId, commentCount: nextCount });
       }
     } catch (err) {
       console.error("Failed to add comment", err);
@@ -726,7 +728,9 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     try {
       const resp = await fetch(`/api/comments/${commentId}`, { method: "DELETE" });
       if (resp.ok) {
-        setData((d) => (d ? { ...d, comments: d.comments.filter((c) => c.id !== commentId) } : d));
+        const nextCount = Math.max(0, (data?.commentCount || 1) - 1);
+        setData((d) => (d ? { ...d, comments: d.comments.filter((c) => c.id !== commentId), commentCount: nextCount } : d));
+        if (onCardUpdated) onCardUpdated({ id: cardId, commentCount: nextCount });
       }
     } catch (err) {
       console.error("Failed to delete comment", err);
