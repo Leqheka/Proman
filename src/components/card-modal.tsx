@@ -280,9 +280,14 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
         setLoadingComments(true);
         setLoadingActivity(true);
         const TAKE = 20;
-        const wantComments = (data?.commentCount || 0) > 0;
+        
+        // Force load comments regardless of count to be safe, or check data.comments.length too
+        // But rely on wantComments for now. 
+        // If data.commentCount is out of sync, we might miss comments.
+        // Let's just always fetch if showDetails is true, to be safe.
+        
         const [commentsRes, activityRes] = await Promise.allSettled([
-          wantComments ? fetch(`/api/cards/${cardId}/comments?take=${TAKE}&t=${Date.now()}`, { signal: controller.signal }) : Promise.resolve(null),
+          fetch(`/api/cards/${cardId}/comments?take=${TAKE}&t=${Date.now()}`, { signal: controller.signal }),
           fetch(`/api/cards/${cardId}/activity?take=200&t=${Date.now()}`, { signal: controller.signal }),
         ]);
         const commentsOk = commentsRes.status === "fulfilled" && commentsRes.value && commentsRes.value.ok;
@@ -294,7 +299,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
         const withoutCreation = activity.filter((a) => a.type !== "CARD_CREATED").sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         if (creation) activity = [...withoutCreation, creation];
         if (Array.isArray(comments)) {
-          setData((d) => (d ? { ...d, comments } : d));
+          setData((d) => (d ? { ...d, comments, commentCount: comments.length } : d));
           const take = TAKE;
           setHasMoreComments(comments.length === take);
           setCommentsCursor(comments.length ? comments[comments.length - 1].id : null);
@@ -312,7 +317,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     }
     loadDetails();
     return () => controller.abort();
-  }, [showDetails]);
+  }, [showDetails, cardId]); // Removed wantComments dependency which was implicit via closure but logic was risky
 
   async function uploadFiles(files: FileList) {
     setIsUploading(true);
