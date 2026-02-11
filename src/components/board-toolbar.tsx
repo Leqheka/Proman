@@ -26,11 +26,13 @@ export default function BoardToolbar({
   currentBoardId,
   boardTitle,
   onBackgroundChanged,
+  onToggleArchives,
 }: {
   boards: BoardRef[];
   currentBoardId: string;
   boardTitle: string;
   onBackgroundChanged?: (url: string) => void;
+  onToggleArchives?: () => void;
 }) {
   const router = useRouter();
   const [openBg, setOpenBg] = useState(false);
@@ -133,6 +135,14 @@ export default function BoardToolbar({
           </select>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          {isAdmin && (
+            <button
+              onClick={onToggleArchives}
+              className="flex items-center justify-center text-xs rounded px-2 py-1 bg-background text-foreground border border-black/10 dark:border-white/15 hover:bg-foreground hover:text-background"
+            >
+              Archives
+            </button>
+          )}
           <div className="relative" ref={bgMenuWrapRef}>
             <button
               onClick={() => setOpenBg((v) => !v)}

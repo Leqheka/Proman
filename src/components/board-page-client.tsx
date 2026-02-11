@@ -41,6 +41,7 @@ export default function BoardPageClient({
   archivedCards: CardItem[];
 }) {
   const [bg, setBg] = React.useState<string>(initialBackground);
+  const [showArchives, setShowArchives] = React.useState(false);
   const appliedBg = bg ? toProxy(normalizeUnsplash(bg)) : undefined;
 
   React.useEffect(() => {
@@ -51,8 +52,20 @@ export default function BoardPageClient({
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-background text-foreground" style={{ backgroundImage: appliedBg ? `url(${appliedBg})` : undefined, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}>
-      <BoardToolbar boards={boards} currentBoardId={currentBoardId} boardTitle={boardTitle} onBackgroundChanged={setBg} />
-      <BoardContentClient boardId={currentBoardId} initialLists={initialLists} archivedCards={archivedCards} />
+      <BoardToolbar 
+        boards={boards} 
+        currentBoardId={currentBoardId} 
+        boardTitle={boardTitle} 
+        onBackgroundChanged={setBg} 
+        onToggleArchives={() => setShowArchives(!showArchives)}
+      />
+      <BoardContentClient 
+        boardId={currentBoardId} 
+        initialLists={initialLists} 
+        archivedCards={archivedCards} 
+        showArchives={showArchives}
+        onCloseArchives={() => setShowArchives(false)}
+      />
     </div>
   );
 }

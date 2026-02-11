@@ -263,7 +263,19 @@ const SortableCard = React.memo(SortableCardBase, (prev, next) => {
   return true;
 });
 
-export default function BoardContent({ boardId, initialLists, archivedCards = [] }: { boardId: string; initialLists: ListItem[]; archivedCards?: CardItem[] }) {
+export default function BoardContent({ 
+  boardId, 
+  initialLists, 
+  archivedCards = [],
+  showArchives,
+  onCloseArchives
+}: { 
+  boardId: string; 
+  initialLists: ListItem[]; 
+  archivedCards?: CardItem[];
+  showArchives?: boolean;
+  onCloseArchives?: () => void;
+}) {
   const [lists, setLists] = React.useState<ListItem[]>(initialLists);
   const [archives, setArchives] = React.useState<CardItem[]>(archivedCards);
   const [openedCardId, setOpenedCardId] = React.useState<string | null>(null);
@@ -1171,6 +1183,38 @@ export default function BoardContent({ boardId, initialLists, archivedCards = []
           />
         );
       })()}
+      {showArchives && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onCloseArchives}>
+            <div className="w-full max-w-2xl bg-background border border-black/10 dark:border-neutral-800 rounded-xl shadow-2xl p-6 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold">Archived Cards</h2>
+                    <button onClick={onCloseArchives} className="p-1 hover:bg-foreground/10 rounded text-xl leading-none">&times;</button>
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                    {archives.length === 0 ? (
+                        <p className="text-foreground/50 text-center py-8">No archived cards</p>
+                    ) : (
+                        archives.map(card => (
+                            <div key={card.id} className="flex items-center justify-between p-3 border border-black/10 dark:border-neutral-800 rounded hover:bg-foreground/5 transition-colors">
+                                <div>
+                                    <p className="font-medium text-sm">{card.title}</p>
+                                    <p className="text-xs text-foreground/50 mt-0.5">
+                                        {card.listId ? `Original list: ${lists.find(l => l.id === card.listId)?.title || "Unknown"}` : "Archived"}
+                                    </p>
+                                </div>
+                                <button 
+                                    onClick={() => toggleArchive(card, false)}
+                                    className="text-xs px-3 py-1.5 bg-foreground text-background rounded hover:opacity-90 font-medium transition-opacity"
+                                >
+                                    Restore
+                                </button>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+        </div>
+      )}
     </>
   );
 }

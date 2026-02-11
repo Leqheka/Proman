@@ -936,18 +936,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
             if (item) {
                 const titlePart = item.title.split("|")[0];
                 if (titlePart === "Invoicing") {
-                    setConfirmation({
-                        title: "Archive Card?",
-                        message: "Move card to Archives?",
-                        confirmText: "Archive",
-                        variant: "danger",
-                        onConfirm: async () => {
-                            await toggleCardArchived(true);
-                            setConfirmation(null);
-                            // Proceed with the update
-                            await _performUpdateChecklistItem(itemId, updateData);
-                        }
-                    });
+                    await toggleCardArchived(true);
+                    await _performUpdateChecklistItem(itemId, updateData);
                     return;
                 }
             }
