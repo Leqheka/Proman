@@ -932,13 +932,14 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     // Special logic for "Invoicing" in Workflow Checklist
     if (updateData.completed === true) {
         const checklist = (data?.checklists || []).find(c => c.items.some(it => it.id === itemId));
-        if (checklist && checklist.title === "Workflow Checklist") {
+        if (checklist && checklist.title.toLowerCase() === "workflow checklist") {
             const item = checklist.items.find(it => it.id === itemId);
             if (item) {
                 const titlePart = item.title.split("|")[0].trim();
-                if (titlePart === "Invoicing") {
+                if (titlePart.toLowerCase() === "invoicing") {
                     await toggleCardArchived(true);
-                    await _performUpdateChecklistItem(itemId, updateData);
+                    // Pass skipWorkflowMove to prevent moving to next list if archived
+                    await _performUpdateChecklistItem(itemId, updateData, true);
                     return;
                 }
             }
@@ -948,7 +949,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     await _performUpdateChecklistItem(itemId, updateData);
   }
 
-  async function _performUpdateChecklistItem(itemId: string, updateData: Partial<ChecklistItem>) {
+  async function _performUpdateChecklistItem(itemId: string, updateData: Partial<ChecklistItem>, skipWorkflowMove: boolean = false) {
     try {
       const resp = await fetch(`/api/checklist-items/${itemId}`, {
         method: "PATCH",
@@ -961,7 +962,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
           if (!d) return d;
           
           // Check for workflow movement
-          if (updateData.completed === true) {
+          if (!skipWorkflowMove && updateData.completed === true) {
               const checklist = d.checklists.find(c => c.items.some(it => it.id === itemId));
               if (checklist && checklist.title === "Workflow Checklist") {
                   const sortedItems = [...checklist.items].sort((a, b) => (a.order || 0) - (b.order || 0));
