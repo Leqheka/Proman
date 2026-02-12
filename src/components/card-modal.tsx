@@ -34,7 +34,7 @@ type CardDetail = {
   assignmentCount?: number;
 };
 
-export default function CardModal({ cardId, onClose, onCardUpdated, initial, availableLists, onMoveCard, lastUpdated }: { cardId: string; onClose: () => void; onCardUpdated?: (patch: { id: string; title?: string; dueDate?: string | null; hasDescription?: boolean; checklistCount?: number; assignmentCount?: number; commentCount?: number; attachmentCount?: number; members?: Member[] }) => void; initial?: Partial<CardDetail> | null; availableLists?: { id: string; title: string }[]; onMoveCard?: (toListId: string) => Promise<any>; lastUpdated?: number }) {
+export default function CardModal({ cardId, onClose, onCardUpdated, initial, availableLists, onMoveCard, lastUpdated }: { cardId: string; onClose: () => void; onCardUpdated?: (patch: { id: string; title?: string; dueDate?: string | null; hasDescription?: boolean; checklistCount?: number; assignmentCount?: number; commentCount?: number; attachmentCount?: number; members?: Member[]; archived?: boolean }) => void; initial?: Partial<CardDetail> | null; availableLists?: { id: string; title: string }[]; onMoveCard?: (toListId: string) => Promise<any>; lastUpdated?: number }) {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [data, setData] = React.useState<CardDetail | null>(null);
@@ -770,6 +770,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
       });
       if (resp.ok) {
         setData((d) => (d ? { ...d, archived: next } : d));
+        if (onCardUpdated) onCardUpdated({ id: cardId, archived: next });
       }
     } catch (err) {
       console.error("Failed to toggle archived", err);
@@ -934,7 +935,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
         if (checklist && checklist.title === "Workflow Checklist") {
             const item = checklist.items.find(it => it.id === itemId);
             if (item) {
-                const titlePart = item.title.split("|")[0];
+                const titlePart = item.title.split("|")[0].trim();
                 if (titlePart === "Invoicing") {
                     await toggleCardArchived(true);
                     await _performUpdateChecklistItem(itemId, updateData);
@@ -1212,6 +1213,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
         <div className="flex h-full w-full max-w-[980px] flex-col rounded-2xl border border-black/10 bg-background text-foreground shadow-lg dark:border-neutral-800 dark:bg-neutral-900">
           <div className="p-4 border-b border-black/10 dark:border-neutral-800 flex items-center justify-between">
             <div className="flex items-center gap-2 w-full">
+              {data?.archived && <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded font-bold shrink-0">ARCHIVED</span>}
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}

@@ -789,12 +789,44 @@ export default function BoardContent({
     commentCount?: number;
     attachmentCount?: number;
     members?: Array<{ id: string; name?: string | null; email: string; image?: string | null }>;
+    archived?: boolean;
   }) {
     console.info("[BoardContent] handleCardUpdated", patch);
-    const { id, title, dueDate, hasDescription, checklistCount, assignmentCount, commentCount, attachmentCount, members } = patch;
+    const { id, title, dueDate, hasDescription, checklistCount, assignmentCount, commentCount, attachmentCount, members, archived } = patch;
     
     // Trigger modal refresh if this card is open
     setCardLastUpdated(curr => ({ ...curr, [id]: Date.now() }));
+
+    if (archived !== undefined) {
+        if (archived) {
+            setLists((curr) => {
+                const loc = findListByCardId(id, curr);
+                if (!loc) return curr;
+                const next = [...curr];
+                const fromList = next[loc.listIndex];
+                const moving = fromList.cards[loc.cardIndex];
+                next[loc.listIndex] = { ...fromList, cards: fromList.cards.filter((_, i) => i !== loc.cardIndex) };
+                setArchives((a) => (a.some((x) => x.id === moving.id) ? a : [...a, { ...moving, listId: fromList.id }]));
+                return next;
+            });
+        } else {
+             setArchives((curr) => {
+                const moving = curr.find((c) => c.id === id);
+                const rest = curr.filter((c) => c.id !== id);
+                if (moving?.listId) {
+                  setLists((l) => {
+                    const idx = l.findIndex((li) => li.id === moving.listId);
+                    if (idx === -1) return l;
+                    const next = [...l];
+                    // Append to end of list
+                    next[idx] = { ...next[idx], cards: [...next[idx].cards, { id: moving.id, title: moving.title, order: next[idx].cards.length }] };
+                    return next;
+                  });
+                }
+                return rest;
+              });
+        }
+    }
 
     setLists((curr) => {
       const loc = findListByCardId(id, curr);
