@@ -97,7 +97,7 @@ export default function AppHeader() {
           {loggedIn ? (
             <button title="Notifications" className="text-sm rounded px-2 py-1 bg-foreground/5 text-foreground">🔔</button>
           ) : null}
-          {loggedIn ? (
+          {loggedIn !== false ? (
           <div className="relative" ref={profileWrapRef}>
             <button
               title="Profile"
@@ -113,7 +113,9 @@ export default function AppHeader() {
               </div>
             )}
           </div>
-          ) : null}
+          ) : (
+            <Link href="/login" className="text-sm font-semibold hover:underline">Log in</Link>
+          )}
         </div>
       </div>
     </header>
