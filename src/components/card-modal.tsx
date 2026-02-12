@@ -932,11 +932,13 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     // Special logic for "Invoicing" in Workflow Checklist
     if (updateData.completed === true) {
         const checklist = (data?.checklists || []).find(c => c.items.some(it => it.id === itemId));
-        if (checklist && checklist.title.toLowerCase() === "workflow checklist") {
+        // Relaxed matching for "Workflow Checklist"
+        if (checklist && checklist.title.toLowerCase().includes("workflow")) {
             const item = checklist.items.find(it => it.id === itemId);
             if (item) {
-                const titlePart = item.title.split("|")[0].trim();
-                if (titlePart.toLowerCase() === "invoicing") {
+                const titlePart = item.title.split("|")[0].trim().toLowerCase();
+                // Relaxed matching for "Invoicing"
+                if (titlePart.includes("invoicing")) {
                     await toggleCardArchived(true);
                     // Pass skipWorkflowMove to prevent moving to next list if archived
                     await _performUpdateChecklistItem(itemId, updateData, true);
