@@ -115,6 +115,7 @@ export default async function BoardPage({ params }: { params: Promise<{ boardId:
   const token = cookieStore.get("session")?.value || "";
   const payload = token ? await verifySession(token) : null;
   if (!payload) {
+    // If we're already on the server, redirect directly
     redirect("/login");
   }
 
@@ -131,6 +132,9 @@ export default async function BoardPage({ params }: { params: Promise<{ boardId:
       />
     );
   } catch (err) {
+    console.error("Failed to load board page:", err);
+    // Redirect to home if board not found or error, rather than showing broken page
+    // or maybe just return the empty client for better UX
     return (
       <BoardPageClient
         currentBoardId={boardId}
