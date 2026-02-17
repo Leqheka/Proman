@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import BoardPageClient from "@/components/board-page-client";
 import { unstable_cache } from "next/cache";
+import { cookies } from "next/headers";
+import { verifySession } from "@/lib/session";
+import { redirect } from "next/navigation";
 
 async function loadBoardData(boardId: string) {
   const board = await prisma.board.findUnique({
@@ -112,6 +115,14 @@ async function getBoardDataCached(boardId: string) {
 
 export default async function BoardPage({ params }: { params: Promise<{ boardId: string }> }) {
   const { boardId } = await params;
+  
+  const cookieStore = await cookies();
+  const token = cookieStore.get("session")?.value || "";
+  const payload = token ? await verifySession(token) : null;
+  if (!payload) {
+    redirect("/login");
+  }
+
   try {
     const data = await getBoardDataCached(boardId);
     return (
