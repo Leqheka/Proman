@@ -8,8 +8,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ boardId
     const ids: string[] = Array.isArray(body?.ids) ? body.ids : [];
     if (!ids.length) return NextResponse.json({ error: "ids required" }, { status: 400 });
 
+    // Batch update via parallel transactions is generally okay for small lists,
+    // but for larger sets, raw SQL is much faster.
+    // However, since list count per board is usually small (<50), 
+    // we'll stick to parallel update for safety but wrap in Promise.all 
+    // to ensure they are dispatched concurrently even if $transaction serializes them.
+    // Actually $transaction(promises) is the correct way.
+    
+    // Optimization: Only update if order actually changed? 
+    // For now, let's keep it simple but ensure no await inside loop.
+    
     await prisma.$transaction(
-      ids.map((id, idx) => prisma.list.update({ where: { id }, data: { order: idx } }))
+      ids.map((id, idx) => prisma.list.update({ 
+        where: { id }, 
+        data: { order: idx } 
+      }))
     );
 
     return NextResponse.json({ ok: true });

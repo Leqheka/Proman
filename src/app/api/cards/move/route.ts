@@ -121,7 +121,8 @@ export async function POST(req: Request) {
             });
 
             console.info(`[API/cards/move] creating ${checklistsToCreate.length} checklists for card ${cardId}`);
-            for (const cl of checklistsToCreate) {
+            
+            await Promise.all(checklistsToCreate.map(async (cl) => {
                 const match = existingChecklists.find(ex => {
                     if (ex.title !== cl.title) return false;
                     if (ex.items.length !== cl.items.length) return false;
@@ -130,32 +131,33 @@ export async function POST(req: Request) {
                     const sortedEx = [...ex.items].sort((a, b) => (a.order || 0) - (b.order || 0));
                     
                     return sortedEx.every((item, idx) => {
-                         const clItem = cl.items[idx];
+                         const clItem = cl.items[idx] || {};
                          return item.title === (clItem.title || "Untitled");
                     });
                 });
 
                 if (match) {
                     console.info(`[API/cards/move] checklist "${cl.title}" already exists on card ${cardId}, skipping`);
-                    continue;
+                    return;
                 }
 
                 console.info(`[API/cards/move] creating checklist "${cl.title}" on card ${cardId}`);
-                const created = await tx.checklist.create({
-                    data: { title: cl.title, cardId }
+                await tx.checklist.create({
+                    data: {
+                        title: cl.title,
+                        cardId,
+                        items: {
+                            createMany: {
+                                data: cl.items.map((item: any, idx: number) => ({
+                                    title: item.title || "Untitled",
+                                    completed: !!item.completed,
+                                    order: idx
+                                }))
+                            }
+                        }
+                    }
                 });
-                
-                if (cl.items.length > 0) {
-                    await tx.checklistItem.createMany({
-                        data: cl.items.map((item: any, idx: number) => ({
-                            checklistId: created.id,
-                            title: item.title || "Untitled",
-                            completed: !!item.completed,
-                            order: idx
-                        }))
-                    });
-                }
-            }
+            }));
           }
         }
       }

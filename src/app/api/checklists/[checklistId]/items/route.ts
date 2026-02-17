@@ -72,14 +72,18 @@ export async function PUT(req: Request, { params }: { params: Promise<{ checklis
     if (!checklistId) return NextResponse.json({ error: "checklistId required" }, { status: 400 });
     if (!Array.isArray(items)) return NextResponse.json({ error: "items array required" }, { status: 400 });
 
-    await prisma.$transaction(
-      items.map((item: any) => 
-        prisma.checklistItem.update({
-          where: { id: item.id },
-          data: { order: item.order }
-        })
-      )
+    // For reordering small lists (checklists usually < 50 items),
+    // mapping update promises into $transaction is efficient enough.
+    // Ensure all promises are created before passing to transaction.
+    
+    const updates = items.map((item: any) => 
+      prisma.checklistItem.update({
+        where: { id: item.id },
+        data: { order: item.order }
+      })
     );
+
+    await prisma.$transaction(updates);
 
     return NextResponse.json({ success: true });
   } catch (err) {

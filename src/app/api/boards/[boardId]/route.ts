@@ -9,6 +9,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ boardId:
     const { searchParams } = new URL(req.url);
     const includeCards = searchParams.get("includeCards") === "true";
 
+    // If includeCards is true, we fetch everything for initial load.
+    // However, if the board is huge (e.g. 50 lists, 1000 cards), this will be slow.
+    // Ideally, we should limit 'take' for cards per list (e.g. first 30), 
+    // and implement "Load More" on the client.
+    // For now, we add a safety limit of 50 cards per list to prevent massive payloads.
+    
     const board = await prisma.board.findUnique({
       where: { id: boardId },
       include: { 
@@ -18,6 +24,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ boardId:
             cards: {
               where: { archived: false },
               orderBy: { order: "asc" },
+              take: 50, // <-- Limit initial payload
               include: {
                 assignments: {
                   select: { user: { select: { id: true, name: true, email: true, image: true } } }
