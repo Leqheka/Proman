@@ -5,13 +5,19 @@ import { verifySession } from "@/lib/session";
 import CreateBoard from "@/components/create-board";
 import HomeScene from "@/components/home-scene";
 import BoardCard from "@/components/board-card";
+import { redirect } from "next/navigation";
 
-export const revalidate = 60; // cache homepage data for snappier loads
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const cookieStore = await cookies();
   const token = cookieStore.get("session")?.value || "";
   const payload = token ? await verifySession(token) : null;
+  
+  if (!payload) {
+    redirect("/login");
+  }
+
   const isAdmin = !!payload?.admin;
 
   let boards: Array<{ id: string; title: string; background: string | null }>;
