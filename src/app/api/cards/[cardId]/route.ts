@@ -47,10 +47,10 @@ export async function GET(
           checklists: {
             include: { 
               items: {
-                orderBy: { order: "asc" }
+                orderBy: { order: "asc" as const }
               } 
             },
-            orderBy: { id: "asc" }
+            orderBy: { id: "asc" as const }
           },
           assignments: { include: { user: { select: { id: true, name: true, email: true, image: true } } } },
         };
