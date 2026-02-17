@@ -29,7 +29,8 @@ export const config = {
      * - _next (static files, image optimization, internal Next.js requests)
      * - favicon.ico (favicon file)
      * - login (login page)
+     * - public files (images, etc)
      */
-    '/((?!api/auth|api/landing-bg|_next|favicon.ico|login).*)',
+    '/((?!api/auth|api/landing-bg|_next|favicon.ico|login|.*\\..*).*)',
   ],
 };

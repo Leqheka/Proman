@@ -104,13 +104,8 @@ async function loadBoardData(boardId: string) {
   };
 }
 
-async function getBoardDataCached(boardId: string) {
-  const cached = unstable_cache(
-    () => loadBoardData(boardId),
-    ["board-page", boardId],
-    { revalidate: 1, tags: [`board:${boardId}`] }
-  );
-  return cached();
+async function getBoardData(boardId: string) {
+  return loadBoardData(boardId);
 }
 
 export default async function BoardPage({ params }: { params: Promise<{ boardId: string }> }) {
@@ -124,7 +119,7 @@ export default async function BoardPage({ params }: { params: Promise<{ boardId:
   }
 
   try {
-    const data = await getBoardDataCached(boardId);
+    const data = await getBoardData(boardId);
     return (
       <BoardPageClient
         currentBoardId={data.currentBoardId}
@@ -138,7 +133,7 @@ export default async function BoardPage({ params }: { params: Promise<{ boardId:
   } catch (err) {
     return (
       <BoardPageClient
-        currentBoardId={(await params).boardId}
+        currentBoardId={boardId}
         boardTitle={"Board"}
         initialBackground={""}
         boards={[]}
