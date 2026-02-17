@@ -163,7 +163,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
         } else {
           setLoading(true);
         }
-        const resp = await fetch(`/api/cards/${cardId}?summary=1&t=${Date.now()}`, { signal: controller.signal });
+        // Fetch full card data in one request (summary=0)
+        const resp = await fetch(`/api/cards/${cardId}?summary=0&t=${Date.now()}`, { signal: controller.signal });
         if (!resp.ok) {
           const status = resp.status;
           setLoadError(status === 404 ? "Card not found" : "Failed to load card");
@@ -171,93 +172,52 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
           return;
         }
         const t0 = performance.now();
-        const summary = await resp.json();
-        console.info("[CardModalPerf] summary_ms=", Math.round(performance.now() - t0));
+        const fullData = await resp.json();
+        console.info("[CardModalPerf] full_load_ms=", Math.round(performance.now() - t0));
+        
         const normalized = {
-          ...summary,
-          attachments: Array.isArray(summary.attachments) ? summary.attachments : [],
-          comments: Array.isArray(summary.comments) ? summary.comments : [],
-          checklists: Array.isArray(summary.checklists) ? summary.checklists : [],
-          members: Array.isArray(summary.members) ? summary.members : [],
-          commentCount: Number(summary.commentCount || 0),
-          attachmentCount: Number(summary.attachmentCount || 0),
-          checklistCount: Number(summary.checklistCount || 0),
-          assignmentCount: Number(summary.assignmentCount || 0),
+          ...fullData,
+          attachments: Array.isArray(fullData.attachments) ? fullData.attachments : [],
+          comments: Array.isArray(fullData.comments) ? fullData.comments : [],
+          checklists: (Array.isArray(fullData.checklists) ? fullData.checklists : []).map((cl: any) => ({
+             id: cl.id, 
+             title: cl.title, 
+             items: cl.items || [], 
+             itemsCount: cl.items?.length ?? cl.itemsCount ?? 0 
+          })),
+          members: Array.isArray(fullData.members) ? fullData.members : [],
+          commentCount: Number(fullData.commentCount || fullData.comments?.length || 0),
+          attachmentCount: Number(fullData.attachmentCount || fullData.attachments?.length || 0),
+          checklistCount: Number(fullData.checklistCount || fullData.checklists?.length || 0),
+          assignmentCount: Number(fullData.assignmentCount || fullData.members?.length || 0),
         } as CardDetail;
+
         setData(normalized);
         setTitle(normalized.title ?? "");
         setDescription(normalized.description ?? "");
         setDueDate(normalized.dueDate ? new Date(normalized.dueDate).toISOString().slice(0, 16) : "");
+        
+        // Setup pagination cursors
+        if (normalized.comments.length > 0) {
+            setHasMoreComments(normalized.comments.length === 50);
+            setCommentsCursor(normalized.comments[normalized.comments.length - 1].id);
+        }
+        if (normalized.attachments.length > 0) {
+             // We don't have a specific limit on attachments in the API route currently (it fetches all), 
+             // but if we added one, we'd handle it here. 
+             // For now assume all attachments returned.
+             setHasMoreAttachments(false);
+        }
+
         setLoading(false);
+        
         if ((normalized.checklistCount || 0) > 0) {
-          setLoadingChecklists(true);
+          setLoadingChecklists(false); // We already have them
         }
-        if (!creationActivity) {
-          const createdAtISO = (normalized as any).createdAt ? (normalized as any).createdAt : new Date().toISOString();
-          setCreationActivity({ id: `local-${cardId}`, type: "CARD_CREATED", details: { message: "Someone created this card" }, createdAt: createdAtISO, user: null });
-        }
-        try {
-          const respOne = await fetch(`/api/cards/${cardId}/activity?order=asc&type=CARD_CREATED&take=1`, { signal: controller.signal });
-          if (respOne.ok) {
-            const one = await respOne.json();
-            if (Array.isArray(one) && one.length > 0) {
-              setCreationActivity(one[0]);
-            } else {
-              const createdAtISO = normalized && (normalized as any).createdAt ? (normalized as any).createdAt : new Date().toISOString();
-              setCreationActivity({ id: `local-${cardId}`, type: "CARD_CREATED", details: { message: "Someone created this card" }, createdAt: createdAtISO, user: null });
-            }
-          }
-        } catch {
-          const createdAtISO = normalized && (normalized as any).createdAt ? (normalized as any).createdAt : new Date().toISOString();
-          setCreationActivity({ id: `local-${cardId}`, type: "CARD_CREATED", details: { message: "Someone created this card" }, createdAt: createdAtISO, user: null });
-        }
-        // Run heavy loads directly after summary to ensure immediate reflection
-        try {
-          setLoadingChecklists(true);
-          const wantDescription = !!summary.hasDescription && !(summary.description && summary.description.length > 0);
-          const tf = async (name: string, url: string) => {
-            const t = performance.now();
-            const r = await fetch(url, { signal: controller.signal });
-            console.info(`[CardModalPerf] ${name}_ms=`, Math.round(performance.now() - t));
-            return r;
-          };
-          const TAKE = 20;
-          const wantAttachments = (normalized.attachmentCount || 0) > 0;
-          const wantChecklists = (normalized.checklistCount || 0) > 0;
-          const promises: Array<Promise<any>> = [];
-          promises.push(wantAttachments ? tf("attachments", `/api/cards/${cardId}/attachments?take=${TAKE}&t=${Date.now()}`) : Promise.resolve(null));
-          promises.push(wantChecklists ? tf("checklists", `/api/cards/${cardId}/checklists?withItems=1&t=${Date.now()}`) : Promise.resolve(null));
-          promises.push(wantDescription ? tf("description", `/api/cards/${cardId}/description?t=${Date.now()}`) : Promise.resolve(null));
-          const [attachmentsRes, checklistsRes, descriptionRes] = await Promise.allSettled(promises);
-          const attachmentsOk = attachmentsRes.status === "fulfilled" && attachmentsRes.value && attachmentsRes.value.ok;
-          const checklistsOk = checklistsRes.status === "fulfilled" && checklistsRes.value && checklistsRes.value.ok;
-          const descriptionOk = wantDescription && descriptionRes.status === "fulfilled" && descriptionRes.value && descriptionRes.value.ok;
 
-          const attachments = attachmentsOk ? await attachmentsRes.value.json() : undefined;
-          const checklists = checklistsOk ? await checklistsRes.value.json() : undefined;
-          const descObj = descriptionOk ? await descriptionRes.value.json() : undefined;
+        // Fetch activity separately (non-blocking)
+        fetchActivityLog(controller.signal);
 
-          setData((d) => {
-            if (!d) return d;
-            return {
-              ...d,
-              ...(attachments !== undefined ? { attachments } : {}),
-              ...(checklists !== undefined ? { checklists: (checklists as any[]).map((cl: any) => ({ id: cl.id, title: cl.title, items: cl.items || [], itemsCount: cl.itemsCount ?? (cl.items?.length || 0) })) } : {}),
-              ...(descObj !== undefined ? { description: descObj.description ?? "" } : {}),
-            };
-          });
-          if (descObj !== undefined) {
-            setDescription(descObj.description ?? "");
-          }
-          if (Array.isArray(attachments)) {
-            const takeA = TAKE;
-            setHasMoreAttachments(attachments.length === takeA);
-            setAttachmentsCursor(attachments.length ? attachments[attachments.length - 1].id : null);
-          }
-
-        } finally {
-          setLoadingChecklists(false);
-        }
       } catch (err) {
         if ((err as any)?.name !== "AbortError") {
           console.error("Failed to load card", err);
@@ -272,52 +232,51 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     return () => controller.abort();
   }, [cardId, lastUpdated]);
 
-  React.useEffect(() => {
-    if (!showDetails) return;
-    const controller = new AbortController();
-    async function loadDetails() {
-      try {
-        setLoadingComments(true);
+  async function fetchActivityLog(signal?: AbortSignal) {
+    try {
         setLoadingActivity(true);
-        const TAKE = 20;
+        // Only fetch activity since we have everything else
+        const activityRes = await fetch(`/api/cards/${cardId}/activity?take=50&t=${Date.now()}`, { signal });
         
-        // Force load comments regardless of count to be safe, or check data.comments.length too
-        // But rely on wantComments for now. 
-        // If data.commentCount is out of sync, we might miss comments.
-        // Let's just always fetch if showDetails is true, to be safe.
+        if (!activityRes.ok) return;
         
-        const [commentsRes, activityRes] = await Promise.allSettled([
-          fetch(`/api/cards/${cardId}/comments?take=${TAKE}&t=${Date.now()}`, { signal: controller.signal }),
-          fetch(`/api/cards/${cardId}/activity?take=200&t=${Date.now()}`, { signal: controller.signal }),
-        ]);
-        const commentsOk = commentsRes.status === "fulfilled" && commentsRes.value && commentsRes.value.ok;
-        const activityOk = activityRes.status === "fulfilled" && activityRes.value && activityRes.value.ok;
-        const comments = commentsOk && commentsRes.value ? await commentsRes.value.json() : undefined;
-        let activity: any[] = activityOk ? await activityRes.value.json() : [];
+        const activity: any[] = await activityRes.json();
         const serverCreation = activity.filter((a) => a.type === "CARD_CREATED");
-        const creation = serverCreation.length ? serverCreation.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())[0] : creationActivity;
+        const creation = serverCreation.length ? serverCreation.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())[0] : null;
+        
+        if (creation) {
+            setCreationActivity(creation);
+        } else if (!creationActivity) {
+            // Fallback
+            const createdAtISO = (data as any)?.createdAt || new Date().toISOString();
+            setCreationActivity({ id: `local-${cardId}`, type: "CARD_CREATED", details: { message: "Someone created this card" }, createdAt: createdAtISO, user: null });
+        }
+
         const withoutCreation = activity.filter((a) => a.type !== "CARD_CREATED").sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        if (creation) activity = [...withoutCreation, creation];
-        if (Array.isArray(comments)) {
-          setData((d) => (d ? { ...d, comments, commentCount: comments.length } : d));
-          const take = TAKE;
-          setHasMoreComments(comments.length === take);
-          setCommentsCursor(comments.length ? comments[comments.length - 1].id : null);
-        }
-        if (Array.isArray(activity)) {
-          setActivities(activity);
-          const takeA = 50;
-          setHasMoreActivity(activity.length === takeA);
-          setActivityCursor(activity.length ? activity[activity.length - 1].id : null);
-        }
-      } finally {
-        setLoadingComments(false);
+        setActivities(withoutCreation);
+        
+        const takeA = 50;
+        setHasMoreActivity(activity.length === takeA);
+        setActivityCursor(activity.length ? activity[activity.length - 1].id : null);
+        
+    } catch (err) {
+         if ((err as any)?.name !== "AbortError") {
+             console.error("Failed to load activity", err);
+         }
+    } finally {
         setLoadingActivity(false);
-      }
     }
-    loadDetails();
-    return () => controller.abort();
-  }, [showDetails, cardId]); // Removed wantComments dependency which was implicit via closure but logic was risky
+  }
+
+  React.useEffect(() => {
+    // We handle initial load in the main useEffect.
+    // This effect is now only for refreshing details if showDetails is toggled ON, 
+    // but typically we fetch them upfront now.
+    // However, if we want to support 'refresh' when toggling, we can keep it lightweight.
+    // For now, let's DISABLE the auto-refetch in this effect to avoid double fetching,
+    // since we call fetchActivityLog in the main load.
+  }, [showDetails, cardId]); 
+
 
   async function uploadFiles(files: FileList) {
     setIsUploading(true);
