@@ -127,6 +127,7 @@ model CardLabel {
   label Label @relation(fields: [labelId], references: [id])
 
   @@id([cardId, labelId])
+  @@index([labelId])
 }
 
 model Checklist {
@@ -195,6 +196,7 @@ model Membership {
   board Board @relation(fields: [boardId], references: [id])
 
   @@id([userId, boardId])
+  @@index([boardId])
 }
 
 model CardAssignment {

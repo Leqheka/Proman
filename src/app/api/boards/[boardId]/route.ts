@@ -3,12 +3,31 @@ import { prisma } from "@/lib/prisma";
 import { revalidateTag, revalidatePath } from "next/cache";
 import { verifySession } from "@/lib/session";
 
-export async function GET(_req: Request, { params }: { params: Promise<{ boardId: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ boardId: string }> }) {
   try {
     const { boardId } = await params;
+    const { searchParams } = new URL(req.url);
+    const includeCards = searchParams.get("includeCards") === "true";
+
     const board = await prisma.board.findUnique({
       where: { id: boardId },
-      include: { lists: true },
+      include: { 
+        lists: {
+          orderBy: { order: "asc" },
+          include: includeCards ? {
+            cards: {
+              where: { archived: false },
+              orderBy: { order: "asc" },
+              include: {
+                assignments: {
+                  select: { user: { select: { id: true, name: true, email: true, image: true } } }
+                },
+                _count: { select: { comments: true, attachments: true, checklists: true, assignments: true } },
+              }
+            }
+          } : undefined
+        } 
+      },
     });
     if (!board) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(board);

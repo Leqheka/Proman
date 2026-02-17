@@ -14,8 +14,24 @@ export async function GET(req: Request, { params }: { params: Promise<{ listId: 
       orderBy: { order: "asc" },
       take,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      include: {
+        assignments: {
+          select: { user: { select: { id: true, name: true, email: true, image: true } } }
+        },
+        _count: { select: { comments: true, attachments: true, checklists: true, assignments: true } },
+      }
     });
-    return NextResponse.json(cards);
+    
+    const cardsWithCounts = cards.map(c => ({
+      ...c,
+      members: c.assignments.map(a => a.user),
+      commentCount: c._count.comments,
+      attachmentCount: c._count.attachments,
+      checklistCount: c._count.checklists,
+      assignmentCount: c._count.assignments,
+    }));
+
+    return NextResponse.json(cardsWithCounts);
   } catch (err) {
     console.error("GET /api/lists/:listId/cards error", err);
     return NextResponse.json({ error: "Database error" }, { status: 500 });
