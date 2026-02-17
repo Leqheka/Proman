@@ -45,7 +45,12 @@ export async function GET(
             include: { author: { select: { id: true, name: true, email: true, image: true } } },
           },
           checklists: {
-            include: { items: true },
+            include: { 
+              items: {
+                orderBy: { order: "asc" }
+              } 
+            },
+            orderBy: { id: "asc" }
           },
           assignments: { include: { user: { select: { id: true, name: true, email: true, image: true } } } },
         };
