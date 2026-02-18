@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import fs from "fs";
 import path from "path";
 import { createClient } from "@supabase/supabase-js";
+import sharp from "sharp";
 
 export async function POST(req: Request, { params }: { params: Promise<{ userId: string }> }) {
   try {
@@ -16,15 +17,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ userId:
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const origName = (file as any).name || `avatar`;
-    const extFromType = (() => {
-      const t = file.type || "";
-      if (t.includes("png")) return ".png";
-      if (t.includes("jpeg") || t.includes("jpg")) return ".jpg";
-      if (t.includes("gif")) return ".gif";
-      return path.extname(origName) || ".bin";
-    })();
-    const filename = `avatar${extFromType}`;
+    // Optimize image using sharp
+    let finalBuffer: Buffer;
+    try {
+      finalBuffer = await sharp(buffer)
+        .resize(500, 500, {
+          fit: 'cover',
+          position: 'center'
+        })
+        .webp({ quality: 80 })
+        .toBuffer();
+    } catch (e) {
+      console.error("Image processing error:", e);
+      return NextResponse.json({ error: "Failed to process image" }, { status: 400 });
+    }
+
+    const filename = `avatar.webp`;
+    const mimeType = "image/webp";
 
     const isProd = process.env.NODE_ENV === "production" || !!process.env.VERCEL;
     const supaUrl = process.env.SUPABASE_URL;
@@ -34,8 +43,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ userId:
     if (supaUrl && supaKey) {
       const client = createClient(supaUrl, supaKey);
       const pathInBucket = `users/${userId}/${filename}`;
-      const { error: upErr } = await client.storage.from(supaBucket).upload(pathInBucket, buffer, {
-        contentType: file.type || "application/octet-stream",
+      const { error: upErr } = await client.storage.from(supaBucket).upload(pathInBucket, finalBuffer, {
+        contentType: mimeType,
         upsert: true,
       });
       if (upErr) {
@@ -49,12 +58,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ userId:
 
     if (process.env.VERCEL) {
       // Fallback to Base64 Data URI if no external storage is configured on Vercel
-      if (buffer.length > 2 * 1024 * 1024) { // 2MB limit
+      if (finalBuffer.length > 2 * 1024 * 1024) { // 2MB limit
         return NextResponse.json({ error: "Image too large for inline storage (max 2MB)" }, { status: 400 });
       }
-      const mime = file.type || "application/octet-stream";
-      const base64 = buffer.toString("base64");
-      const dataUri = `data:${mime};base64,${base64}`;
+      const base64 = finalBuffer.toString("base64");
+      const dataUri = `data:${mimeType};base64,${base64}`;
       await prisma.user.update({ where: { id: userId }, data: { image: dataUri } });
       return NextResponse.json({ image: dataUri }, { status: 201 });
     }
@@ -62,7 +70,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ userId:
     const uploadsDir = path.join(process.cwd(), "public", "uploads", "users", userId);
     await fs.promises.mkdir(uploadsDir, { recursive: true });
     const filePath = path.join(uploadsDir, filename);
-    await fs.promises.writeFile(filePath, buffer);
+    await fs.promises.writeFile(filePath, finalBuffer);
     const publicUrl = `/uploads/users/${userId}/${filename}`;
     await prisma.user.update({ where: { id: userId }, data: { image: publicUrl } });
     return NextResponse.json({ image: publicUrl }, { status: 201 });

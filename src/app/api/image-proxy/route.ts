@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import sharp from "sharp";
 
 const ALLOWED_HOSTS = new Set([
   "images.unsplash.com",
@@ -57,37 +58,73 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const raw = searchParams.get("url");
-    const url = raw ? decodeURIComponent(raw) : null; // decode because client encodes the param
+    const url = raw ? decodeURIComponent(raw) : null;
     if (!url || !isAllowed(url)) {
       return NextResponse.json({ error: "Invalid or disallowed URL" }, { status: 400 });
     }
 
     const target = normalizeUrl(url);
 
+    // Pass through cache headers from the client request
+    const ifNoneMatch = req.headers.get("if-none-match");
+    const ifModifiedSince = req.headers.get("if-modified-since");
+    const headers: HeadersInit = {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
+      "Accept": "image/avif,image/webp,image/*,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+    };
+    if (ifNoneMatch) headers["If-None-Match"] = ifNoneMatch;
+    if (ifModifiedSince) headers["If-Modified-Since"] = ifModifiedSince;
+
     const upstream = await fetch(target, {
-      headers: {
-        // A minimal, realistic UA and Accept. Avoid setting Referer to unblock some CDNs.
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
-        "Accept": "image/avif,image/webp,image/*,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-      },
+      headers,
       cache: "no-store",
       redirect: "follow",
     });
+
+    if (upstream.status === 304) {
+      return new NextResponse(null, { status: 304 });
+    }
 
     if (!upstream.ok) {
       return fallbackSvg();
     }
 
     const contentType = upstream.headers.get("content-type") || "image/jpeg";
-    const buf = await upstream.arrayBuffer();
-    return new NextResponse(Buffer.from(buf), {
+    const arrayBuffer = await upstream.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Optimize image
+    let finalBuffer: Buffer = buffer;
+    let finalContentType = contentType;
+
+    try {
+      finalBuffer = await sharp(buffer)
+        .resize(1920, 1080, { fit: 'inside', withoutEnlargement: true }) // Limit dimensions
+        .webp({ quality: 80 }) // Convert to WebP for smaller size
+        .toBuffer();
+      finalContentType = "image/webp";
+    } catch (e) {
+      console.warn("Proxy optimization failed, serving original", e);
+    }
+
+    // Forward caching headers from upstream, or set aggressive defaults
+    const upstreamEtag = upstream.headers.get("etag");
+    const upstreamLastModified = upstream.headers.get("last-modified");
+    
+    const responseHeaders: HeadersInit = {
+      "content-type": finalContentType,
+      // Cache for 1 day in browser, 1 year in CDN/Edge
+      "cache-control": "public, max-age=86400, s-maxage=31536000, stale-while-revalidate=604800",
+      "x-proxy": "image-optimized",
+    };
+
+    if (upstreamEtag) responseHeaders["etag"] = upstreamEtag;
+    if (upstreamLastModified) responseHeaders["last-modified"] = upstreamLastModified;
+
+    return new NextResponse(finalBuffer as any, {
       status: 200,
-      headers: {
-        "content-type": contentType,
-        "cache-control": "public, max-age=3600",
-        "x-proxy": "image",
-      },
+      headers: responseHeaders,
     });
   } catch (err) {
     return fallbackSvg();

@@ -26,11 +26,12 @@ export const config = {
      * Match all request paths except for the ones starting with:
      * - api/auth (API routes)
      * - api/landing-bg (Landing page background)
+     * - api/image-proxy (Image proxy)
      * - _next (static files, image optimization, internal Next.js requests)
      * - favicon.ico (favicon file)
      * - login (login page)
      * - public files (images, etc)
      */
-    '/((?!api/auth|api/landing-bg|_next|favicon.ico|login|.*\\..*).*)',
+    '/((?!api/auth|api/landing-bg|api/image-proxy|_next|favicon.ico|login|.*\\..*).*)',
   ],
 };
