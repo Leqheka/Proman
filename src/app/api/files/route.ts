@@ -60,7 +60,8 @@ export async function POST(req: Request) {
         upsert: true,
       });
       if (upErr) {
-        return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+        console.error("Supabase upload error:", upErr);
+        return NextResponse.json({ error: `Upload failed: ${upErr.message}` }, { status: 500 });
       }
       const { data: pub } = client.storage.from(supaBucket).getPublicUrl(pathInBucket);
       const publicUrl = pub.publicUrl || `https://supabase.storage/${supaBucket}/${pathInBucket}`;
@@ -87,9 +88,9 @@ export async function POST(req: Request) {
     const publicUrl = `/uploads/files/${filename}`;
     
     return NextResponse.json({ url: publicUrl, filename: safeName, type: finalMime, size: finalBuffer.length }, { status: 201 });
-  } catch (err) {
+  } catch (err: any) {
     console.error("POST /api/files error", err);
-    return NextResponse.json({ error: "Failed to upload file" }, { status: 500 });
+    return NextResponse.json({ error: `Failed to upload file: ${err.message}` }, { status: 500 });
   }
 }
 

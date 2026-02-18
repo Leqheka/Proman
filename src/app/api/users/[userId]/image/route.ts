@@ -48,7 +48,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ userId:
         upsert: true,
       });
       if (upErr) {
-        return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+        console.error("Supabase upload error:", upErr);
+        return NextResponse.json({ error: `Upload failed: ${upErr.message}` }, { status: 500 });
       }
       const { data: pub } = client.storage.from(supaBucket).getPublicUrl(pathInBucket);
       const publicUrl = pub.publicUrl || `https://supabase.storage/${supaBucket}/${pathInBucket}`;
@@ -74,8 +75,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ userId:
     const publicUrl = `/uploads/users/${userId}/${filename}`;
     await prisma.user.update({ where: { id: userId }, data: { image: publicUrl } });
     return NextResponse.json({ image: publicUrl }, { status: 201 });
-  } catch (err) {
+  } catch (err: any) {
     console.error("POST /api/users/[userId]/image error", err);
-    return NextResponse.json({ error: "Failed to upload image" }, { status: 500 });
+    return NextResponse.json({ error: `Failed to upload image: ${err.message}` }, { status: 500 });
   }
 }
