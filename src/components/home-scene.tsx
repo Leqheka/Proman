@@ -6,18 +6,18 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 
 const HOME_BACKGROUNDS = [
-  "/Backgrounds/Default.jpg",
-  "/Backgrounds/aj-FjDaN9WlRLg-unsplash.jpg",
-  "/Backgrounds/aritra-roy-mEjphVjP3hA-unsplash.jpg",
-  "/Backgrounds/barb-canale-YDG0lDHz9PI-unsplash.jpg",
-  "/Backgrounds/clement-fusil-Fpqx6GGXfXs-unsplash.jpg",
-  "/Backgrounds/elizeu-dias-RN6ts8IZ4_0-unsplash.jpg",
-  "/Backgrounds/gayatri-malhotra-P9gkfbaxMTU-unsplash.jpg",
-  "/Backgrounds/lukas-blazek-GnvurwJsKaY-unsplash.jpg",
-  "/Backgrounds/maxxup-B2I9jm2bDlE-unsplash.jpg",
-  "/Backgrounds/sean-oulashin-KMn4VEePR8-unsplash.jpg",
-  "/Backgrounds/social-mode-WmVtCFR1C1g-unsplash.jpg",
-  "/Backgrounds/tianyi-ma-j1Fv6s4jwXI-unsplash.jpg",
+  "/Backgrounds/Default.webp",
+  "/Backgrounds/aj-FjDaN9WlRLg-unsplash.webp",
+  "/Backgrounds/aritra-roy-mEjphVjP3hA-unsplash.webp",
+  "/Backgrounds/barb-canale-YDG0lDHz9PI-unsplash.webp",
+  "/Backgrounds/clement-fusil-Fpqx6GGXfXs-unsplash.webp",
+  "/Backgrounds/elizeu-dias-RN6ts8IZ4_0-unsplash.webp",
+  "/Backgrounds/gayatri-malhotra-P9gkfbaxMTU-unsplash.webp",
+  "/Backgrounds/lukas-blazek-GnvurwJsKaY-unsplash.webp",
+  "/Backgrounds/maxxup-B2I9jm2bDlE-unsplash.webp",
+  "/Backgrounds/sean-oulashin-KMn4VEeEPR8-unsplash.webp",
+  "/Backgrounds/social-mode-WmVtCFR1C1g-unsplash.webp",
+  "/Backgrounds/tianyi-ma-j1Fv6s4jwXI-unsplash.webp",
 ];
 
 const DEFAULT_HOME_BG = HOME_BACKGROUNDS[0];
