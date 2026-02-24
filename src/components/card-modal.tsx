@@ -1388,7 +1388,17 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                         <div className="mt-2 flex gap-2">
                           <button
                             className="text-xs rounded px-2 py-1 bg-foreground text-background hover:opacity-90 transition-opacity"
-                            onClick={async () => { await updateDueDate(useDue ? tempDueDate || null : null); setShowDatesMenu(false); }}
+                            onClick={async () => {
+                              let payload = null;
+                              if (useDue && tempDueDate) {
+                                const d = new Date(tempDueDate);
+                                if (!isNaN(d.getTime())) {
+                                  payload = d.toISOString();
+                                }
+                              }
+                              await updateDueDate(payload);
+                              setShowDatesMenu(false);
+                            }}
                           >
                             Save
                           </button>
