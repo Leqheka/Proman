@@ -151,7 +151,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
           setData(pre);
           setTitle(pre.title);
           setDescription(pre.description);
-          setDueDate(pre.dueDate ? new Date(pre.dueDate).toISOString().slice(0, 16) : "");
+          // Keep full ISO string to preserve time
+          setDueDate(pre.dueDate ? pre.dueDate : "");
           if ((pre.checklistCount || 0) > 0) {
             setLoadingChecklists(true);
           }
@@ -195,7 +196,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
         setData(normalized);
         setTitle(normalized.title ?? "");
         setDescription(normalized.description ?? "");
-        setDueDate(normalized.dueDate ? new Date(normalized.dueDate).toISOString().slice(0, 16) : "");
+        // Keep full ISO string to preserve time
+        setDueDate(normalized.dueDate ? normalized.dueDate : "");
         
         // Setup pagination cursors
         if (normalized.comments.length > 0) {
@@ -637,7 +639,8 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
       if (resp.ok) {
         const updated = await resp.json();
         setData((d) => (d ? { ...d, dueDate: updated.dueDate } : d));
-        setDueDate(updated.dueDate ? new Date(updated.dueDate).toISOString().slice(0, 16) : "");
+        // Keep the full ISO string to preserve time
+        setDueDate(updated.dueDate ? updated.dueDate : "");
         fetchLatestActivity();
         if (onCardUpdated) onCardUpdated({ id: cardId, dueDate: updated.dueDate ?? null });
       }

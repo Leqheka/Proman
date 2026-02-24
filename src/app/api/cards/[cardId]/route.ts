@@ -108,6 +108,8 @@ export async function PATCH(
       const d = new Date(body.dueDate);
       if (!isNaN(d.getTime())) data.dueDate = d;
       else data.dueDate = null;
+    } else if (body.dueDate === null) {
+      data.dueDate = null;
     }
 
     const updated = await prisma.card.update({
