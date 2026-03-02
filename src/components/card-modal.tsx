@@ -100,6 +100,85 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
   const membersMenuWrapRef = React.useRef<HTMLDivElement | null>(null);
   const [showMembersMenu, setShowMembersMenu] = React.useState(false);
   const [assignableMembers, setAssignableMembers] = React.useState<Member[]>([]);
+  
+  // Mention state
+  const [mentionQuery, setMentionQuery] = React.useState<string | null>(null);
+  const [mentionIndex, setMentionIndex] = React.useState(0);
+  const commentInputRef = React.useRef<HTMLTextAreaElement>(null);
+
+  React.useEffect(() => {
+    if (!data?.board?.id) return;
+    fetch(`/api/boards/${data.board.id}/members`)
+      .then(res => res.ok ? res.json() : [])
+      .then(setAssignableMembers)
+      .catch(() => {});
+  }, [data?.board?.id]);
+
+  const handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setCommentText(val);
+    
+    const cursor = e.target.selectionStart;
+    const textBefore = val.slice(0, cursor);
+    const lastAt = textBefore.lastIndexOf('@');
+    
+    if (lastAt !== -1) {
+        const textAfterAt = textBefore.slice(lastAt + 1);
+        if (!textAfterAt.includes(' ')) {
+            setMentionQuery(textAfterAt.toLowerCase());
+            setMentionIndex(0);
+            return;
+        }
+    }
+    setMentionQuery(null);
+  };
+
+  const handleCommentKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentionQuery !== null) {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setMentionIndex(i => i + 1);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setMentionIndex(i => Math.max(0, i - 1));
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault();
+            const filtered = assignableMembers.filter(m => 
+                (m.name || "").toLowerCase().includes(mentionQuery) || 
+                m.email.toLowerCase().includes(mentionQuery)
+            );
+            if (filtered.length > 0) {
+                const member = filtered[mentionIndex % filtered.length];
+                insertMention(member);
+            }
+        } else if (e.key === 'Escape') {
+            setMentionQuery(null);
+        }
+    }
+  };
+
+  const insertMention = (member: Member) => {
+      if (!commentInputRef.current) return;
+      const cursor = commentInputRef.current.selectionStart;
+      const textBefore = commentText.slice(0, cursor);
+      const lastAt = textBefore.lastIndexOf('@');
+      const textAfter = commentText.slice(cursor);
+      
+      const name = member.name || member.email.split('@')[0];
+      const newText = commentText.slice(0, lastAt) + `@${name} ` + textAfter;
+      
+      setCommentText(newText);
+      setMentionQuery(null);
+      
+      setTimeout(() => {
+          if (commentInputRef.current) {
+              commentInputRef.current.focus();
+              const newCursor = lastAt + name.length + 2;
+              commentInputRef.current.setSelectionRange(newCursor, newCursor);
+          }
+      }, 0);
+  };
+
   const [activeMemberMenu, setActiveMemberMenu] = React.useState<string | null>(null);
   const activeMemberMenuRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -1769,12 +1848,39 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                   </button>
                 </div>
                 <div className="mt-2">
+                <div className="relative">
                   <textarea
+                    ref={commentInputRef}
                     value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
+                    onChange={handleCommentChange}
+                    onKeyDown={handleCommentKeyDown}
                     placeholder="Write a comment..."
                     className="w-full h-20 text-sm border rounded p-2 bg-background"
                   />
+                  {mentionQuery !== null && (
+                      <div className="absolute bottom-full left-0 mb-1 w-64 max-h-48 overflow-y-auto bg-background border border-black/10 dark:border-neutral-800 rounded shadow-lg z-50">
+                          {assignableMembers
+                              .filter(m => (m.name || "").toLowerCase().includes(mentionQuery) || m.email.toLowerCase().includes(mentionQuery))
+                              .map((m, i, arr) => (
+                                  <div 
+                                      key={m.id}
+                                      className={`p-2 flex items-center gap-2 cursor-pointer ${i === (mentionIndex % arr.length) ? "bg-primary/10" : "hover:bg-foreground/5"}`}
+                                      onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          insertMention(m);
+                                      }}
+                                  >
+                                      <Avatar name={m.name || undefined} email={m.email} image={m.image || undefined} size={24} />
+                                      <div className="flex flex-col">
+                                          <span className="text-xs font-semibold">{m.name || m.email.split('@')[0]}</span>
+                                          <span className="text-[10px] text-foreground/50">{m.email}</span>
+                                      </div>
+                                  </div>
+                              ))
+                          }
+                      </div>
+                  )}
+                </div>
                   <div className="mt-2 flex justify-end">
                     <button onClick={addComment} className="text-xs rounded px-2 py-1 bg-foreground text-background">Comment</button>
                   </div>

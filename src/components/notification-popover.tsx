@@ -60,7 +60,7 @@ export default function NotificationPopover() {
     if (!n.read) markRead(n.id);
     setIsOpen(false);
     
-    if (n.type === "CARD_ASSIGNMENT" || n.type === "COMMENT_MENTION") {
+    if (n.type === "CARD_ASSIGNMENT" || n.type === "COMMENT_MENTION" || n.type === "CARD_DUE") {
         if (n.data.boardId && n.data.cardId) {
             router.push(`/boards/${n.data.boardId}?openCard=${n.data.cardId}`);
         }
@@ -83,6 +83,15 @@ export default function NotificationPopover() {
             </span>
         );
     }
+    if (n.type === "CARD_DUE") {
+        const state = n.data.state;
+        const stateText = state === "today" ? "is due today" : state === "overdue" ? "is overdue" : "is due soon";
+        return (
+            <span>
+                Card <strong>{n.data.cardTitle || "Untitled"}</strong> {stateText}
+            </span>
+        );
+    }
     return "New notification";
   }
 
@@ -90,10 +99,13 @@ export default function NotificationPopover() {
     <div className="relative" ref={wrapRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="relative text-sm rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 text-foreground transition-colors"
+        className="relative flex h-8 w-8 items-center justify-center rounded-full bg-foreground/5 hover:bg-foreground/10 text-foreground transition-colors"
         title="Notifications"
       >
-        🔔
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+        </svg>
         {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
                 {unreadCount}
