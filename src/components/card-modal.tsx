@@ -597,33 +597,48 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     }
   }
 
-  async function saveBasics() {
+  async function saveTitle() {
+    if (!title || title.trim() === data?.title) return;
+    try {
+      const resp = await fetch(`/api/cards/${cardId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title.trim() }),
+      });
+      if (resp.ok) {
+        const updated = await resp.json();
+        setData((d) => (d ? { ...d, title: updated.title } : d));
+        if (onCardUpdated) onCardUpdated({ id: cardId, title: updated.title });
+      }
+    } catch (err) {
+      console.error("Failed to save title", err);
+    }
+  }
+
+  async function saveDescription() {
     try {
       setSaving(true);
       const resp = await fetch(`/api/cards/${cardId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, dueDate }),
+        body: JSON.stringify({ description }),
       });
       if (resp.ok) {
         const updated = await resp.json();
         const hasDescription = !!updated.description && updated.description.trim().length > 0;
-        setData((d) => (d ? { ...d, title: updated.title, description: updated.description ?? "", dueDate: updated.dueDate, hasDescription } : d));
+        setData((d) => (d ? { ...d, description: updated.description ?? "", hasDescription } : d));
         
         // Refresh activity if description was potentially updated
-        if (description !== data?.description) {
-            fetchLatestActivity();
-        }
+        fetchLatestActivity();
 
         if (onCardUpdated) onCardUpdated({ 
           id: cardId, 
-          title: updated.title, 
-          dueDate: updated.dueDate ?? null,
           hasDescription
         });
+        setIsEditingDescription(false);
       }
     } catch (err) {
-      console.error("Failed to save", err);
+      console.error("Failed to save description", err);
     } finally {
       setSaving(false);
     }
@@ -1622,8 +1637,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                     <div className="flex items-center gap-3">
                       <button
                         onClick={async () => {
-                          await saveBasics();
-                          setIsEditingDescription(false);
+                          await saveDescription();
                         }}
                         disabled={saving}
                         className="px-4 py-1.5 bg-black hover:bg-black/90 text-white text-sm font-medium rounded shadow-sm transition-all disabled:opacity-50"
