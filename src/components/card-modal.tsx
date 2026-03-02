@@ -1197,7 +1197,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                onBlur={saveBasics}
+                onBlur={saveTitle}
                 className="text-lg font-semibold bg-transparent outline-none w-full"
               />
             </div>
