@@ -49,6 +49,65 @@ export async function POST(req: Request, { params }: { params: Promise<{ cardId:
       include: { author: { select: { id: true, name: true, email: true, image: true } } },
     });
 
+    // Check for mentions
+    try {
+        const card = await prisma.card.findUnique({
+            where: { id: cardId },
+            select: { title: true, boardId: true, board: { select: { title: true } } }
+        });
+
+        if (card?.boardId) {
+            const memberships = await prisma.membership.findMany({
+                where: { boardId: card.boardId },
+                include: { user: true }
+            });
+
+            const mentionedUsers = new Set<string>();
+            const lowerContent = content.toLowerCase();
+
+            for (const m of memberships) {
+                if (m.userId === session.sub) continue;
+                
+                const u = m.user;
+                // Check name
+                if (u.name) {
+                    const handle = `@${u.name}`.toLowerCase();
+                    if (lowerContent.includes(handle)) {
+                        mentionedUsers.add(u.id);
+                        continue;
+                    }
+                }
+                // Check email
+                if (u.email) {
+                    const handle = `@${u.email}`.toLowerCase();
+                    if (lowerContent.includes(handle)) {
+                        mentionedUsers.add(u.id);
+                    }
+                }
+            }
+
+            for (const userId of mentionedUsers) {
+                await prisma.notification.create({
+                    data: {
+                        userId,
+                        type: "COMMENT_MENTION",
+                        data: {
+                            cardId,
+                            cardTitle: card.title,
+                            boardId: card.boardId,
+                            boardTitle: card.board?.title,
+                            commentId: created.id,
+                            mentionedBy: session.sub,
+                            mentionedByName: created.author.name || created.author.email
+                        }
+                    }
+                });
+            }
+        }
+    } catch (e) {
+        console.error("Failed to process mentions", e);
+    }
+
     return NextResponse.json(created, { status: 201 });
   } catch (err) {
     console.error("POST /api/cards/[cardId]/comments error", err);

@@ -44,12 +44,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ cardId:
     });
 
     try {
-      const card = await prisma.card.findUnique({ where: { id: cardId }, select: { boardId: true } });
+      const card = await prisma.card.findUnique({ 
+        where: { id: cardId }, 
+        select: { title: true, boardId: true, board: { select: { title: true } } } 
+      });
       if (card?.boardId) revalidateTag(`board:${card.boardId}`);
 
       const cookieStore = await cookies();
       const token = cookieStore.get("session")?.value || "";
       const session = token ? await verifySession(token) : null;
+      
       if (session?.sub && full?.user) {
         const assignedName = full.user.name || full.user.email || "someone";
         await logActivity(
@@ -59,6 +63,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ cardId:
           "MEMBER_ASSIGNED",
           `assigned ${assignedName} to this card`
         );
+
+        // Notification
+        if (userId !== session.sub) {
+            await prisma.notification.create({
+                data: {
+                    userId,
+                    type: "CARD_ASSIGNMENT",
+                    data: {
+                        cardId,
+                        cardTitle: card?.title,
+                        boardId: card?.boardId,
+                        boardTitle: card?.board?.title,
+                        assignedBy: session.sub,
+                    }
+                }
+            });
+        }
       }
     } catch {}
 

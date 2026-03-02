@@ -3,6 +3,7 @@
 import Link from "next/link";
 import GlobalSearch from "./global-search";
 import Avatar from "./avatar";
+import NotificationPopover from "./notification-popover";
 import React from "react";
 
 export default function AppHeader() {
@@ -95,7 +96,7 @@ export default function AppHeader() {
             </button>
           ) : null}
           {loggedIn ? (
-            <button title="Notifications" className="text-sm rounded px-2 py-1 bg-foreground/5 text-foreground">🔔</button>
+            <NotificationPopover />
           ) : null}
           {loggedIn !== false ? (
           <div className="relative" ref={profileWrapRef}>
