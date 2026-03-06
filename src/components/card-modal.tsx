@@ -1287,15 +1287,17 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
         )}
         <div className="flex h-full w-full max-w-[980px] flex-col rounded-2xl border border-black/10 bg-background text-foreground shadow-lg dark:border-neutral-800 dark:bg-neutral-900">
           <div className="p-4 border-b border-black/10 dark:border-neutral-800 flex items-center justify-between">
-            <div className="flex items-center gap-2 w-full">
-              {data?.archived && <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded font-bold shrink-0">ARCHIVED</span>}
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                onBlur={saveTitle}
-                className="text-lg font-semibold bg-transparent outline-none w-full"
-              />
-              <div className="absolute top-full left-0 text-xs text-foreground/50 mt-1">
+            <div className="flex flex-col w-full gap-1">
+              <div className="flex items-center gap-2 w-full">
+                {data?.archived && <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded font-bold shrink-0">ARCHIVED</span>}
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  onBlur={saveTitle}
+                  className="text-lg font-semibold bg-transparent outline-none w-full"
+                />
+              </div>
+              <div className="text-xs text-foreground/50">
                 Currently in <span className="font-semibold">{data?.list?.title}</span>
               </div>
             </div>
