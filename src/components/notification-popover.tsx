@@ -127,9 +127,12 @@ export default function NotificationPopover() {
                         <div 
                             key={n.id}
                             onClick={() => handleClick(n)}
-                            className={`p-3 border-b border-black/5 dark:border-white/5 cursor-pointer hover:bg-foreground/5 transition-colors ${!n.read ? "bg-primary/5" : ""}`}
+                            className={`p-3 border-b border-black/5 dark:border-white/5 cursor-pointer hover:bg-foreground/5 transition-colors relative ${!n.read ? "bg-primary/5 dark:bg-primary/10" : ""}`}
                         >
-                            <p className="text-xs">{getMessage(n)}</p>
+                            {!n.read && (
+                                <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-full" />
+                            )}
+                            <p className={`text-xs ${!n.read ? "font-semibold" : ""}`}>{getMessage(n)}</p>
                             <p className="text-[10px] text-foreground/40 mt-1">{new Date(n.createdAt).toLocaleString()}</p>
                         </div>
                     ))

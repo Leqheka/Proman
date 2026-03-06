@@ -14,11 +14,14 @@ export async function GET(req: Request) {
     const tomorrow = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
     const endOfTomorrow = new Date(endOfToday.getTime() + 24 * 60 * 60 * 1000);
 
-    // Find cards with due dates, not archived
+    // Find cards with due dates, not archived, and from non-archived boards
     const cards = await prisma.card.findMany({
       where: {
         archived: false,
         dueDate: { not: null },
+        board: {
+          isArchived: false,
+        },
       },
       select: {
         id: true,
