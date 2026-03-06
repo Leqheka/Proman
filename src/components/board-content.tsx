@@ -1035,6 +1035,19 @@ export default function BoardContent({
     );
   }
 
+  function handleCardCopied(newCard: CardItem) {
+    setLists((curr) => {
+      const listIdx = curr.findIndex((l) => l.id === newCard.listId);
+      if (listIdx === -1) return curr;
+      const next = [...curr];
+      next[listIdx] = {
+        ...next[listIdx],
+        cards: [...next[listIdx].cards, newCard],
+      };
+      return next;
+    });
+  }
+
   return (
     <>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={() => setActiveCard(null)}>
@@ -1150,6 +1163,7 @@ export default function BoardContent({
           onCardUpdated={handleCardUpdated}
           availableLists={lists.map(l => ({ id: l.id, title: l.title }))}
           onMoveCard={(toListId) => handleMoveCardFromModal(openedCardId, toListId)}
+          onCardCopied={handleCardCopied}
           lastUpdated={cardLastUpdated[openedCardId] || 0}
           initial={(() => {
             const loc = findListByCardId(openedCardId!);

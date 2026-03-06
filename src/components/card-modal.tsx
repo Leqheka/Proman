@@ -34,7 +34,7 @@ type CardDetail = {
   assignmentCount?: number;
 };
 
-export default function CardModal({ cardId, onClose, onCardUpdated, initial, availableLists, onMoveCard, lastUpdated }: { cardId: string; onClose: () => void; onCardUpdated?: (patch: { id: string; title?: string; dueDate?: string | null; hasDescription?: boolean; checklistCount?: number; assignmentCount?: number; commentCount?: number; attachmentCount?: number; members?: Member[]; archived?: boolean }) => void; initial?: Partial<CardDetail> | null; availableLists?: { id: string; title: string }[]; onMoveCard?: (toListId: string) => Promise<any>; lastUpdated?: number }) {
+export default function CardModal({ cardId, onClose, onCardUpdated, initial, availableLists, onMoveCard, onCardCopied, lastUpdated }: { cardId: string; onClose: () => void; onCardUpdated?: (patch: { id: string; title?: string; dueDate?: string | null; hasDescription?: boolean; checklistCount?: number; assignmentCount?: number; commentCount?: number; attachmentCount?: number; members?: Member[]; archived?: boolean }) => void; initial?: Partial<CardDetail> | null; availableLists?: { id: string; title: string }[]; onMoveCard?: (toListId: string) => Promise<any>; onCardCopied?: (newCard: any) => void; lastUpdated?: number }) {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [data, setData] = React.useState<CardDetail | null>(null);
@@ -42,6 +42,10 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
   // Move to menu state
   const [showMoveMenu, setShowMoveMenu] = React.useState(false);
   const moveMenuRef = React.useRef<HTMLDivElement>(null);
+
+  // Copy menu state
+  const [showCopyMenu, setShowCopyMenu] = React.useState(false);
+  const copyMenuRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     if (!showMoveMenu) return;
@@ -54,6 +58,18 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [showMoveMenu]);
+
+  React.useEffect(() => {
+    if (!showCopyMenu) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (copyMenuRef.current && !copyMenuRef.current.contains(target)) {
+        setShowCopyMenu(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [showCopyMenu]);
 
   const [title, setTitle] = React.useState("");
   const [description, setDescription] = React.useState("");
@@ -1279,8 +1295,55 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                 onBlur={saveTitle}
                 className="text-lg font-semibold bg-transparent outline-none w-full"
               />
+              <div className="absolute top-full left-0 text-xs text-foreground/50 mt-1">
+                Currently in <span className="font-semibold">{data?.list?.title}</span>
+              </div>
             </div>
-            <div className="relative ml-3" ref={moveMenuRef}>
+            <div className="flex items-center">
+            <div className="relative ml-2" ref={copyMenuRef}>
+              <button 
+                onClick={() => setShowCopyMenu(!showCopyMenu)} 
+                className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors whitespace-nowrap"
+              >
+                <span className="hidden sm:inline">Copy to</span>
+                <span className="sm:hidden">CP</span>
+              </button>
+              {showCopyMenu && (
+                <div className="absolute right-0 top-full mt-1 w-48 rounded border border-black/10 dark:border-neutral-800 bg-background dark:bg-neutral-900 shadow-lg z-50 py-1 max-h-60 overflow-y-auto">
+                  {(availableLists || []).map((l) => (
+                    <button
+                      key={l.id}
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-foreground/5 truncate flex items-center justify-between"
+                      onClick={async () => {
+                        try {
+                            const res = await fetch("/api/cards/copy", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    cardId,
+                                    toListId: l.id,
+                                    title: `Copy of ${title}`
+                                })
+                            });
+                            if (res.ok) {
+                                const newCard = await res.json();
+                                if (onCardCopied) onCardCopied(newCard);
+                                setShowCopyMenu(false);
+                                onClose();
+                            }
+                        } catch (e) {
+                            console.error(e);
+                        }
+                      }}
+                    >
+                      <span className="truncate">{l.title}</span>
+                      {data?.list?.id === l.id && <span className="ml-2 opacity-50 text-[10px] shrink-0">(current)</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="relative ml-2" ref={moveMenuRef}>
               <button 
                 onClick={() => setShowMoveMenu(!showMoveMenu)} 
                 className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors whitespace-nowrap"
@@ -1335,6 +1398,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                   </button>
                 </div>
               )}
+            </div>
             </div>
             <button onClick={onClose} className="ml-2 text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-black hover:text-white transition-colors">
               <span className="hidden sm:inline">Close</span>
