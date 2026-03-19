@@ -32,6 +32,7 @@ export default function BoardPageClient({
   boards,
   initialLists,
   archivedCards,
+  archivedLists,
 }: {
   currentBoardId: string;
   boardTitle: string;
@@ -39,9 +40,11 @@ export default function BoardPageClient({
   boards: Array<{ id: string; title: string }>;
   initialLists: ListItem[];
   archivedCards: CardItem[];
+  archivedLists?: Array<{ id: string; title: string }>;
 }) {
   const [bg, setBg] = React.useState<string>(initialBackground);
   const [showArchives, setShowArchives] = React.useState(false);
+  const [showListArchives, setShowListArchives] = React.useState(false);
   const appliedBg = bg ? toProxy(normalizeUnsplash(bg)) : undefined;
 
   React.useEffect(() => {
@@ -58,13 +61,17 @@ export default function BoardPageClient({
         boardTitle={boardTitle} 
         onBackgroundChanged={setBg} 
         onToggleArchives={() => setShowArchives(!showArchives)}
+        onToggleListArchives={() => setShowListArchives(!showListArchives)}
       />
       <BoardContentClient 
         boardId={currentBoardId} 
         initialLists={initialLists} 
         archivedCards={archivedCards} 
+        archivedLists={archivedLists}
         showArchives={showArchives}
         onCloseArchives={() => setShowArchives(false)}
+        showListArchives={showListArchives}
+        onCloseListArchives={() => setShowListArchives(false)}
       />
     </div>
   );

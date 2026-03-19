@@ -27,16 +27,20 @@ export default function BoardToolbar({
   boardTitle,
   onBackgroundChanged,
   onToggleArchives,
+  onToggleListArchives,
 }: {
   boards: BoardRef[];
   currentBoardId: string;
   boardTitle: string;
   onBackgroundChanged?: (url: string) => void;
   onToggleArchives?: () => void;
+  onToggleListArchives?: () => void;
 }) {
   const router = useRouter();
   const [openBg, setOpenBg] = useState(false);
+  const [openArchives, setOpenArchives] = useState(false);
   const bgMenuWrapRef = useRef<HTMLDivElement | null>(null);
+  const archivesMenuWrapRef = useRef<HTMLDivElement | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -69,18 +73,22 @@ export default function BoardToolbar({
     }
   }, [currentUserId, currentBoardId, onBackgroundChanged]);
 
-  // Close Change background menu on outside click or Escape
+  // Close menus on outside click or Escape
   useEffect(() => {
-    if (!openBg) return;
     const onPointerDown = (e: PointerEvent) => {
       const target = e.target as Node;
-      const container = bgMenuWrapRef.current;
-      if (container && !container.contains(target)) {
+      if (openBg && bgMenuWrapRef.current && !bgMenuWrapRef.current.contains(target)) {
         setOpenBg(false);
+      }
+      if (openArchives && archivesMenuWrapRef.current && !archivesMenuWrapRef.current.contains(target)) {
+        setOpenArchives(false);
       }
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenBg(false);
+      if (e.key === "Escape") {
+        setOpenBg(false);
+        setOpenArchives(false);
+      }
     };
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
@@ -88,7 +96,7 @@ export default function BoardToolbar({
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [openBg]);
+  }, [openBg, openArchives]);
 
   const toProxy = (u: string) => (u && u.startsWith("http") ? `/api/image-proxy?url=${encodeURIComponent(u)}` : u);
 
@@ -135,12 +143,45 @@ export default function BoardToolbar({
           </select>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={onToggleArchives}
-            className="flex items-center justify-center text-xs rounded px-2 py-1 bg-background text-foreground border border-black/10 dark:border-white/15 hover:bg-foreground hover:text-background"
-          >
-            Archives
-          </button>
+          {isAdmin ? (
+            <div className="relative" ref={archivesMenuWrapRef}>
+              <button
+                onClick={() => setOpenArchives((v) => !v)}
+                className="flex items-center justify-center text-xs rounded px-2 py-1 bg-background text-foreground border border-black/10 dark:border-white/15 hover:bg-foreground hover:text-background"
+              >
+                Archives
+              </button>
+              {openArchives && (
+                <div className="absolute right-0 mt-2 w-32 rounded border border-black/10 dark:border-white/15 bg-background p-1 shadow-lg z-50">
+                  <button
+                    onClick={() => {
+                      onToggleArchives?.();
+                      setOpenArchives(false);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-foreground/5 rounded"
+                  >
+                    Cards
+                  </button>
+                  <button
+                    onClick={() => {
+                      onToggleListArchives?.();
+                      setOpenArchives(false);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-foreground/5 rounded"
+                  >
+                    Lists
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={onToggleArchives}
+              className="flex items-center justify-center text-xs rounded px-2 py-1 bg-background text-foreground border border-black/10 dark:border-white/15 hover:bg-foreground hover:text-background"
+            >
+              Archives
+            </button>
+          )}
           <div className="relative" ref={bgMenuWrapRef}>
             <button
               onClick={() => setOpenBg((v) => !v)}

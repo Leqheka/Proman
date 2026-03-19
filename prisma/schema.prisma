@@ -65,6 +65,7 @@ model List {
   id      String @id @default(cuid())
   title   String
   order   Int    @default(0)
+  isArchived Boolean @default(false)
 
   boardId String
   board   Board  @relation(fields: [boardId], references: [id])

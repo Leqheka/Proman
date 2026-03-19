@@ -12,20 +12,29 @@ export default function BoardContentClient({
   boardId, 
   initialLists, 
   archivedCards,
+  archivedLists,
   showArchives,
-  onCloseArchives
+  onCloseArchives,
+  showListArchives,
+  onCloseListArchives
 }: { 
   boardId: string; 
   initialLists: ListItem[]; 
   archivedCards: CardItem[];
+  archivedLists?: Array<{ id: string; title: string }>;
   showArchives?: boolean;
   onCloseArchives?: () => void;
+  showListArchives?: boolean;
+  onCloseListArchives?: () => void;
 }) {
   return <BoardContentLazy 
     boardId={boardId} 
     initialLists={initialLists} 
     archivedCards={archivedCards} 
+    archivedLists={archivedLists}
     showArchives={showArchives} 
     onCloseArchives={onCloseArchives} 
+    showListArchives={showListArchives}
+    onCloseListArchives={onCloseListArchives}
   />;
 }

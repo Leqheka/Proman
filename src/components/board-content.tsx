@@ -320,17 +320,24 @@ export default function BoardContent({
   boardId, 
   initialLists, 
   archivedCards = [],
+  archivedLists = [],
   showArchives,
-  onCloseArchives
+  onCloseArchives,
+  showListArchives,
+  onCloseListArchives
 }: { 
   boardId: string; 
   initialLists: ListItem[]; 
   archivedCards?: CardItem[];
+  archivedLists?: Array<{ id: string; title: string }>;
   showArchives?: boolean;
   onCloseArchives?: () => void;
+  showListArchives?: boolean;
+  onCloseListArchives?: () => void;
 }) {
   const [lists, setLists] = React.useState<ListItem[]>(initialLists);
   const [archives, setArchives] = React.useState<CardItem[]>(archivedCards);
+  const [listArchives, setListArchives] = React.useState<Array<{ id: string; title: string }>>(archivedLists);
   const [openedCardId, setOpenedCardId] = React.useState<string | null>(null);
   const [cardLastUpdated, setCardLastUpdated] = React.useState<Record<string, number>>({});
   const [editingDefaultsListId, setEditingDefaultsListId] = React.useState<string | null>(null);
@@ -1319,6 +1326,44 @@ export default function BoardContent({
             </div>
         </div>
       )}
+      {showListArchives && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onCloseListArchives}>
+            <div className="w-full max-w-2xl bg-background border border-black/10 dark:border-neutral-800 rounded-xl shadow-2xl p-6 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold">Archived Lists</h2>
+                    <button onClick={onCloseListArchives} className="p-1 hover:bg-foreground/10 rounded text-xl leading-none">&times;</button>
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                    {listArchives.length === 0 ? (
+                        <p className="text-foreground/50 text-center py-8">No archived lists</p>
+                    ) : (
+                        listArchives.map(list => (
+                            <div key={list.id} className="flex items-center justify-between p-3 border border-black/10 dark:border-neutral-800 rounded hover:bg-foreground/5 transition-colors">
+                                <div>
+                                    <p className="font-medium text-sm">{list.title}</p>
+                                </div>
+                                <button 
+                                    onClick={() => {
+                                        fetch(`/api/lists/${list.id}`, {
+                                            method: "PATCH",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ isArchived: false })
+                                        }).then(res => res.json()).then(restored => {
+                                            setListArchives(curr => curr.filter(l => l.id !== list.id));
+                                            setLists(curr => [...curr, { ...restored, cards: [] }]);
+                                        }).catch(console.error);
+                                    }}
+                                    className="text-xs px-3 py-1.5 bg-foreground text-background rounded hover:opacity-90 font-medium transition-opacity"
+                                >
+                                    Restore
+                                </button>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+        </div>
+      )}
       {archivingList && (
         <ConfirmationPopup
           isOpen={true}
@@ -1331,6 +1376,7 @@ export default function BoardContent({
               body: JSON.stringify({ isArchived: true })
             }).then(() => {
               setLists(curr => curr.filter(list => list.id !== listId));
+              setListArchives(curr => [...curr, { id: listId, title: archivingList.title }]);
               setArchivingList(null);
             }).catch(console.error);
           }}

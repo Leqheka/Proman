@@ -88,6 +88,12 @@ async function loadBoardData(boardId: string) {
     select: { id: true, title: true, order: true, listId: true },
   });
 
+  const archivedLists = await prisma.list.findMany({
+    where: { boardId, isArchived: true },
+    orderBy: { order: "asc" },
+    select: { id: true, title: true, order: true },
+  });
+
   const boards = await prisma.board.findMany({ 
     where: { isArchived: false },
     select: { id: true, title: true }, 
@@ -100,6 +106,7 @@ async function loadBoardData(boardId: string) {
     boardBackground: board?.background ?? "",
     lists,
     archivedCards,
+    archivedLists,
     boards,
   };
 }
@@ -129,6 +136,7 @@ export default async function BoardPage({ params }: { params: Promise<{ boardId:
         boards={data.boards}
         initialLists={data.lists as any}
         archivedCards={data.archivedCards}
+        archivedLists={data.archivedLists}
       />
     );
   } catch (err) {
@@ -143,6 +151,7 @@ export default async function BoardPage({ params }: { params: Promise<{ boardId:
         boards={[]}
         initialLists={[] as any}
         archivedCards={[]}
+        archivedLists={[]}
       />
     );
   }
