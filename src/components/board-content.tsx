@@ -11,6 +11,7 @@ import AddListTile from "./add-list-tile";
 import Avatar from "./avatar";
 import ListSettingsModal from "./list-settings-modal";
 import CardModal from "./card-modal";
+import ConfirmationPopup from "./confirmation-popup";
 
 export type CardItem = { id: string; title: string; order: number; listId?: string; dueDate?: string | null; hasDescription?: boolean; checklistCount?: number; commentCount?: number; attachmentCount?: number; assignmentCount?: number; members?: Array<{ id: string; name: string | null; email: string; image: string | null }> };
 export type ListItem = { 
@@ -334,6 +335,7 @@ export default function BoardContent({
   const [cardLastUpdated, setCardLastUpdated] = React.useState<Record<string, number>>({});
   const [editingDefaultsListId, setEditingDefaultsListId] = React.useState<string | null>(null);
   const [editingListId, setEditingListId] = React.useState<string | null>(null);
+  const [archivingList, setArchivingList] = React.useState<{ id: string; title: string } | null>(null);
   const [listPaging, setListPaging] = React.useState<Record<string, { hasMore: boolean; cursor: string | null; loading: boolean; total: number }>>(() => {
     const take = 100;
     const init: Record<string, { hasMore: boolean; cursor: string | null; loading: boolean; total: number }> = {};
@@ -1159,17 +1161,7 @@ export default function BoardContent({
                         <ListMenu 
                           listId={l.id} 
                           onSetDefaults={() => setEditingDefaultsListId(l.id)} 
-                          onArchiveList={() => {
-                            if (confirm("Are you sure you want to archive this list?")) {
-                              fetch(`/api/lists/${l.id}`, {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ isArchived: true })
-                              }).then(() => {
-                                setLists(curr => curr.filter(list => list.id !== l.id));
-                              }).catch(console.error);
-                            }
-                          }}
+                          onArchiveList={() => setArchivingList({ id: l.id, title: l.title })}
                         />
                       </div>
                     </div>
@@ -1326,6 +1318,32 @@ export default function BoardContent({
                 </div>
             </div>
         </div>
+      )}
+      {archivingList && (
+        <ConfirmationPopup
+          isOpen={true}
+          onClose={() => setArchivingList(null)}
+          onConfirm={() => {
+            const listId = archivingList.id;
+            fetch(`/api/lists/${listId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ isArchived: true })
+            }).then(() => {
+              setLists(curr => curr.filter(list => list.id !== listId));
+              setArchivingList(null);
+            }).catch(console.error);
+          }}
+          title="Archive List"
+          message={
+            <span>
+              Are you sure you want to archive <strong>{archivingList.title}</strong>? This will hide the list and all its cards from the board.
+            </span>
+          }
+          confirmText="Archive"
+          cancelText="Cancel"
+          variant="danger"
+        />
       )}
     </>
   );
