@@ -939,6 +939,15 @@ export default function BoardContent({
     return await moveCard(cardId, fromListId, toListId, toIndex);
   }
 
+  function handleOpenCard(id: string) {
+    setOpenedCardId(id);
+    try {
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.set("openCard", id);
+      router.replace(newUrl.pathname + newUrl.search);
+    } catch {}
+  }
+
   async function handleCloseModal() {
     const id = openedCardId;
     setOpenedCardId(null);
@@ -1108,7 +1117,7 @@ export default function BoardContent({
                       </div>
                     </div>
                 <SortableContext items={l.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-                  <ListCardsVirtualized cards={l.cards} onOpen={setOpenedCardId} onToggleArchive={toggleArchive} onUpdateTitle={updateCardTitle} onNearEnd={() => {
+                  <ListCardsVirtualized cards={l.cards} onOpen={handleOpenCard} onToggleArchive={toggleArchive} onUpdateTitle={updateCardTitle} onNearEnd={() => {
                     const p = listPaging[l.id];
                     if (p && p.hasMore && !p.loading) loadMoreCards(l.id);
                   }} />
