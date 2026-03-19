@@ -45,6 +45,58 @@ function isTempCardId(id: string) {
   return id.startsWith("temp-card-");
 }
 
+function ListMenu({ listId, onSetDefaults, onArchiveList }: { listId: string; onSetDefaults: () => void; onArchiveList: () => void }) {
+  const [open, setOpen] = React.useState(false);
+  const [isAdmin, setIsAdmin] = React.useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    fetch("/api/auth/me").then(r => r.json()).then(d => setIsAdmin(!!d?.user?.isAdmin)).catch(() => {});
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [open]);
+
+  if (!isAdmin) return null;
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button 
+        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        className="p-1 hover:bg-foreground/10 rounded transition-opacity"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="1" />
+          <circle cx="19" cy="12" r="1" />
+          <circle cx="5" cy="12" r="1" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 w-36 bg-background border border-black/10 dark:border-neutral-800 rounded shadow-lg z-50 overflow-hidden text-sm">
+          <button 
+            className="w-full text-left px-3 py-2 hover:bg-foreground/5"
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onSetDefaults(); }}
+          >
+            Set Defaults
+          </button>
+          <button 
+            className="w-full text-left px-3 py-2 hover:bg-foreground/5 text-red-500"
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onArchiveList(); }}
+          >
+            Archive List
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function formatDueDate(iso?: string | null) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -1104,16 +1156,21 @@ export default function BoardContent({
                         </p>
                       )}
                       <div className="flex items-center">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); setEditingDefaultsListId(l.id); }}
-                          className="p-1 hover:bg-foreground/10 rounded transition-opacity"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="12" r="1" />
-                            <circle cx="19" cy="12" r="1" />
-                            <circle cx="5" cy="12" r="1" />
-                          </svg>
-                        </button>
+                        <ListMenu 
+                          listId={l.id} 
+                          onSetDefaults={() => setEditingDefaultsListId(l.id)} 
+                          onArchiveList={() => {
+                            if (confirm("Are you sure you want to archive this list?")) {
+                              fetch(`/api/lists/${l.id}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ isArchived: true })
+                              }).then(() => {
+                                setLists(curr => curr.filter(list => list.id !== l.id));
+                              }).catch(console.error);
+                            }
+                          }}
+                        />
                       </div>
                     </div>
                 <SortableContext items={l.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
