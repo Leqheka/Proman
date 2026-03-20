@@ -48,6 +48,12 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
   const copyMenuRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
+    fetch("/api/auth/me").then(r => r.json()).then(d => {
+      if (d?.user?.id) setCurrentUserId(d.user.id);
+    }).catch(() => {});
+  }, []);
+
+  React.useEffect(() => {
     if (!showMoveMenu) return;
     const onPointerDown = (e: PointerEvent) => {
       const target = e.target as Node;
@@ -97,6 +103,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
   const [showDetails, setShowDetails] = React.useState(true);
   const [isEditingDescription, setIsEditingDescription] = React.useState(false);
   const [hasMoreActivity, setHasMoreActivity] = React.useState(false);
+  const [currentUserId, setCurrentUserId] = React.useState<string | null>(null);
   const [activityCursor, setActivityCursor] = React.useState<string | null>(null);
 
   // Dates popover state
@@ -2015,10 +2022,12 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                                       {item.c.author?.name || item.c.author?.email}
                                       <span className="font-normal text-foreground/60 ml-2">{new Date(item.c.createdAt).toLocaleString()}</span>
                                     </div>
-                                    <div className="opacity-0 group-hover:opacity-100 flex gap-2">
-                                      <button onClick={() => { setEditingCommentId(item.c.id); setEditingCommentText(item.c.content); }} className="text-[10px] text-foreground/60 hover:text-foreground">Edit</button>
-                                      <button onClick={() => deleteComment(item.c.id)} className="text-[10px] text-foreground/60 hover:text-red-500">Delete</button>
-                                    </div>
+                                    {(!currentUserId || item.c.author?.id === currentUserId) && (
+                                      <div className="opacity-0 group-hover:opacity-100 flex gap-2">
+                                        <button onClick={() => { setEditingCommentId(item.c.id); setEditingCommentText(item.c.content); }} className="text-[10px] text-foreground/60 hover:text-foreground">Edit</button>
+                                        <button onClick={() => deleteComment(item.c.id)} className="text-[10px] text-foreground/60 hover:text-red-500">Delete</button>
+                                      </div>
+                                    )}
                                   </div>
                                   {editingCommentId === item.c.id ? (
                                     <div className="mt-1">
