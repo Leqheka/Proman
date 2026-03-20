@@ -12,7 +12,7 @@ async function loadBoardData(boardId: string) {
   });
 
   const rawLists = await prisma.list.findMany({
-    where: { boardId },
+    where: { boardId, isArchived: false },
     orderBy: { order: "asc" },
     include: {
       _count: { select: { cards: true } },
