@@ -203,6 +203,18 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
   };
 
   const [activeMemberMenu, setActiveMemberMenu] = React.useState<string | null>(null);
+  const memberMenuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!activeMemberMenu) return;
+    const onClick = (e: MouseEvent) => {
+      if (memberMenuRef.current && !memberMenuRef.current.contains(e.target as Node)) {
+        setActiveMemberMenu(null);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [activeMemberMenu]);
   const activeMemberMenuRef = React.useRef<HTMLDivElement | null>(null);
 
   // Confirmation popup state
@@ -1705,11 +1717,16 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                             </button>
                             {activeMemberMenu === m.id && (
                                 <div 
-                                    ref={activeMemberMenuRef}
-                                    className="absolute top-full right-0 mt-1 z-50 bg-background dark:bg-neutral-900 border border-black/10 dark:border-neutral-800 rounded shadow-lg p-1 min-w-[120px]"
+                                    ref={memberMenuRef}
+                                    className="absolute left-0 top-full mt-2 w-64 bg-background border border-black/10 dark:border-neutral-800 rounded shadow-xl z-[60] p-4"
                                 >
+                                    <div className="flex flex-col items-center mb-4">
+                                        <Avatar name={m.name || undefined} email={m.email} image={m.image || undefined} size={64} />
+                                        <p className="mt-3 font-semibold text-base text-center">{m.name || "Unknown"}</p>
+                                        <p className="text-xs text-foreground/60 text-center">{m.email}</p>
+                                    </div>
                                     <button
-                                        className="w-full text-left text-xs px-2 py-1.5 text-red-500 hover:bg-foreground/5 rounded flex items-center gap-2"
+                                        className="w-full py-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded text-sm font-medium transition-colors"
                                         onClick={() => {
                                             setActiveMemberMenu(null);
                                             setConfirmation({
@@ -1724,7 +1741,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                                             });
                                         }}
                                     >
-                                        <span>Remove member</span>
+                                        Remove from card
                                     </button>
                                 </div>
                             )}
