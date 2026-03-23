@@ -1718,15 +1718,15 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                             {activeMemberMenu === m.id && (
                                 <div 
                                     ref={memberMenuRef}
-                                    className="absolute left-0 top-full mt-2 w-64 bg-background border border-black/10 dark:border-neutral-800 rounded shadow-xl z-[60] p-4"
+                                    className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-72 bg-background border border-black/10 dark:border-neutral-800 rounded-xl shadow-2xl z-[100] p-6"
                                 >
                                     <div className="flex flex-col items-center mb-4">
-                                        <Avatar name={m.name || undefined} email={m.email} image={m.image || undefined} size={64} />
-                                        <p className="mt-3 font-semibold text-base text-center">{m.name || "Unknown"}</p>
-                                        <p className="text-xs text-foreground/60 text-center">{m.email}</p>
+                                        <Avatar name={m.name || undefined} email={m.email} image={m.image || undefined} size={80} />
+                                        <p className="mt-4 font-bold text-lg text-center leading-tight">{m.name || "Unknown"}</p>
+                                        <p className="text-sm text-foreground/60 text-center mt-1">{m.email}</p>
                                     </div>
                                     <button
-                                        className="w-full py-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded text-sm font-medium transition-colors"
+                                        className="w-full py-2.5 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg text-sm font-semibold transition-colors mt-2"
                                         onClick={() => {
                                             setActiveMemberMenu(null);
                                             setConfirmation({
