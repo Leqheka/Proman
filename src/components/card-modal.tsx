@@ -1718,10 +1718,10 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                             {activeMemberMenu === m.id && (
                                 <div 
                                     ref={memberMenuRef}
-                                    className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-72 bg-background border border-black/10 dark:border-neutral-800 rounded-xl shadow-2xl z-[100] p-6"
+                                    className="absolute right-0 top-full mt-2 w-72 bg-background border border-black/10 dark:border-neutral-800 rounded-xl shadow-2xl z-[100] p-6"
                                 >
                                     <div className="flex flex-col items-center mb-4">
-                                        <Avatar name={m.name || undefined} email={m.email} image={m.image || undefined} size={80} />
+                                        <Avatar name={m.name || undefined} email={m.email} image={m.image || undefined} size={100} />
                                         <p className="mt-4 font-bold text-lg text-center leading-tight">{m.name || "Unknown"}</p>
                                         <p className="text-sm text-foreground/60 text-center mt-1">{m.email}</p>
                                     </div>
