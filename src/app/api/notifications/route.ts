@@ -28,6 +28,9 @@ export async function GET(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const url = new URL(req.url);
+    const type = url.searchParams.get("type") || "all";
+
     const cookieStore = await cookies();
     const token = cookieStore.get("session")?.value || "";
     const session = token ? await verifySession(token) : null;
@@ -36,9 +39,15 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    await prisma.notification.deleteMany({
-      where: { userId: session.sub as string },
-    });
+    if (type === "read") {
+      await prisma.notification.deleteMany({
+        where: { userId: session.sub as string, read: true },
+      });
+    } else {
+      await prisma.notification.deleteMany({
+        where: { userId: session.sub as string },
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {
