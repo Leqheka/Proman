@@ -76,6 +76,11 @@ export async function POST(req: Request) {
 
         // Apply defaults
         if (toList) {
+          // Remove members from the previous list
+          await tx.cardAssignment.deleteMany({
+            where: { cardId }
+          });
+
           if (toList.defaultMemberIds?.length) {
             await tx.cardAssignment.createMany({
               data: toList.defaultMemberIds.map((uid) => ({ cardId, userId: uid })),

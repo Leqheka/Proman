@@ -46,6 +46,19 @@ function formatDateShort(iso?: string | Date | null) {
   });
 }
 
+function getDueStatus(iso?: string | null): "overdue" | "today" | "soon" | "none" {
+  if (!iso) return "none";
+  const due = new Date(iso);
+  const now = new Date();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  if (due.getTime() < startToday.getTime()) return "overdue";
+  if (due.getTime() <= endToday.getTime()) return "today";
+  const soonThreshold = new Date(startToday.getTime() + 3 * 24 * 60 * 60 * 1000);
+  if (due.getTime() <= soonThreshold.getTime()) return "soon";
+  return "none";
+}
+
 export default function CardModal({ cardId, onClose, onCardUpdated, initial, availableLists, onMoveCard, onCardCopied, lastUpdated }: { cardId: string; onClose: () => void; onCardUpdated?: (patch: { id: string; title?: string; dueDate?: string | null; hasDescription?: boolean; checklistCount?: number; assignmentCount?: number; commentCount?: number; attachmentCount?: number; members?: Member[]; archived?: boolean }) => void; initial?: Partial<CardDetail> | null; availableLists?: { id: string; title: string }[]; onMoveCard?: (toListId: string) => Promise<any>; onCardCopied?: (newCard: any) => void; lastUpdated?: number }) {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -1711,15 +1724,26 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                   {tempStartDate && (
                     <span className="px-2 py-1 rounded bg-background border">Start {formatDateShort(tempStartDate)}</span>
                   )}
-                  {data?.dueDate && (
-                    <button 
-                      onClick={openDatesMenu} 
-                      className="px-2 py-1 rounded bg-background border hover:bg-foreground/5 transition-colors text-left"
-                      title="Change due date"
-                    >
-                      Due {formatDateShort(data.dueDate)}
-                    </button>
-                  )}
+                  {data?.dueDate && (() => {
+                    const dueStatus = getDueStatus(data.dueDate);
+                    const dueClasses =
+                      dueStatus === "overdue"
+                        ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800"
+                        : dueStatus === "today"
+                        ? "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800"
+                        : dueStatus === "soon"
+                        ? "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800"
+                        : "bg-background border-black/10 dark:border-neutral-800 hover:bg-foreground/5";
+                    return (
+                      <button 
+                        onClick={openDatesMenu} 
+                        className={`px-2 py-1 rounded border transition-colors text-left ${dueClasses}`}
+                        title="Change due date"
+                      >
+                        Due {formatDateShort(data.dueDate)}
+                      </button>
+                    );
+                  })()}
                   {!!(data?.members && data.members.length) && (
                     <div className="ml-auto flex items-center gap-1">
                       {data.members.slice(0, showAllMembers ? undefined : 6).map((m) => (
@@ -2049,7 +2073,6 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                                   <div className="flex items-center justify-between">
                                     <div className="text-xs font-semibold text-foreground/80">
                                       {item.c.author?.name || item.c.author?.email}
-                                      <span className="font-normal text-foreground/60 ml-2">{formatDateShort(item.c.createdAt)}</span>
                                     </div>
                                     {(!currentUserId || item.c.author?.id === currentUserId) && (
                                       <div className="opacity-0 group-hover:opacity-100 flex gap-2">
@@ -2071,7 +2094,10 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                                       </div>
                                     </div>
                                   ) : (
-                                    <div className="mt-0.5 text-foreground/90">{item.c.content}</div>
+                                    <div className="mt-0.5 text-foreground/90">
+                                      {item.c.content}
+                                      <div className="text-xs text-foreground/60 mt-1">{formatDateShort(item.c.createdAt)}</div>
+                                    </div>
                                   )}
                                 </div>
                               </div>
