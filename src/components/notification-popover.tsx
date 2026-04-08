@@ -148,7 +148,7 @@ export default function NotificationPopover() {
                           <div 
                               key={n.id}
                               onClick={() => handleClick(n)}
-                              className={`p-3 border-b border-black/5 dark:border-white/5 cursor-pointer transition-all relative hover:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_4px_6px_-1px_rgba(255,255,255,0.1)] hover:z-10 ${!n.read ? "bg-foreground/5" : "bg-transparent"}`}
+                              className={`p-3 border-b border-black/5 dark:border-white/5 cursor-pointer transition-all relative hover:shadow-[0_4px_6px_-2px_rgba(0,0,0,0.2)] dark:hover:shadow-[0_4px_6px_-2px_rgba(255,255,255,0.2)] hover:z-10 ${!n.read ? "bg-foreground/5" : "bg-transparent"}`}
                           >
                               {!n.read && (
                                   <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-full" />
@@ -167,7 +167,8 @@ export default function NotificationPopover() {
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm m-0 p-0 overflow-hidden h-screen w-screen" style={{ position: 'fixed', top: 0, left: 0 }}>
             <div className="w-full max-w-sm bg-background border border-black/10 dark:border-neutral-800 rounded-xl shadow-2xl p-6 relative mx-auto" onClick={e => e.stopPropagation()}>
                 <h2 className="text-lg font-bold mb-2 text-center">Clear Notifications</h2>
-                <div className="flex flex-col gap-2 mt-4">
+                <p className="text-sm text-foreground/70 text-center mb-6">Which notifications would you like to clear?</p>
+                <div className="flex flex-col gap-2">
                     <button 
                         onClick={() => clearNotifications("read")}
                         className="w-full py-2 bg-foreground/5 hover:bg-foreground/10 text-foreground rounded font-medium transition-colors"
