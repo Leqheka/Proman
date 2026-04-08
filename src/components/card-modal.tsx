@@ -34,6 +34,18 @@ type CardDetail = {
   assignmentCount?: number;
 };
 
+function formatDateShort(iso?: string | Date | null) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export default function CardModal({ cardId, onClose, onCardUpdated, initial, availableLists, onMoveCard, onCardCopied, lastUpdated }: { cardId: string; onClose: () => void; onCardUpdated?: (patch: { id: string; title?: string; dueDate?: string | null; hasDescription?: boolean; checklistCount?: number; assignmentCount?: number; commentCount?: number; attachmentCount?: number; members?: Member[]; archived?: boolean }) => void; initial?: Partial<CardDetail> | null; availableLists?: { id: string; title: string }[]; onMoveCard?: (toListId: string) => Promise<any>; onCardCopied?: (newCard: any) => void; lastUpdated?: number }) {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -1697,7 +1709,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
               <div className="rounded border border-black/10 dark:border-neutral-800 p-2">
                 <div className="flex items-center gap-3 text-xs">
                   {tempStartDate && (
-                    <span className="px-2 py-1 rounded bg-background border">Start {new Date(tempStartDate).toLocaleDateString()}</span>
+                    <span className="px-2 py-1 rounded bg-background border">Start {formatDateShort(tempStartDate)}</span>
                   )}
                   {data?.dueDate && (
                     <button 
@@ -1705,7 +1717,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                       className="px-2 py-1 rounded bg-background border hover:bg-foreground/5 transition-colors text-left"
                       title="Change due date"
                     >
-                      Due {new Date(data.dueDate).toLocaleString()}
+                      Due {formatDateShort(data.dueDate)}
                     </button>
                   )}
                   {!!(data?.members && data.members.length) && (
@@ -1988,7 +2000,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                               <span className="font-semibold">{a.user?.name || a.user?.email || "Someone"}</span>
                               <span className="text-foreground/80">{formatActivityMessage(String(a.details?.message || "Someone created this card"))}</span>
                             </div>
-                            <div className="text-xs text-foreground/60">{new Date(a.createdAt).toLocaleString()}</div>
+                            <div className="text-xs text-foreground/60">{formatDateShort(a.createdAt)}</div>
                           </li>
                         ))
                       )}
@@ -2023,7 +2035,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                                     <span className="font-semibold mr-1">{item.a.user?.name || item.a.user?.email || "Someone"}</span>
                                     <span className="text-foreground/80">{formatActivityMessage(String(item.a.details?.message || (item.a.type === "CARD_CREATED" ? "created this card" : item.a.type)))}</span>
                                   </div>
-                                  <div className="text-xs text-foreground/60">{new Date(item.createdAt).toLocaleString()}</div>
+                                  <div className="text-xs text-foreground/60">{formatDateShort(item.createdAt)}</div>
                                 </div>
                               </div>
                             </li>
@@ -2037,7 +2049,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                                   <div className="flex items-center justify-between">
                                     <div className="text-xs font-semibold text-foreground/80">
                                       {item.c.author?.name || item.c.author?.email}
-                                      <span className="font-normal text-foreground/60 ml-2">{new Date(item.c.createdAt).toLocaleString()}</span>
+                                      <span className="font-normal text-foreground/60 ml-2">{formatDateShort(item.c.createdAt)}</span>
                                     </div>
                                     {(!currentUserId || item.c.author?.id === currentUserId) && (
                                       <div className="opacity-0 group-hover:opacity-100 flex gap-2">
