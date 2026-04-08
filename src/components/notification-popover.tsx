@@ -112,60 +112,62 @@ export default function NotificationPopover() {
   }
 
   return (
-    <div className="relative" ref={wrapRef}>
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="relative flex h-8 w-8 items-center justify-center rounded-full bg-foreground/5 hover:bg-foreground/10 text-foreground transition-colors"
-        title="Notifications"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-        </svg>
-        {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
-                {unreadCount}
-            </span>
+    <>
+      <div className="relative" ref={wrapRef}>
+        <button 
+          onClick={() => setIsOpen(!isOpen)}
+          className="relative flex h-8 w-8 items-center justify-center rounded-full bg-foreground/5 hover:bg-foreground/10 text-foreground transition-colors"
+          title="Notifications"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+          </svg>
+          {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                  {unreadCount}
+              </span>
+          )}
+        </button>
+        
+        {isOpen && (
+          <div className="absolute right-0 mt-2 w-80 rounded-xl border border-black/10 dark:border-neutral-800 bg-background shadow-xl z-50 overflow-hidden">
+              <div className="p-3 border-b border-black/10 dark:border-neutral-800 flex justify-between items-center">
+                  <h3 className="font-semibold text-sm">Notifications</h3>
+                  <div className="flex items-center gap-3">
+                      {notifications.length > 0 && (
+                          <button onClick={() => { setIsOpen(false); setShowClearConfirm(true); }} className="text-xs text-red-500 hover:text-red-600 transition-colors">Clear</button>
+                      )}
+                  </div>
+              </div>
+              <div className="max-h-[400px] overflow-y-auto">
+                  {notifications.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-foreground/50">No notifications</div>
+                  ) : (
+                      notifications.map(n => (
+                          <div 
+                              key={n.id}
+                              onClick={() => handleClick(n)}
+                              className={`p-3 border-b border-black/5 dark:border-white/5 cursor-pointer transition-all relative hover:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_4px_6px_-1px_rgba(255,255,255,0.1)] hover:z-10 ${!n.read ? "bg-foreground/5" : "bg-transparent"}`}
+                          >
+                              {!n.read && (
+                                  <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-full" />
+                              )}
+                              <p className="text-xs">{getMessage(n)}</p>
+                              <p className="text-[10px] text-foreground/40 mt-1">{new Date(n.createdAt).toLocaleString()}</p>
+                          </div>
+                      ))
+                  )}
+              </div>
+          </div>
         )}
-      </button>
-      
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 rounded-xl border border-black/10 dark:border-neutral-800 bg-background shadow-xl z-50 overflow-hidden">
-            <div className="p-3 border-b border-black/10 dark:border-neutral-800 flex justify-between items-center">
-                <h3 className="font-semibold text-sm">Notifications</h3>
-                <div className="flex items-center gap-3">
-                    {notifications.length > 0 && (
-                        <button onClick={() => setShowClearConfirm(true)} className="text-xs text-red-500 hover:text-red-600 transition-colors">Clear</button>
-                    )}
-                </div>
-            </div>
-            <div className="max-h-[400px] overflow-y-auto">
-                {notifications.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-foreground/50">No notifications</div>
-                ) : (
-                    notifications.map(n => (
-                        <div 
-                            key={n.id}
-                            onClick={() => handleClick(n)}
-                            className={`p-3 border-b border-black/5 dark:border-white/5 cursor-pointer transition-all relative hover:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_4px_6px_-1px_rgba(255,255,255,0.1)] hover:z-10 ${!n.read ? "bg-foreground/5" : "bg-transparent"}`}
-                        >
-                            {!n.read && (
-                                <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-full" />
-                            )}
-                            <p className="text-xs">{getMessage(n)}</p>
-                            <p className="text-[10px] text-foreground/40 mt-1">{new Date(n.createdAt).toLocaleString()}</p>
-                        </div>
-                    ))
-                )}
-            </div>
-        </div>
-      )}
-      {showClearConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="w-full max-w-sm bg-background border border-black/10 dark:border-neutral-800 rounded-xl shadow-2xl p-6" onClick={e => e.stopPropagation()}>
-                <h2 className="text-lg font-bold mb-2">Clear Notifications</h2>
-                <p className="text-sm text-foreground/70 mb-6">Which notifications would you like to clear?</p>
-                <div className="flex flex-col gap-2">
+      </div>
+
+      {showClearConfirm && typeof window !== 'undefined' && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm m-0 p-0 overflow-hidden h-screen w-screen" style={{ position: 'fixed', top: 0, left: 0 }}>
+            <div className="w-full max-w-sm bg-background border border-black/10 dark:border-neutral-800 rounded-xl shadow-2xl p-6 relative mx-auto" onClick={e => e.stopPropagation()}>
+                <h2 className="text-lg font-bold mb-2 text-center">Clear Notifications</h2>
+                <div className="flex flex-col gap-2 mt-4">
                     <button 
                         onClick={() => clearNotifications("read")}
                         className="w-full py-2 bg-foreground/5 hover:bg-foreground/10 text-foreground rounded font-medium transition-colors"
@@ -188,6 +190,6 @@ export default function NotificationPopover() {
             </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
