@@ -134,7 +134,6 @@ export default function NotificationPopover() {
                     {notifications.length > 0 && (
                         <button onClick={() => setShowClearConfirm(true)} className="text-xs text-red-500 hover:text-red-600 transition-colors">Clear</button>
                     )}
-                    <button onClick={fetchNotifications} className="text-xs hover:text-primary transition-colors">Refresh</button>
                 </div>
             </div>
             <div className="max-h-[400px] overflow-y-auto">
@@ -145,7 +144,7 @@ export default function NotificationPopover() {
                         <div 
                             key={n.id}
                             onClick={() => handleClick(n)}
-                            className={`p-3 border-b border-black/5 dark:border-white/5 cursor-pointer transition-colors relative ${!n.read ? "bg-foreground/5" : "hover:bg-foreground/5"}`}
+                            className={`p-3 border-b border-black/5 dark:border-white/5 cursor-pointer transition-all relative ${!n.read ? "bg-foreground/5" : "bg-transparent hover:shadow-[0_-1px_0_rgba(0,0,0,0.1),0_1px_0_rgba(0,0,0,0.1)] dark:hover:shadow-[0_-1px_0_rgba(255,255,255,0.1),0_1px_0_rgba(255,255,255,0.1)] hover:z-10"}`}
                         >
                             {!n.read && (
                                 <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-full" />
