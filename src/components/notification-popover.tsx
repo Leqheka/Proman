@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
+import ConfirmationPopup from "./confirmation-popup";
 
 type Notification = {
   id: string;
@@ -15,6 +16,7 @@ export default function NotificationPopover() {
   const [isOpen, setIsOpen] = React.useState(false);
   const [notifications, setNotifications] = React.useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = React.useState(0);
+  const [showClearConfirm, setShowClearConfirm] = React.useState(false);
   const wrapRef = React.useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -54,6 +56,17 @@ export default function NotificationPopover() {
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch {}
+  }
+
+  async function clearAll() {
+    try {
+      await fetch("/api/notifications", { method: "DELETE" });
+      setNotifications([]);
+      setUnreadCount(0);
+      setShowClearConfirm(false);
+    } catch (e) {
+      console.error("Failed to clear notifications", e);
+    }
   }
 
   function handleClick(n: Notification) {
@@ -117,7 +130,12 @@ export default function NotificationPopover() {
         <div className="absolute right-0 mt-2 w-80 rounded-xl border border-black/10 dark:border-neutral-800 bg-background shadow-xl z-50 overflow-hidden">
             <div className="p-3 border-b border-black/10 dark:border-neutral-800 flex justify-between items-center">
                 <h3 className="font-semibold text-sm">Notifications</h3>
-                <button onClick={fetchNotifications} className="text-xs hover:text-primary">Refresh</button>
+                <div className="flex items-center gap-3">
+                    {notifications.length > 0 && (
+                        <button onClick={() => setShowClearConfirm(true)} className="text-xs text-red-500 hover:text-red-600 transition-colors">Clear</button>
+                    )}
+                    <button onClick={fetchNotifications} className="text-xs hover:text-primary transition-colors">Refresh</button>
+                </div>
             </div>
             <div className="max-h-[400px] overflow-y-auto">
                 {notifications.length === 0 ? (
@@ -127,12 +145,12 @@ export default function NotificationPopover() {
                         <div 
                             key={n.id}
                             onClick={() => handleClick(n)}
-                            className={`p-3 border-b border-black/5 dark:border-white/5 cursor-pointer hover:bg-foreground/5 transition-colors relative ${!n.read ? "bg-primary/5 dark:bg-primary/10" : ""}`}
+                            className={`p-3 border-b border-black/5 dark:border-white/5 cursor-pointer transition-colors relative ${!n.read ? "bg-foreground/5" : "hover:bg-foreground/5"}`}
                         >
                             {!n.read && (
                                 <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-full" />
                             )}
-                            <p className={`text-xs ${!n.read ? "font-semibold" : ""}`}>{getMessage(n)}</p>
+                            <p className="text-xs">{getMessage(n)}</p>
                             <p className="text-[10px] text-foreground/40 mt-1">{new Date(n.createdAt).toLocaleString()}</p>
                         </div>
                     ))
@@ -140,6 +158,16 @@ export default function NotificationPopover() {
             </div>
         </div>
       )}
+      <ConfirmationPopup
+        isOpen={showClearConfirm}
+        onClose={() => setShowClearConfirm(false)}
+        onConfirm={clearAll}
+        title="Clear Notifications"
+        message="Are you sure you want to clear all your notifications? This action cannot be undone."
+        confirmText="Clear All"
+        cancelText="Cancel"
+        variant="danger"
+      />
     </div>
   );
 }

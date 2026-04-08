@@ -25,3 +25,24 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Failed to list notifications" }, { status: 500 });
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("session")?.value || "";
+    const session = token ? await verifySession(token) : null;
+
+    if (!session?.sub) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    await prisma.notification.deleteMany({
+      where: { userId: session.sub as string },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("DELETE /api/notifications error", err);
+    return NextResponse.json({ error: "Failed to delete notifications" }, { status: 500 });
+  }
+}
