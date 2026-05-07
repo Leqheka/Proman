@@ -44,7 +44,7 @@ export default function AppHeader() {
     let alive = true;
     (async () => {
       try {
-        const r = await fetch("/api/auth/me");
+        const r = await fetch(`/api/auth/me?t=${Date.now()}`, { cache: "no-store" });
         const j = await r.json().catch(() => ({}));
         if (!alive) return;
         setLoggedIn(r.ok);

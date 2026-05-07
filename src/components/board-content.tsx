@@ -52,7 +52,7 @@ function ListMenu({ listId, onSetDefaults, onArchiveList }: { listId: string; on
   const menuRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    fetch("/api/auth/me").then(r => r.json()).then(d => setIsAdmin(!!d?.user?.isAdmin)).catch(() => {});
+    fetch(`/api/auth/me?t=${Date.now()}`).then(r => r.json()).then(d => setIsAdmin(!!d?.user?.isAdmin)).catch(() => {});
   }, []);
 
   React.useEffect(() => {

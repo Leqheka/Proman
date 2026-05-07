@@ -73,7 +73,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
   const copyMenuRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    fetch("/api/auth/me").then(r => r.json()).then(d => {
+    fetch(`/api/auth/me?t=${Date.now()}`).then(r => r.json()).then(d => {
       if (d?.user?.id) setCurrentUserId(d.user.id);
     }).catch(() => {});
   }, []);

@@ -48,7 +48,7 @@ export default function BoardToolbar({
     let alive = true;
     (async () => {
       try {
-        const r = await fetch("/api/auth/me");
+        const r = await fetch(`/api/auth/me?t=${Date.now()}`);
         const j = await r.json().catch(() => ({}));
         if (!alive) return;
         setIsAdmin(r.ok ? !!j?.user?.isAdmin : false);
