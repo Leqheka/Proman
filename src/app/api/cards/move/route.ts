@@ -147,21 +147,36 @@ export async function POST(req: Request) {
                 }
 
                 console.info(`[API/cards/move] creating checklist "${cl.title}" on card ${cardId}`);
-                await tx.checklist.create({
+                const checklist = await tx.checklist.create({
                     data: {
                         title: cl.title,
                         cardId,
-                        items: {
-                            createMany: {
-                                data: cl.items.map((item: any, idx: number) => ({
-                                    title: item.title || "Untitled",
-                                    completed: !!item.completed,
-                                    order: idx
-                                }))
-                            }
-                        }
                     }
                 });
+
+                for (let idx = 0; idx < cl.items.length; idx++) {
+                    const item = cl.items[idx];
+                    const createdItem = await tx.checklistItem.create({
+                        data: {
+                            title: item.title || "Untitled",
+                            completed: !!item.completed,
+                            order: idx,
+                            checklistId: checklist.id
+                        }
+                    });
+
+                    if (item.subItems && Array.isArray(item.subItems) && item.subItems.length > 0) {
+                        await tx.checklistItem.createMany({
+                            data: item.subItems.map((sub: any, subIdx: number) => ({
+                                title: sub.title || "Untitled",
+                                completed: !!sub.completed,
+                                order: subIdx,
+                                checklistId: checklist.id,
+                                parentId: createdItem.id
+                            }))
+                        });
+                    }
+                }
             }));
           }
         }

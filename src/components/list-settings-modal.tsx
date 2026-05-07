@@ -5,8 +5,8 @@ import Avatar from "./avatar";
 
 type Member = { id: string; name: string | null; email: string; image: string | null };
 
-type ChecklistItem = { title: string; completed: boolean };
-  type Checklist = { title: string; items: ChecklistItem[] };
+type ChecklistItem = { title: string; completed: boolean; subItems?: { title: string; completed: boolean }[] };
+type Checklist = { title: string; items: ChecklistItem[] };
   
   interface ListSettingsModalProps {
     listId: string;
@@ -31,7 +31,11 @@ type ChecklistItem = { title: string; completed: boolean };
   
     // State for adding items to specific checklists
     const [newItemTitles, setNewItemTitles] = useState<Record<number, string>>({});
-  
+    
+    // State for adding subItems to specific items
+    const [newSubItemTitles, setNewSubItemTitles] = useState<Record<string, string>>({}); // "clIdx-itemIdx" -> title
+    const [addingSubItemKey, setAddingSubItemKey] = useState<string | null>(null);
+
     // Inline editing state
     const [editingTitleIdx, setEditingTitleIdx] = useState<number | null>(null);
     const [editingItemKey, setEditingItemKey] = useState<string | null>(null); // "clIdx-itemIdx"
@@ -121,16 +125,43 @@ type ChecklistItem = { title: string; completed: boolean };
     
     setChecklists(checklists.map((cl, i) => {
       if (i !== checklistIndex) return cl;
-      return { ...cl, items: [...cl.items, { title, completed: false }] };
+      return { ...cl, items: [...cl.items, { title, completed: false, subItems: [] }] };
     }));
     
     setNewItemTitles(prev => ({ ...prev, [checklistIndex]: "" }));
+  }
+
+  function addSubItem(clIndex: number, itemIndex: number) {
+    const key = `${clIndex}-${itemIndex}`;
+    const title = newSubItemTitles[key]?.trim();
+    if (!title) return;
+
+    setChecklists(checklists.map((cl, i) => {
+      if (i !== clIndex) return cl;
+      const newItems = [...cl.items];
+      const subItems = newItems[itemIndex].subItems || [];
+      newItems[itemIndex] = { ...newItems[itemIndex], subItems: [...subItems, { title, completed: false }] };
+      return { ...cl, items: newItems };
+    }));
+
+    setNewSubItemTitles(prev => ({ ...prev, [key]: "" }));
+    setAddingSubItemKey(null);
   }
 
   function removeChecklistItem(checklistIndex: number, itemIndex: number) {
     setChecklists(checklists.map((cl, i) => {
       if (i !== checklistIndex) return cl;
       return { ...cl, items: cl.items.filter((_, idx) => idx !== itemIndex) };
+    }));
+  }
+
+  function removeSubItem(clIndex: number, itemIndex: number, subIndex: number) {
+    setChecklists(checklists.map((cl, i) => {
+      if (i !== clIndex) return cl;
+      const newItems = [...cl.items];
+      const subItems = newItems[itemIndex].subItems || [];
+      newItems[itemIndex] = { ...newItems[itemIndex], subItems: subItems.filter((_, idx) => idx !== subIndex) };
+      return { ...cl, items: newItems };
     }));
   }
 
@@ -146,6 +177,17 @@ type ChecklistItem = { title: string; completed: boolean };
       if (i !== clIndex) return cl;
       const newItems = [...cl.items];
       newItems[itemIndex] = { ...newItems[itemIndex], title: newTitle };
+      return { ...cl, items: newItems };
+    }));
+  }
+
+  function updateSubItemTitle(clIndex: number, itemIndex: number, subIndex: number, newTitle: string) {
+    setChecklists(checklists.map((cl, i) => {
+      if (i !== clIndex) return cl;
+      const newItems = [...cl.items];
+      const subItems = newItems[itemIndex].subItems ? [...newItems[itemIndex].subItems] : [];
+      subItems[subIndex] = { ...subItems[subIndex], title: newTitle };
+      newItems[itemIndex] = { ...newItems[itemIndex], subItems };
       return { ...cl, items: newItems };
     }));
   }
@@ -291,35 +333,107 @@ type ChecklistItem = { title: string; completed: boolean };
                     {checklist.items.map((item, itemIdx) => {
                       const itemKey = `${clIdx}-${itemIdx}`;
                       return (
-                        <div key={itemIdx} className="flex items-center gap-2 group">
-                          <div className="w-3 h-3 border border-black/10 dark:border-neutral-800 rounded" />
-                          {editingItemKey === itemKey ? (
-                            <input
-                              autoFocus
-                              className="flex-1 text-sm bg-background border rounded px-1"
-                              value={item.title}
-                              onChange={(e) => updateChecklistItemTitle(clIdx, itemIdx, e.target.value)}
-                              onBlur={() => setEditingItemKey(null)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") setEditingItemKey(null);
-                              }}
-                            />
-                          ) : (
-                            <span 
-                              className="flex-1 text-sm cursor-pointer hover:bg-foreground/5 px-1 rounded"
-                              onClick={() => setEditingItemKey(itemKey)}
+                        <div key={itemIdx} className="space-y-1">
+                          <div className="flex items-center gap-2 group">
+                            <div className="w-3 h-3 border border-black/10 dark:border-neutral-800 rounded" />
+                            {editingItemKey === itemKey ? (
+                              <input
+                                autoFocus
+                                className="flex-1 text-sm bg-background border rounded px-1"
+                                value={item.title}
+                                onChange={(e) => updateChecklistItemTitle(clIdx, itemIdx, e.target.value)}
+                                onBlur={() => setEditingItemKey(null)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") setEditingItemKey(null);
+                                }}
+                              />
+                            ) : (
+                              <span 
+                                className="flex-1 text-sm cursor-pointer hover:bg-foreground/5 px-1 rounded"
+                                onClick={() => setEditingItemKey(itemKey)}
+                              >
+                                {item.title}
+                              </span>
+                            )}
+                            <button
+                              onClick={() => setAddingSubItemKey(itemKey)}
+                              className="text-foreground/50 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                              title="Add sub-checklist item"
                             >
-                              {item.title}
-                            </span>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => removeChecklistItem(clIdx, itemIdx)}
+                              className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M18 6L6 18M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                          
+                          {/* Sub-items */}
+                          {(item.subItems && item.subItems.length > 0 || addingSubItemKey === itemKey) && (
+                            <div className="pl-6 space-y-1">
+                              {item.subItems?.map((subItem, subIdx) => {
+                                const subKey = `${itemKey}-${subIdx}`;
+                                return (
+                                  <div key={subIdx} className="flex items-center gap-2 group">
+                                    <div className="w-2.5 h-2.5 border border-black/10 dark:border-neutral-800 rounded" />
+                                    {editingItemKey === subKey ? (
+                                      <input
+                                        autoFocus
+                                        className="flex-1 text-xs bg-background border rounded px-1"
+                                        value={subItem.title}
+                                        onChange={(e) => updateSubItemTitle(clIdx, itemIdx, subIdx, e.target.value)}
+                                        onBlur={() => setEditingItemKey(null)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") setEditingItemKey(null);
+                                        }}
+                                      />
+                                    ) : (
+                                      <span 
+                                        className="flex-1 text-xs cursor-pointer hover:bg-foreground/5 px-1 rounded"
+                                        onClick={() => setEditingItemKey(subKey)}
+                                      >
+                                        {subItem.title}
+                                      </span>
+                                    )}
+                                    <button
+                                      onClick={() => removeSubItem(clIdx, itemIdx, subIdx)}
+                                      className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                                    >
+                                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M18 6L6 18M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                              
+                              {addingSubItemKey === itemKey && (
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    autoFocus
+                                    value={newSubItemTitles[itemKey] || ""}
+                                    onChange={(e) => setNewSubItemTitles(prev => ({ ...prev, [itemKey]: e.target.value }))}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") addSubItem(clIdx, itemIdx);
+                                      if (e.key === "Escape") setAddingSubItemKey(null);
+                                    }}
+                                    onBlur={() => {
+                                      if (newSubItemTitles[itemKey]?.trim()) addSubItem(clIdx, itemIdx);
+                                      else setAddingSubItemKey(null);
+                                    }}
+                                    placeholder="Add sub-item..."
+                                    className="flex-1 text-xs bg-background border border-primary/50 rounded px-1 py-0.5"
+                                  />
+                                </div>
+                              )}
+                            </div>
                           )}
-                          <button
-                            onClick={() => removeChecklistItem(clIdx, itemIdx)}
-                            className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M18 6L6 18M6 6l12 12" />
-                            </svg>
-                          </button>
                         </div>
                       );
                     })}

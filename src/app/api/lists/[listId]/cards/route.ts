@@ -100,13 +100,32 @@ export async function POST(req: Request, { params }: { params: Promise<{ listId:
               data: {
                 title: cl.title || "Checklist",
                 cardId: card.id,
-                items: {
-                  createMany: {
-                    data: cl.items.map((i: any) => ({ title: i.title, completed: !!i.completed }))
-                  }
-                }
               }
             });
+            
+            for (let idx = 0; idx < cl.items.length; idx++) {
+               const i = cl.items[idx];
+               const createdItem = await prisma.checklistItem.create({
+                 data: {
+                   title: i.title || "Untitled",
+                   completed: !!i.completed,
+                   order: idx,
+                   checklistId: checklist.id
+                 }
+               });
+               
+               if (i.subItems && Array.isArray(i.subItems) && i.subItems.length > 0) {
+                 await prisma.checklistItem.createMany({
+                   data: i.subItems.map((sub: any, subIdx: number) => ({
+                     title: sub.title || "Untitled",
+                     completed: !!sub.completed,
+                     order: subIdx,
+                     checklistId: checklist.id,
+                     parentId: createdItem.id
+                   }))
+                 });
+               }
+            }
           }
         }));
       } else {
