@@ -25,7 +25,8 @@ type ChecklistItem = {
   title: string; 
   completed: boolean; 
   dueDate?: string | null; 
-  order?: number 
+  order?: number;
+  parentId?: string | null;
 };
 
 type Checklist = { 
@@ -38,28 +39,40 @@ interface ChecklistItemsProps {
   checklist: Checklist;
   onUpdateItem: (itemId: string, data: Partial<ChecklistItem>) => void;
   onDeleteItem: (itemId: string) => void;
-  onAddItem: (checklistId: string, title: string) => void;
+  onAddItem: (checklistId: string, title: string, parentId?: string | null) => void;
   onReorderItems: (checklistId: string, newItems: ChecklistItem[]) => void;
 }
 
 interface SortableItemProps {
   item: ChecklistItem;
+  subItems?: ChecklistItem[];
   onUpdate: (id: string, data: Partial<ChecklistItem>) => void;
   onDelete: (id: string) => void;
   isEditing: boolean;
   onEdit: () => void;
   onStopEditing: () => void;
   onEnter: () => void;
+  onAddSubItem?: (title: string) => void;
+  editingSubItemId?: string | null;
+  onEditSubItem?: (id: string) => void;
+  onStopEditingSubItem?: () => void;
+  onEnterSubItem?: (id: string) => void;
 }
 
 function SortableItem({ 
   item, 
+  subItems = [],
   onUpdate, 
   onDelete,
   isEditing,
   onEdit,
   onStopEditing,
-  onEnter
+  onEnter,
+  onAddSubItem,
+  editingSubItemId,
+  onEditSubItem,
+  onStopEditingSubItem,
+  onEnterSubItem
 }: SortableItemProps) {
   const {
     attributes,
@@ -78,6 +91,9 @@ function SortableItem({
 
   // Local state for title to avoid cursor jumping
   const [title, setTitle] = useState(item.title.includes("|") ? item.title.split("|")[0] : item.title);
+  const [addingSubItem, setAddingSubItem] = useState(false);
+  const [subItemTitle, setSubItemTitle] = useState("");
+  const subItemInputRef = useRef<HTMLInputElement>(null);
   
   useEffect(() => {
     if (!isEditing) {
@@ -111,74 +127,220 @@ function SortableItem({
     }
   };
 
+  const handleAddSubItem = () => {
+    if (subItemTitle.trim() && onAddSubItem) {
+      onAddSubItem(subItemTitle);
+      setSubItemTitle("");
+    }
+    setAddingSubItem(false);
+  };
+
   return (
-    <div ref={setNodeRef} style={style} className="group flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-foreground/5 my-1">
-       {/* Drag Handle */}
-       <div {...attributes} {...listeners} className="cursor-grab text-foreground/30 hover:text-foreground/60 flex-shrink-0">
-         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="9" cy="9" r="2" />
-            <circle cx="9" cy="15" r="2" />
-            <circle cx="15" cy="9" r="2" />
-            <circle cx="15" cy="15" r="2" />
-         </svg>
-       </div>
-       
+    <div ref={setNodeRef} style={style} className="my-1">
+      <div className="group flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-foreground/5">
+         {/* Drag Handle */}
+         <div {...attributes} {...listeners} className="cursor-grab text-foreground/30 hover:text-foreground/60 flex-shrink-0">
+           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="9" cy="9" r="2" />
+              <circle cx="9" cy="15" r="2" />
+              <circle cx="15" cy="9" r="2" />
+              <circle cx="15" cy="15" r="2" />
+           </svg>
+         </div>
+         
+         {/* Checkbox */}
+         <input 
+           type="checkbox" 
+           checked={item.completed} 
+           onChange={(e) => onUpdate(item.id, { completed: e.target.checked })}
+           className="cursor-pointer flex-shrink-0 w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" 
+         />
+         
+         {/* Title Input/Display */}
+         <div className="flex-1 min-w-0">
+           {isEditing ? (
+              <input
+                  autoFocus
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  onBlur={handleBlur}
+                  onKeyDown={handleKeyDown}
+                  className="w-full text-sm bg-background border border-primary/50 rounded px-1 py-0.5 outline-none"
+              />
+           ) : (
+              <div 
+                  onClick={onEdit} 
+                  className={`text-sm cursor-text break-words px-1 py-0.5 rounded hover:bg-foreground/5 ${item.completed ? "line-through text-foreground/50" : ""}`}
+              >
+                  {item.title.includes("|") ? item.title.split("|")[0] : item.title}
+              </div>
+           )}
+         </div>
+
+         {/* Add Sub-checklist item */}
+         <button
+            onClick={() => {
+              setAddingSubItem(true);
+              setTimeout(() => subItemInputRef.current?.focus(), 0);
+            }}
+            className="opacity-0 group-hover:opacity-100 text-foreground/50 hover:text-primary transition-opacity flex-shrink-0 p-1"
+            title="Add sub-checklist item"
+         >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
+            </svg>
+         </button>
+
+         {/* Due Date */}
+         <div className="flex-shrink-0 relative group/date">
+              <input 
+                  type="date" 
+                  value={item.dueDate ? new Date(item.dueDate).toISOString().split('T')[0] : ""} 
+                  onChange={(e) => onUpdate(item.id, { dueDate: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                  className={`text-xs bg-transparent border-none p-0 cursor-pointer ${!item.dueDate ? 'w-6 opacity-0' : 'w-auto'}`}
+                  title="Set due date"
+              />
+              {!item.dueDate && (
+                   <div className="absolute inset-0 pointer-events-none flex items-center justify-center text-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                          <line x1="16" y1="2" x2="16" y2="6" />
+                          <line x1="8" y1="2" x2="8" y2="6" />
+                          <line x1="3" y1="10" x2="21" y2="10" />
+                      </svg>
+                   </div>
+              )}
+         </div>
+
+         {/* Delete Button */}
+         <button 
+          onClick={() => onDelete(item.id)} 
+          className="opacity-0 group-hover:opacity-100 text-foreground/50 hover:text-red-500 transition-opacity flex-shrink-0 p-1"
+         >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+         </button>
+      </div>
+
+      {/* Sub-items */}
+      {(subItems.length > 0 || addingSubItem) && (
+        <div className="pl-8 pr-2 mt-1 space-y-1">
+          {subItems.map((subItem) => (
+            <SubItem 
+              key={subItem.id}
+              item={subItem}
+              onUpdate={onUpdate}
+              onDelete={onDelete}
+              isEditing={editingSubItemId === subItem.id}
+              onEdit={() => onEditSubItem?.(subItem.id)}
+              onStopEditing={() => onStopEditingSubItem?.()}
+              onEnter={() => onEnterSubItem?.(subItem.id)}
+            />
+          ))}
+          {addingSubItem && (
+            <div className="flex items-center gap-2 px-1">
+              <input
+                ref={subItemInputRef}
+                value={subItemTitle}
+                onChange={(e) => setSubItemTitle(e.target.value)}
+                placeholder="Add sub-item"
+                className="w-full text-xs bg-background border border-primary/50 rounded px-1 py-0.5 outline-none"
+                onBlur={() => {
+                  if (subItemTitle.trim()) handleAddSubItem();
+                  else setAddingSubItem(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddSubItem();
+                  } else if (e.key === "Escape") {
+                    setAddingSubItem(false);
+                    setSubItemTitle("");
+                  }
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// SubItem Component (Not sortable via dnd-kit for simplicity, just a list)
+function SubItem({
+  item,
+  onUpdate,
+  onDelete,
+  isEditing,
+  onEdit,
+  onStopEditing,
+  onEnter
+}: {
+  item: ChecklistItem;
+  onUpdate: (id: string, data: Partial<ChecklistItem>) => void;
+  onDelete: (id: string) => void;
+  isEditing: boolean;
+  onEdit: () => void;
+  onStopEditing: () => void;
+  onEnter: () => void;
+}) {
+  const [title, setTitle] = useState(item.title);
+  
+  useEffect(() => {
+    if (!isEditing) setTitle(item.title);
+  }, [item.title, isEditing]);
+
+  const save = () => {
+    if (title.trim() !== item.title) {
+        onUpdate(item.id, { title: title.trim() });
+    }
+  };
+
+  return (
+    <div className="group flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-foreground/5">
        {/* Checkbox */}
        <input 
          type="checkbox" 
          checked={item.completed} 
          onChange={(e) => onUpdate(item.id, { completed: e.target.checked })}
-         className="cursor-pointer flex-shrink-0 w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" 
+         className="cursor-pointer flex-shrink-0 w-3.5 h-3.5 rounded border-gray-300 text-primary focus:ring-primary" 
        />
        
-       {/* Title Input/Display */}
+       {/* Title */}
        <div className="flex-1 min-w-0">
          {isEditing ? (
             <input
                 autoFocus
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                onBlur={handleBlur}
-                onKeyDown={handleKeyDown}
-                className="w-full text-sm bg-background border border-primary/50 rounded px-1 py-0.5 outline-none"
+                onBlur={() => { save(); onStopEditing(); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                      e.preventDefault();
+                      save();
+                      onEnter();
+                  }
+                }}
+                className="w-full text-xs bg-background border border-primary/50 rounded px-1 py-0.5 outline-none"
             />
          ) : (
             <div 
                 onClick={onEdit} 
-                className={`text-sm cursor-text break-words px-1 py-0.5 rounded hover:bg-foreground/5 ${item.completed ? "line-through text-foreground/50" : ""}`}
+                className={`text-xs cursor-text break-words px-1 py-0.5 rounded hover:bg-foreground/5 ${item.completed ? "line-through text-foreground/50" : ""}`}
             >
-                {item.title.includes("|") ? item.title.split("|")[0] : item.title}
+                {item.title}
             </div>
          )}
        </div>
 
-       {/* Due Date */}
-       <div className="flex-shrink-0 relative group/date">
-            <input 
-                type="date" 
-                value={item.dueDate ? new Date(item.dueDate).toISOString().split('T')[0] : ""} 
-                onChange={(e) => onUpdate(item.id, { dueDate: e.target.value ? new Date(e.target.value).toISOString() : null })}
-                className={`text-xs bg-transparent border-none p-0 cursor-pointer ${!item.dueDate ? 'w-6 opacity-0' : 'w-auto'}`}
-                title="Set due date"
-            />
-            {!item.dueDate && (
-                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center text-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                        <line x1="16" y1="2" x2="16" y2="6" />
-                        <line x1="8" y1="2" x2="8" y2="6" />
-                        <line x1="3" y1="10" x2="21" y2="10" />
-                    </svg>
-                 </div>
-            )}
-       </div>
-
-       {/* Delete Button */}
+       {/* Delete */}
        <button 
         onClick={() => onDelete(item.id)} 
         className="opacity-0 group-hover:opacity-100 text-foreground/50 hover:text-red-500 transition-opacity flex-shrink-0 p-1"
        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M18 6L6 18M6 6l12 12" />
           </svg>
        </button>
@@ -198,17 +360,20 @@ export default function ChecklistItems({ checklist, onUpdateItem, onDeleteItem, 
 
     // Sort items by order
     const sortedItems = [...checklist.items].sort((a, b) => (a.order || 0) - (b.order || 0));
+    const topLevelItems = sortedItems.filter(i => !i.parentId);
+    const getChildren = (parentId: string) => sortedItems.filter(i => i.parentId === parentId);
     
     const [editingItemId, setEditingItemId] = useState<string | null>(null);
+    const [editingSubItemId, setEditingSubItemId] = useState<string | null>(null);
     const newItemInputRef = useRef<HTMLInputElement>(null);
 
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
         if (over && active.id !== over.id) {
-            const oldIndex = sortedItems.findIndex((item) => item.id === active.id);
-            const newIndex = sortedItems.findIndex((item) => item.id === over.id);
+            const oldIndex = topLevelItems.findIndex((item) => item.id === active.id);
+            const newIndex = topLevelItems.findIndex((item) => item.id === over.id);
             
-            const newItems = arrayMove(sortedItems, oldIndex, newIndex);
+            const newItems = arrayMove(topLevelItems, oldIndex, newIndex);
             
             // Recalculate orders
             const updatedItems = newItems.map((item, index) => ({
@@ -229,16 +394,26 @@ export default function ChecklistItems({ checklist, onUpdateItem, onDeleteItem, 
     };
 
     const handleItemEnter = (itemId: string) => {
-        const index = sortedItems.findIndex(i => i.id === itemId);
-        if (index !== -1 && index < sortedItems.length - 1) {
+        const index = topLevelItems.findIndex(i => i.id === itemId);
+        if (index !== -1 && index < topLevelItems.length - 1) {
             // Edit next item
-            setEditingItemId(sortedItems[index + 1].id);
+            setEditingItemId(topLevelItems[index + 1].id);
         } else {
             // Last item, focus new item input
             setEditingItemId(null);
             setTimeout(() => {
                  newItemInputRef.current?.focus();
             }, 0);
+        }
+    };
+
+    const handleSubItemEnter = (subItemId: string, parentId: string) => {
+        const children = getChildren(parentId);
+        const index = children.findIndex(i => i.id === subItemId);
+        if (index !== -1 && index < children.length - 1) {
+            setEditingSubItemId(children[index + 1].id);
+        } else {
+            setEditingSubItemId(null);
         }
     };
 
@@ -250,14 +425,15 @@ export default function ChecklistItems({ checklist, onUpdateItem, onDeleteItem, 
                 onDragEnd={handleDragEnd}
             >
                 <SortableContext 
-                    items={sortedItems.map(i => i.id)} 
+                    items={topLevelItems.map(i => i.id)} 
                     strategy={verticalListSortingStrategy}
                 >
                     <div className="space-y-1">
-                        {sortedItems.map((item) => (
+                        {topLevelItems.map((item) => (
                             <SortableItem 
                                 key={item.id} 
                                 item={item} 
+                                subItems={getChildren(item.id)}
                                 onUpdate={onUpdateItem} 
                                 onDelete={onDeleteItem} 
                                 isEditing={editingItemId === item.id}
@@ -266,6 +442,11 @@ export default function ChecklistItems({ checklist, onUpdateItem, onDeleteItem, 
                                     if (editingItemId === item.id) setEditingItemId(null);
                                 }}
                                 onEnter={() => handleItemEnter(item.id)}
+                                onAddSubItem={(title) => onAddItem(checklist.id, title, item.id)}
+                                editingSubItemId={editingSubItemId}
+                                onEditSubItem={(id) => setEditingSubItemId(id)}
+                                onStopEditingSubItem={() => setEditingSubItemId(null)}
+                                onEnterSubItem={(id) => handleSubItemEnter(id, item.id)}
                             />
                         ))}
                     </div>

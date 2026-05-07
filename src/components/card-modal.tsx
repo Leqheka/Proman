@@ -9,7 +9,7 @@ type Member = { id: string; name?: string | null; email: string; image?: string 
 
 type Attachment = { id: string; url: string; filename: string; size: number; type: string };
 
-type ChecklistItem = { id: string; title: string; completed: boolean; dueDate?: string | null; order?: number };
+type ChecklistItem = { id: string; title: string; completed: boolean; dueDate?: string | null; order?: number; parentId?: string | null };
 
 type Checklist = { id: string; title: string; items: ChecklistItem[]; itemsCount?: number };
 
@@ -590,7 +590,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
   }
 
   function openWorkflowMenu() {
-    const workflowChecklist = data?.checklists.find(c => c.title === "Workflow Checklist");
+    const workflowChecklist = data?.checklists.find(c => c.title.toLowerCase().includes("workflow") || c.items.some(it => it.title.includes("|")));
     if (workflowChecklist) {
         const listIds = workflowChecklist.items
             .filter(it => it.title.includes("|"))
@@ -1000,19 +1000,20 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     }
   }
 
-  async function addChecklistItem(checklistId: string, title: string) {
+  async function addChecklistItem(checklistId: string, title: string, parentId?: string | null) {
     const t = title.trim();
     if (!t) return;
 
     const checklist = data?.checklists.find(c => c.id === checklistId);
-    const maxOrder = checklist?.items.reduce((max, item) => Math.max(max, item.order || 0), -1) ?? -1;
+    const relevantItems = checklist?.items.filter(item => (item.parentId || null) === (parentId || null)) || [];
+    const maxOrder = relevantItems.reduce((max, item) => Math.max(max, item.order || 0), -1);
     const newOrder = maxOrder + 1;
 
     try {
       const resp = await fetch(`/api/checklists/${checklistId}/items`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: t, order: newOrder }),
+        body: JSON.stringify({ title: t, order: newOrder, parentId }),
       });
       if (resp.ok) {
         const created = await resp.json();
@@ -1048,10 +1049,16 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     // Special logic for "Invoicing" in Workflow Checklist
     if (updateData.completed === true) {
         const checklist = (data?.checklists || []).find(c => c.items.some(it => it.id === itemId));
-        // Relaxed matching for "Workflow Checklist"
-        if (checklist && checklist.title.toLowerCase().includes("workflow")) {
+        // Relaxed matching: check if checklist has workflow items (items with |) or is named workflow
+        const isWorkflow = checklist && (
+            checklist.title.toLowerCase().includes("workflow") || 
+            checklist.items.some(it => it.title.includes("|"))
+        );
+        
+        if (isWorkflow) {
             const item = checklist.items.find(it => it.id === itemId);
-            if (item) {
+            // Only trigger workflow logic for top-level items
+            if (item && !item.parentId) {
                 const titlePart = item.title.split("|")[0].trim().toLowerCase();
                 // Relaxed matching for "Invoicing"
                 if (titlePart.includes("invoicing")) {
@@ -1076,24 +1083,31 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
       });
       if (resp.ok) {
         let nextListId: string | null = null;
+
+        // Check for workflow movement outside setData to avoid closure mutation issues
+        if (!skipWorkflowMove && updateData.completed === true && data) {
+            const checklist = data.checklists.find(c => c.items.some(it => it.id === itemId));
+            const completedItem = checklist?.items.find(it => it.id === itemId);
+            const isWorkflow = checklist && (
+                checklist.title.toLowerCase().includes("workflow") || 
+                checklist.items.some(it => it.title.includes("|"))
+            );
+
+            // Only top-level items trigger workflow moves
+            if (isWorkflow && completedItem && !completedItem.parentId) {
+                const sortedItems = [...checklist.items].filter(it => !it.parentId).sort((a, b) => (a.order || 0) - (b.order || 0));
+                const currentIdx = sortedItems.findIndex(it => it.id === itemId);
+                if (currentIdx !== -1 && currentIdx < sortedItems.length - 1) {
+                    const nextItem = sortedItems[currentIdx + 1];
+                    if (nextItem.title.includes("|")) {
+                        nextListId = nextItem.title.split("|")[1];
+                    }
+                }
+            }
+        }
+
         setData((d) => {
           if (!d) return d;
-          
-          // Check for workflow movement
-          if (!skipWorkflowMove && updateData.completed === true) {
-              const checklist = d.checklists.find(c => c.items.some(it => it.id === itemId));
-              if (checklist && checklist.title === "Workflow Checklist") {
-                  const sortedItems = [...checklist.items].sort((a, b) => (a.order || 0) - (b.order || 0));
-                  const currentIdx = sortedItems.findIndex(it => it.id === itemId);
-                  if (currentIdx !== -1 && currentIdx < sortedItems.length - 1) {
-                      const nextItem = sortedItems[currentIdx + 1];
-                      if (nextItem.title.includes("|")) {
-                          nextListId = nextItem.title.split("|")[1];
-                      }
-                  }
-              }
-          }
-
           return {
             ...d,
             checklists: d.checklists.map((c) => ({
@@ -1169,7 +1183,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
             ...d,
             checklists: d.checklists.map((c) => ({
               ...c,
-              items: c.items.filter((it) => it.id !== itemId),
+              items: c.items.filter((it) => it.id !== itemId && it.parentId !== itemId),
             })),
           };
         });
@@ -1247,7 +1261,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
     // Match pattern: "Title|ListId"
     return msg.replace(/"([^"|]+)\|([^"]+)"/g, (match, title, listId) => {
       // Attempt to find transition in Workflow Checklist
-      const workflowChecklist = data?.checklists.find(c => c.title === "Workflow Checklist");
+      const workflowChecklist = data?.checklists.find(c => c.title.toLowerCase().includes("workflow") || c.items.some(it => it.title.includes("|")));
       if (workflowChecklist) {
           const sorted = [...workflowChecklist.items].sort((a, b) => (a.order || 0) - (b.order || 0));
           const idx = sorted.findIndex(it => it.title === `${title}|${listId}`);
@@ -1942,8 +1956,10 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                   <div className="mt-3 space-y-4">
                     {[...data.checklists]
                       .sort((a, b) => {
-                        if (a.title === "Workflow Checklist") return -1;
-                        if (b.title === "Workflow Checklist") return 1;
+                        const aIsWorkflow = a.title.toLowerCase().includes("workflow") || a.items.some(it => it.title.includes("|"));
+                        const bIsWorkflow = b.title.toLowerCase().includes("workflow") || b.items.some(it => it.title.includes("|"));
+                        if (aIsWorkflow && !bIsWorkflow) return -1;
+                        if (!aIsWorkflow && bIsWorkflow) return 1;
                         return 0;
                       })
                       .map((cl, index, sortedArr) => (
