@@ -87,6 +87,7 @@ model Card {
   order       Int      @default(0)
   archived    Boolean  @default(false)
   dueDate     DateTime?
+  updatedAt   DateTime @updatedAt @default(now())
 
   listId String
   list   List   @relation(fields: [listId], references: [id])

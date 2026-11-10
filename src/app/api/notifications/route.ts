@@ -13,6 +13,16 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Cleanup notifications older than 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    await prisma.notification.deleteMany({
+      where: {
+        userId: session.sub as string,
+        createdAt: { lt: sevenDaysAgo },
+      },
+    });
+
     const notifications = await prisma.notification.findMany({
       where: { userId: session.sub as string },
       orderBy: { createdAt: "desc" },

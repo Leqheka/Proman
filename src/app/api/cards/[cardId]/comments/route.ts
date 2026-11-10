@@ -87,6 +87,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ cardId:
             }
 
             for (const userId of mentionedUsers) {
+                if (card?.board?.title === "INTERNAL") continue;
+                
                 await prisma.notification.create({
                     data: {
                         userId,

@@ -65,7 +65,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ cardId:
         );
 
         // Notification
-        if (userId !== session.sub) {
+        if (userId !== session.sub && card?.board?.title !== "INTERNAL") {
             await prisma.notification.create({
                 data: {
                     userId,

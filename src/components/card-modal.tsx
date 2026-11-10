@@ -895,7 +895,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
 
   async function fetchBoardChecklists() {
     try {
-      const resp = await fetch(`/api/boards/${data?.board.id}/checklists`);
+      const resp = await fetch(`/api/boards/${data?.board.id}/checklists`, { cache: "no-store" });
       if (resp.ok) {
         const list: Array<{ id: string; title: string }> = await resp.json();
         setBoardChecklists(list);
@@ -1510,7 +1510,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                 <div className="relative" ref={datesMenuWrapRef}>
                   <button onClick={openDatesMenu} className="text-xs rounded px-2 py-1 bg-foreground/5 hover:bg-foreground/10 transition-colors">Dates</button>
                   {showDatesMenu && (
-                    <div className="absolute z-20 mt-2 w-[280px] rounded border border-black/10 dark:border-neutral-800 bg-background dark:bg-neutral-900 p-3 shadow">
+                    <div className="absolute z-20 mt-2 w-[280px] max-h-[280px] overflow-y-auto rounded border border-black/10 dark:border-neutral-800 bg-background dark:bg-neutral-900 p-3 shadow-lg">
                       <div className="flex items-center justify-between mb-2">
                         <button className="text-xs" onClick={() => setCalendarCursor(new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() - 1, 1))}>‹</button>
                         <p className="text-sm font-semibold">{calendarCursor.toLocaleString(undefined, { month: "long", year: "numeric" })}</p>

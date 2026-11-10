@@ -127,6 +127,16 @@ export async function PATCH(
       const session = token ? await verifySession(token) : null;
 
       if (session?.sub) {
+        if (body.archived !== undefined) {
+          await logActivity(
+            cardId,
+            bId || null,
+            session.sub as string,
+            body.archived ? "CARD_ARCHIVED" : "CARD_UNARCHIVED",
+            body.archived ? "archived card" : "unarchived card"
+          );
+        }
+
         if (body.dueDate !== undefined) {
           const d = new Date(body.dueDate);
           const validDate = !isNaN(d.getTime());

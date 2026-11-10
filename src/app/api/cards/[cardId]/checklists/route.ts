@@ -48,11 +48,42 @@ export async function POST(req: Request, { params }: { params: Promise<{ cardId:
     await prisma.$transaction(async (tx) => {
       created = await tx.checklist.create({ data: { cardId, title } });
       if (copyFromChecklistId) {
-        const srcItems = await tx.checklistItem.findMany({ where: { checklistId: copyFromChecklistId } });
-        if (srcItems.length) {
-          await tx.checklistItem.createMany({
-            data: srcItems.map((it) => ({ checklistId: created!.id, title: it.title, completed: false })),
-          });
+        if (copyFromChecklistId.startsWith("template:")) {
+          const parts = copyFromChecklistId.split(":");
+          if (parts.length === 3) {
+            const listId = parts[1];
+            const idx = parseInt(parts[2], 10);
+            const list = await tx.list.findUnique({ where: { id: listId }, select: { defaultChecklist: true } });
+            if (list?.defaultChecklist) {
+              const rawDefaults = list.defaultChecklist as any[];
+              if (Array.isArray(rawDefaults) && rawDefaults.length > 0) {
+                const isNewFormat = rawDefaults.some(item => 'items' in item && Array.isArray(item.items));
+                let itemsToCreate: any[] = [];
+                if (isNewFormat && rawDefaults[idx]?.items) {
+                  itemsToCreate = rawDefaults[idx].items;
+                } else if (!isNewFormat && idx === 0) {
+                  itemsToCreate = rawDefaults;
+                }
+                
+                if (itemsToCreate.length > 0) {
+                  await tx.checklistItem.createMany({
+                    data: itemsToCreate.map((it: any) => ({
+                      checklistId: created!.id,
+                      title: it.title || "Item",
+                      completed: false,
+                    })),
+                  });
+                }
+              }
+            }
+          }
+        } else {
+          const srcItems = await tx.checklistItem.findMany({ where: { checklistId: copyFromChecklistId } });
+          if (srcItems.length) {
+            await tx.checklistItem.createMany({
+              data: srcItems.map((it) => ({ checklistId: created!.id, title: it.title, completed: false })),
+            });
+          }
         }
       }
     });

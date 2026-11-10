@@ -21,6 +21,7 @@ export async function GET(req: Request) {
         dueDate: { not: null },
         board: {
           isArchived: false,
+          title: { not: "INTERNAL" },
         },
       },
       select: {
@@ -30,6 +31,15 @@ export async function GET(req: Request) {
         boardId: true,
         board: { select: { title: true } },
         assignments: { select: { userId: true } },
+      },
+    });
+
+    // Delete all notifications older than 7 days system-wide
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    await prisma.notification.deleteMany({
+      where: {
+        createdAt: { lt: sevenDaysAgo },
       },
     });
 

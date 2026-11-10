@@ -9,6 +9,47 @@ export async function GET(req: Request, { params }: { params: Promise<{ boardId:
     const { searchParams } = new URL(req.url);
     const includeCards = searchParams.get("includeCards") === "true";
 
+    // --- Cleanup Old Archived Cards (older than 2 months) ---
+    try {
+      const twoMonthsAgo = new Date();
+      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+
+      const archivedCards = await prisma.card.findMany({
+        where: { boardId, archived: true },
+        select: { id: true }
+      });
+
+      if (archivedCards.length > 0) {
+        const archivedIds = archivedCards.map(c => c.id);
+        const latestActivities = await prisma.activity.groupBy({
+          by: ['cardId'],
+          where: { cardId: { in: archivedIds } },
+          _max: { createdAt: true }
+        });
+
+        const cardIdsToDelete = latestActivities
+          .filter(a => a._max.createdAt && a._max.createdAt < twoMonthsAgo)
+          .map(a => a.cardId)
+          .filter(Boolean) as string[];
+
+        if (cardIdsToDelete.length > 0) {
+          await prisma.$transaction([
+            prisma.activity.deleteMany({ where: { cardId: { in: cardIdsToDelete } } }),
+            prisma.cardAssignment.deleteMany({ where: { cardId: { in: cardIdsToDelete } } }),
+            prisma.cardLabel.deleteMany({ where: { cardId: { in: cardIdsToDelete } } }),
+            prisma.attachment.deleteMany({ where: { cardId: { in: cardIdsToDelete } } }),
+            prisma.comment.deleteMany({ where: { cardId: { in: cardIdsToDelete } } }),
+            prisma.checklistItem.deleteMany({ where: { checklist: { cardId: { in: cardIdsToDelete } } } }),
+            prisma.checklist.deleteMany({ where: { cardId: { in: cardIdsToDelete } } }),
+            prisma.card.deleteMany({ where: { id: { in: cardIdsToDelete } } })
+          ]);
+        }
+      }
+    } catch (cleanupErr) {
+      console.error("Cleanup error:", cleanupErr);
+    }
+    // --- End Cleanup ---
+
     // If includeCards is true, we fetch everything for initial load.
     // However, if the board is huge (e.g. 50 lists, 1000 cards), this will be slow.
     // Ideally, we should limit 'take' for cards per list (e.g. first 30), 
