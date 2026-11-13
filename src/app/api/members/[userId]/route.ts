@@ -59,10 +59,34 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ userI
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Optional: Only allow admins to delete members?
-    // For now assuming the UI controls this via isAdmin check.
+    if (payload.sub === userId) {
+      return NextResponse.json({ error: "Cannot delete yourself" }, { status: 400 });
+    }
 
-    await prisma.user.delete({ where: { id: userId } });
+    // Use a transaction to clean up or reassign all related records before deleting the user
+    await prisma.$transaction([
+      // 1. Reassign any boards owned by this user to the admin performing the deletion
+      prisma.board.updateMany({
+        where: { ownerId: userId },
+        data: { ownerId: payload.sub as string }
+      }),
+      // 2. Delete user-specific records that shouldn't be reassigned
+      prisma.membership.deleteMany({ where: { userId } }),
+      prisma.cardAssignment.deleteMany({ where: { userId } }),
+      prisma.notification.deleteMany({ where: { userId } }),
+      
+      // 3. Reassign content created by this user to preserve history
+      prisma.comment.updateMany({
+        where: { userId },
+        data: { userId: payload.sub as string }
+      }),
+      prisma.activity.updateMany({
+        where: { userId },
+        data: { userId: payload.sub as string }
+      }),
+      // 4. Finally, delete the user
+      prisma.user.delete({ where: { id: userId } })
+    ]);
 
     return NextResponse.json({ ok: true });
   } catch (err) {
