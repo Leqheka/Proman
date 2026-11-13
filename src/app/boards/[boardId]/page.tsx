@@ -5,11 +5,20 @@ import { cookies } from "next/headers";
 import { verifySession } from "@/lib/session";
 import { redirect } from "next/navigation";
 
-async function loadBoardData(boardId: string) {
+async function loadBoardData(boardId: string, isAdmin: boolean) {
   const board = await prisma.board.findUnique({
     where: { id: boardId },
     select: { title: true, id: true, background: true },
   });
+
+  if (!board) {
+    throw new Error("Board not found");
+  }
+
+  // If the board is named "Admin" (case-insensitive) and user is not admin, deny access
+  if (board.title.toLowerCase() === "admin" && !isAdmin) {
+    throw new Error("Unauthorized");
+  }
 
   const rawLists = await prisma.list.findMany({
     where: { boardId, isArchived: false },
@@ -94,8 +103,13 @@ async function loadBoardData(boardId: string) {
     select: { id: true, title: true, order: true },
   });
 
+  const boardsWhere: any = { isArchived: false };
+  if (!isAdmin) {
+    boardsWhere.title = { not: { equals: "Admin", mode: "insensitive" } };
+  }
+
   const boards = await prisma.board.findMany({ 
-    where: { isArchived: false },
+    where: boardsWhere,
     select: { id: true, title: true }, 
     orderBy: { updatedAt: "desc" } 
   });
@@ -111,8 +125,8 @@ async function loadBoardData(boardId: string) {
   };
 }
 
-async function getBoardData(boardId: string) {
-  return loadBoardData(boardId);
+async function getBoardData(boardId: string, isAdmin: boolean) {
+  return loadBoardData(boardId, isAdmin);
 }
 
 export default async function BoardPage({ params }: { params: Promise<{ boardId: string }> }) {
@@ -126,8 +140,10 @@ export default async function BoardPage({ params }: { params: Promise<{ boardId:
     redirect("/login");
   }
 
+  const isAdmin = !!payload?.admin;
+
   try {
-    const data = await getBoardData(boardId);
+    const data = await getBoardData(boardId, isAdmin);
     return (
       <BoardPageClient
         currentBoardId={data.currentBoardId}

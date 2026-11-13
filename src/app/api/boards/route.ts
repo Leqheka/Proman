@@ -13,13 +13,20 @@ export async function GET(req: Request) {
 
     const isAdmin = payload.admin === true;
 
+    const whereClause: any = isAdmin ? {} : {
+      AND: [
+        { title: { not: { equals: "Admin", mode: "insensitive" } } },
+        {
+          OR: [
+            { ownerId: payload.sub as string },
+            { members: { some: { userId: payload.sub as string } } }
+          ]
+        }
+      ]
+    };
+
     const boards = await prisma.board.findMany({
-      where: isAdmin ? {} : {
-        OR: [
-          { ownerId: payload.sub as string },
-          { members: { some: { userId: payload.sub as string } } }
-        ]
-      },
+      where: whereClause,
       orderBy: { updatedAt: "desc" },
     });
     return NextResponse.json(boards);

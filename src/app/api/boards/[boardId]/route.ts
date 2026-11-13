@@ -56,6 +56,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ boardId:
     // and implement "Load More" on the client.
     // For now, we add a safety limit of 50 cards per list to prevent massive payloads.
     
+    const cookie = (req.headers as any).get?.("cookie") || "";
+    const m = cookie.match(/session=([^;]+)/);
+    const token = m?.[1] || "";
+    const payload = token ? await verifySession(token) : null;
+    const isAdmin = payload?.admin === true;
+
     const board = await prisma.board.findUnique({
       where: { id: boardId },
       include: { 
@@ -78,6 +84,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ boardId:
       },
     });
     if (!board) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    
+    if (board.title.toLowerCase() === "admin" && !isAdmin) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
     return NextResponse.json(board);
   } catch (err) {
     console.error("GET /api/boards/:boardId error", err);
