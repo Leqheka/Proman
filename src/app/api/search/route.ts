@@ -24,8 +24,8 @@ export async function GET(req: Request) {
     const boardWhere: any = { title: { contains: q, mode: "insensitive" } };
 
     if (!isAdmin) {
-      cardWhere.board = { title: { not: { equals: "Admin", mode: "insensitive" } } };
-      boardWhere.AND = [ { title: { not: { equals: "Admin", mode: "insensitive" } } } ];
+      cardWhere.board = { title: { not: "Admin", mode: "insensitive" } };
+      boardWhere.AND = [ { title: { not: "Admin", mode: "insensitive" } } ];
     }
 
     const [cards, boards] = await Promise.all([

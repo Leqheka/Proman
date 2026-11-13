@@ -106,7 +106,7 @@ async function loadBoardData(boardId: string, isAdmin: boolean) {
   const boardsWhere: any = { isArchived: false };
   if (!isAdmin) {
     boardsWhere.AND = [
-      { title: { not: { equals: "Admin", mode: "insensitive" } } }
+      { title: { not: "Admin", mode: "insensitive" } }
     ];
   }
 

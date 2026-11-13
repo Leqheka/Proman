@@ -24,7 +24,7 @@ export default async function Home() {
   try {
     const whereClause: any = { isArchived: false };
     if (!isAdmin) {
-      whereClause.title = { not: { equals: "Admin", mode: "insensitive" } };
+      whereClause.title = { not: "Admin", mode: "insensitive" };
     }
 
     boards = await prisma.board.findMany({

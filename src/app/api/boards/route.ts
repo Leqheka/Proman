@@ -15,7 +15,7 @@ export async function GET(req: Request) {
 
     const whereClause: any = isAdmin ? {} : {
       AND: [
-        { title: { not: { equals: "Admin", mode: "insensitive" } } },
+        { title: { not: "Admin", mode: "insensitive" } },
         {
           OR: [
             { ownerId: payload.sub as string },
