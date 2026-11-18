@@ -127,7 +127,7 @@ export async function POST(req: Request) {
 
             console.info(`[API/cards/move] creating ${checklistsToCreate.length} checklists for card ${cardId}`);
             
-            await Promise.all(checklistsToCreate.map(async (cl) => {
+            for (const cl of checklistsToCreate) {
                 const match = existingChecklists.find(ex => {
                     if (ex.title !== cl.title) return false;
                     if (ex.items.length !== cl.items.length) return false;
@@ -143,7 +143,7 @@ export async function POST(req: Request) {
 
                 if (match) {
                     console.info(`[API/cards/move] checklist "${cl.title}" already exists on card ${cardId}, skipping`);
-                    return;
+                    continue;
                 }
 
                 console.info(`[API/cards/move] creating checklist "${cl.title}" on card ${cardId}`);
@@ -177,11 +177,11 @@ export async function POST(req: Request) {
                         });
                     }
                 }
-            }));
+            }
           }
         }
       }
-    });
+    }, { timeout: 30000 });
 
     const fullCard = await prisma.card.findUnique({
       where: { id: cardId },
