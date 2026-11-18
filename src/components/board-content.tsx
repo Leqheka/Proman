@@ -587,9 +587,12 @@ export default function BoardContent({
           });
           return data;
         }
+      } else {
+        throw new Error(`Server returned ${res.status}`);
       }
     } catch (err) {
       console.error("Failed to persist card move", err);
+      router.refresh();
     }
     return null;
   }

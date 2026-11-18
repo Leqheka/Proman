@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { revalidateTag } from "next/cache";
+import { revalidateTag, revalidatePath } from "next/cache";
 
 export async function POST(req: Request) {
   try {
@@ -154,28 +154,40 @@ export async function POST(req: Request) {
                     }
                 });
 
+                const topLevelData = cl.items.map((item, idx) => ({
+                    title: item.title || "Untitled",
+                    completed: !!item.completed,
+                    order: idx,
+                    checklistId: checklist.id
+                }));
+
+                const createdTopLevelItems = await tx.checklistItem.createManyAndReturn({
+                    data: topLevelData
+                });
+
+                const subItemsData: any[] = [];
                 for (let idx = 0; idx < cl.items.length; idx++) {
                     const item = cl.items[idx];
-                    const createdItem = await tx.checklistItem.create({
-                        data: {
-                            title: item.title || "Untitled",
-                            completed: !!item.completed,
-                            order: idx,
-                            checklistId: checklist.id
-                        }
-                    });
-
                     if (item.subItems && Array.isArray(item.subItems) && item.subItems.length > 0) {
-                        await tx.checklistItem.createMany({
-                            data: item.subItems.map((sub: any, subIdx: number) => ({
-                                title: sub.title || "Untitled",
-                                completed: !!sub.completed,
-                                order: subIdx,
-                                checklistId: checklist.id,
-                                parentId: createdItem.id
-                            }))
-                        });
+                        const parentId = createdTopLevelItems.find((c: any) => c.order === idx)?.id;
+                        if (parentId) {
+                            item.subItems.forEach((sub: any, subIdx: number) => {
+                                subItemsData.push({
+                                    title: sub.title || "Untitled",
+                                    completed: !!sub.completed,
+                                    order: subIdx,
+                                    checklistId: checklist.id,
+                                    parentId: parentId
+                                });
+                            });
+                        }
                     }
+                }
+
+                if (subItemsData.length > 0) {
+                    await tx.checklistItem.createMany({
+                        data: subItemsData
+                    });
                 }
             }
           }
@@ -199,7 +211,10 @@ export async function POST(req: Request) {
 
     // Invalidate cached board page for this card's board
     try {
-      if (card.boardId) revalidateTag(`board:${card.boardId}`);
+      if (card.boardId) {
+        revalidateTag(`board:${card.boardId}`);
+        revalidatePath(`/boards/${card.boardId}`);
+      }
     } catch {}
 
     if (fullCard) {

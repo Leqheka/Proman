@@ -1100,7 +1100,7 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                 if (currentIdx !== -1 && currentIdx < sortedItems.length - 1) {
                     const nextItem = sortedItems[currentIdx + 1];
                     if (nextItem.title.includes("|")) {
-                        nextListId = nextItem.title.split("|")[1];
+                        nextListId = nextItem.title.split("|")[1]?.trim();
                     }
                 }
             }
@@ -1420,23 +1420,25 @@ export default function CardModal({ cardId, onClose, onCardUpdated, initial, ava
                       onClick={async () => {
                         if (onMoveCard) {
                             const updated = await onMoveCard(l.id);
-                            setData((d) => {
-                                if (!d) return d;
-                                const next = { ...d, list: { ...d.list, id: l.id, title: l.title } };
-                                if (updated && updated.checklists) {
-                                    return { 
-                                        ...next, 
-                                        checklists: updated.checklists.map((cl: any) => ({
-                                            id: cl.id,
-                                            title: cl.title,
-                                            items: cl.items || [],
-                                            itemsCount: cl.items?.length ?? cl.itemsCount ?? 0
-                                        })), 
-                                        checklistCount: updated.checklistCount ?? updated.checklists.length 
-                                    };
-                                }
-                                return next;
-                            });
+                            if (updated) {
+                                setData((d) => {
+                                    if (!d) return d;
+                                    const next = { ...d, list: { ...d.list, id: l.id, title: l.title } };
+                                    if (updated.checklists) {
+                                        return { 
+                                            ...next, 
+                                            checklists: updated.checklists.map((cl: any) => ({
+                                                id: cl.id,
+                                                title: cl.title,
+                                                items: cl.items || [],
+                                                itemsCount: cl.items?.length ?? cl.itemsCount ?? 0
+                                            })), 
+                                            checklistCount: updated.checklistCount ?? updated.checklists.length 
+                                        };
+                                    }
+                                    return next;
+                                });
+                            }
                         }
                         setShowMoveMenu(false);
                       }}
