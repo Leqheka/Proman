@@ -77,10 +77,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ listId:
 
   // Apply defaults
   if (list.defaultMemberIds && list.defaultMemberIds.length > 0) {
-    await prisma.cardAssignment.createMany({
-      data: list.defaultMemberIds.map(uid => ({ cardId: card.id, userId: uid })),
-      skipDuplicates: true
+    // Filter out any user IDs that might have been deleted from the system
+    const validUsers = await prisma.user.findMany({
+      where: { id: { in: list.defaultMemberIds } },
+      select: { id: true }
     });
+    const validUserIds = validUsers.map(u => u.id);
+
+    if (validUserIds.length > 0) {
+      await prisma.cardAssignment.createMany({
+        data: validUserIds.map(uid => ({ cardId: card.id, userId: uid })),
+        skipDuplicates: true
+      });
+    }
   }
 
   if (list.defaultChecklist) {
@@ -103,28 +112,40 @@ export async function POST(req: Request, { params }: { params: Promise<{ listId:
               }
             });
             
+            const topLevelData = cl.items.map((item: any, idx: number) => ({
+                title: item.title || "Untitled",
+                completed: !!item.completed,
+                order: idx,
+                checklistId: checklist.id
+            }));
+
+            const createdTopLevelItems = await prisma.checklistItem.createManyAndReturn({
+                data: topLevelData
+            });
+
+            const subItemsData: any[] = [];
             for (let idx = 0; idx < cl.items.length; idx++) {
-               const i = cl.items[idx];
-               const createdItem = await prisma.checklistItem.create({
-                 data: {
-                   title: i.title || "Untitled",
-                   completed: !!i.completed,
-                   order: idx,
-                   checklistId: checklist.id
-                 }
-               });
-               
-               if (i.subItems && Array.isArray(i.subItems) && i.subItems.length > 0) {
-                 await prisma.checklistItem.createMany({
-                   data: i.subItems.map((sub: any, subIdx: number) => ({
-                     title: sub.title || "Untitled",
-                     completed: !!sub.completed,
-                     order: subIdx,
-                     checklistId: checklist.id,
-                     parentId: createdItem.id
-                   }))
-                 });
-               }
+                const item = cl.items[idx];
+                if (item.subItems && Array.isArray(item.subItems) && item.subItems.length > 0) {
+                    const parentId = createdTopLevelItems.find((c: any) => c.order === idx)?.id;
+                    if (parentId) {
+                        item.subItems.forEach((sub: any, subIdx: number) => {
+                            subItemsData.push({
+                                title: sub.title || "Untitled",
+                                completed: !!sub.completed,
+                                order: subIdx,
+                                checklistId: checklist.id,
+                                parentId: parentId
+                            });
+                        });
+                    }
+                }
+            }
+
+            if (subItemsData.length > 0) {
+                await prisma.checklistItem.createMany({
+                    data: subItemsData
+                });
             }
           }
         }));

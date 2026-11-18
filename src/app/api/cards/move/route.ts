@@ -82,10 +82,19 @@ export async function POST(req: Request) {
           });
 
           if (toList.defaultMemberIds?.length) {
-            await tx.cardAssignment.createMany({
-              data: toList.defaultMemberIds.map((uid) => ({ cardId, userId: uid })),
-              skipDuplicates: true,
+            // Filter out any user IDs that might have been deleted from the system
+            const validUsers = await tx.user.findMany({
+              where: { id: { in: toList.defaultMemberIds } },
+              select: { id: true }
             });
+            const validUserIds = validUsers.map(u => u.id);
+
+            if (validUserIds.length > 0) {
+              await tx.cardAssignment.createMany({
+                data: validUserIds.map((uid) => ({ cardId, userId: uid })),
+                skipDuplicates: true,
+              });
+            }
           }
           if (toList.defaultChecklist) {
             const defaults = toList.defaultChecklist as any;

@@ -63,8 +63,17 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ userI
       return NextResponse.json({ error: "Cannot delete yourself" }, { status: 400 });
     }
 
+    // Fetch all lists where this user is in defaultMemberIds
+    const listsWithUser = await prisma.list.findMany({
+      where: {
+        defaultMemberIds: {
+          has: userId
+        }
+      }
+    });
+
     // Use a transaction to clean up or reassign all related records before deleting the user
-    await prisma.$transaction([
+    const txOps: any[] = [
       // 1. Reassign any boards owned by this user to the admin performing the deletion
       prisma.board.updateMany({
         where: { ownerId: userId },
@@ -83,10 +92,25 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ userI
       prisma.activity.updateMany({
         where: { userId },
         data: { userId: payload.sub as string }
-      }),
-      // 4. Finally, delete the user
-      prisma.user.delete({ where: { id: userId } })
-    ]);
+      })
+    ];
+
+    // Remove user from defaultMemberIds in lists
+    for (const list of listsWithUser) {
+      txOps.push(
+        prisma.list.update({
+          where: { id: list.id },
+          data: {
+            defaultMemberIds: list.defaultMemberIds.filter(id => id !== userId)
+          }
+        })
+      );
+    }
+
+    // 4. Finally, delete the user
+    txOps.push(prisma.user.delete({ where: { id: userId } }));
+
+    await prisma.$transaction(txOps);
 
     return NextResponse.json({ ok: true });
   } catch (err) {
